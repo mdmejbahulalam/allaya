@@ -1,0 +1,43 @@
+{
+  "name": "allaya",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Allaya — a personal AI computer agent / digital employee for Windows",
+  "license": "UNLICENSED",
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @allaya/desktop dev",
+    "build": "pnpm --filter @allaya/desktop build",
+    "typecheck": "pnpm -r --parallel --if-present typecheck && tsc --noEmit -p tests/tsconfig.json",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "pnpm --filter @allaya/desktop build && playwright test",
+    "db:generate": "pnpm --filter @allaya/database db:generate",
+    "check": "pnpm typecheck && pnpm lint && pnpm test"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@playwright/test": "^1.63.0",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.7",
+    "@types/node": "^22.20.4",
+    "@vitest/coverage-v8": "^5.0.2",
+    "drizzle-kit": "^0.31.11",
+    "eslint": "^9.39.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.12.0",
+    "jsdom": "^30.1.1",
+    "prettier": "^3.9.9",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.71.0",
+    "vitest": "^5.0.2"
+  }
+}

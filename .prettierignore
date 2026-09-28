@@ -1,0 +1,9 @@
+node_modules
+dist
+out
+release
+coverage
+pnpm-lock.yaml
+packages/database/migrations
+playwright-report
+test-results

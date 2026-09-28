@@ -1,0 +1,12 @@
+packages:
+  - 'apps/*'
+  - 'packages/*'
+
+# pnpm 10 blocks dependency lifecycle scripts unless explicitly allowed.
+# Only packages that genuinely need a postinstall step are listed.
+onlyBuiltDependencies:
+  - electron
+  - esbuild
+  - better-sqlite3
+  - '@tailwindcss/oxide'
+  - electron-winstaller

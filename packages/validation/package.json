@@ -1,0 +1,17 @@
+{
+  "name": "@allaya/validation",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@allaya/shared": "workspace:*",
+    "@allaya/types": "workspace:*",
+    "zod": "^4.6.5"
+  }
+}

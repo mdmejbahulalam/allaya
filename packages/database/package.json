@@ -1,0 +1,22 @@
+{
+  "name": "@allaya/database",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "db:generate": "drizzle-kit generate"
+  },
+  "dependencies": {
+    "@allaya/shared": "workspace:*",
+    "@allaya/types": "workspace:*",
+    "better-sqlite3": "13.0.3",
+    "drizzle-orm": "0.45.3"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^9.6.0"
+  }
+}
