@@ -28,6 +28,8 @@ export interface MemoryAdapterOptions {
   windowsAppearOnLaunch?: boolean;
   /** Closing removes the window (default). `false` simulates an app that refuses to close (e.g. "save changes?"). */
   windowsCloseOnRequest?: boolean;
+  /** Names of catalog apps that count as installed, for `installedApps` (default: all of them). */
+  installed?: string[];
   /** Names of controls that exist, for `invokeElement`. */
   elements?: string[];
 }
@@ -86,6 +88,13 @@ export class MemoryAdapter implements ComputerAdapter {
     };
     this.windows.push(window);
     return window;
+  }
+
+  async installedApps(
+    apps: ReadonlyArray<{ name: string; executable: string }>,
+  ): Promise<string[]> {
+    const wanted = this.options.installed;
+    return apps.map((a) => a.name).filter((name) => !wanted || wanted.includes(name));
   }
 
   async listWindows(): Promise<WindowInfo[]> {

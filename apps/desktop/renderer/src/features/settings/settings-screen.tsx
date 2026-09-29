@@ -10,10 +10,14 @@ import { toast } from '@renderer/stores/toasts';
 import { ScreenFrame } from '@renderer/components/shell/screen-frame';
 import { Card } from '@renderer/components/ui/card';
 import { Dropdown } from '@renderer/components/ui/dropdown';
-import { EmptyState } from '@renderer/components/ui/empty-state';
 import { Input } from '@renderer/components/ui/input';
 import { Switch } from '@renderer/components/ui/switch';
-import { Settings2 } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
+import type { RouteId } from '@renderer/app/routes';
+import { useUiStore } from '@renderer/stores/ui';
+import { UpdatesCard } from '@renderer/features/help/updates-card';
+import { Button } from '@renderer/components/ui/button';
+import { DiagnosticsSection } from './diagnostics-section';
 import { SettingRow } from './setting-row';
 import { ShortcutRecorder } from './shortcut-recorder';
 import { pickVoice, type VoiceInfo } from '@allaya/speech';
@@ -42,6 +46,81 @@ const SECTIONS = [
   'advanced',
 ] as const;
 type Section = (typeof SECTIONS)[number];
+
+/** Sections whose settings live on the feature's own screen: one card says what is there and goes to it. */
+const POINTERS: Partial<Record<Section, RouteId>> = {
+  models: 'models',
+  api: 'models',
+  computer: 'computer',
+  browser: 'browser',
+  files: 'files',
+  memory: 'memory',
+  automations: 'automations',
+  permissions: 'permissions',
+  security: 'permissions',
+};
+
+function PointerSection({ section, route }: { section: Section; route: RouteId }) {
+  const t = useT();
+  const navigate = useUiStore((s) => s.navigate);
+  return (
+    <Card>
+      <p className="mb-4 text-body text-fg">
+        {t.t(`settings.pointer.${section}` as TranslationKey)}
+      </p>
+      <Button
+        variant="secondary"
+        rightIcon={<ArrowRight size={16} className="rtl:rotate-180" />}
+        onClick={() => navigate(route)}
+      >
+        {t.t('settings.pointer.open', {
+          name: t.t(`settings.sections.${section}` as TranslationKey),
+        })}
+      </Button>
+      {section === 'security' && (
+        <Button variant="ghost" className="ms-2" onClick={() => navigate('activity')}>
+          {t.t('settings.pointer.activity')}
+        </Button>
+      )}
+    </Card>
+  );
+}
+
+function NotificationsSection() {
+  const t = useT();
+  const { values, set } = useSetting();
+  return (
+    <Card>
+      <SettingRow label={t.t('settings.general.notifications')}>
+        <Switch
+          label={t.t('settings.general.notifications')}
+          checked={values['notifications.native']}
+          onCheckedChange={(v) => void set('notifications.native', v)}
+        />
+      </SettingRow>
+      <p className="mt-3 text-small text-muted">{t.t('settings.pointer.notificationsHint')}</p>
+    </Card>
+  );
+}
+
+function UpdatesSection() {
+  const t = useT();
+  const { values, set } = useSetting();
+  return (
+    <div className="flex flex-col gap-4">
+      <UpdatesCard />
+      <Card>
+        <SettingRow label={t.t('settings.general.autoUpdate')}>
+          <Switch
+            label={t.t('settings.general.autoUpdate')}
+            checked={values['updates.auto']}
+            onCheckedChange={(v) => void set('updates.auto', v)}
+          />
+        </SettingRow>
+      </Card>
+    </div>
+  );
+}
 
 const ACCENTS = ['#7C5CFF', '#00C2FF', '#22C55E', '#F59E0B', '#EC4899', '#EF4444'];
 const QUICK_ACTION_IDS = [
@@ -661,16 +740,16 @@ export function SettingsScreen() {
         return <PrivacySection />;
       case 'shortcuts':
         return <ShortcutsSection />;
-      default:
-        return (
-          <Card padded={false}>
-            <EmptyState
-              icon={Settings2}
-              title={t.t('settings.comingSoonTitle')}
-              description={t.t('settings.comingSoonBody')}
-            />
-          </Card>
-        );
+      case 'notifications':
+        return <NotificationsSection />;
+      case 'updates':
+        return <UpdatesSection />;
+      case 'advanced':
+        return <DiagnosticsSection />;
+      default: {
+        const route = POINTERS[section];
+        return route ? <PointerSection section={section} route={route} /> : null;
+      }
     }
   })();
 

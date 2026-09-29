@@ -374,3 +374,50 @@ describe.skipIf(!mcs)('Win32 interop — real C# compiler (mcs found)', () => {
     expect(run.status).toBe(0);
   });
 });
+
+describe('Windows adapter: which catalog apps are installed', () => {
+  const items = [
+    { name: 'Chrome', executable: 'chrome' },
+    { name: 'VS Code', executable: 'code' },
+    { name: '3ds Max', executable: '3dsmax' },
+  ];
+
+  it('sends only plain catalog names to the script, as data, and returns what it found', async () => {
+    const { runner, calls } = fakeRunner({ installedApps: { installed: ['Chrome', '3ds Max'] } });
+    const adapter = new WindowsAdapter(runner);
+    expect(await adapter.installedApps(items)).toEqual(['Chrome', '3ds Max']);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]!.name).toBe('installedApps');
+    expect(calls[0]!.args).toEqual({ items });
+  });
+
+  it('never lets text that is not a plain name reach the script, and ignores names it did not ask about', async () => {
+    const { runner, calls } = fakeRunner({
+      installedApps: { installed: ['Chrome', 'Surprise'] },
+    });
+    const adapter = new WindowsAdapter(runner);
+    const found = await adapter.installedApps([
+      { name: 'Chrome', executable: 'chrome' },
+      { name: 'Evil', executable: 'a; Remove-Item C:\\ -Recurse' },
+      { name: 'Bad `name`', executable: 'ok' },
+      { name: 'Spaces', executable: 'has space' },
+    ]);
+    expect(found).toEqual(['Chrome']);
+    expect(calls[0]!.args).toEqual({ items: [{ name: 'Chrome', executable: 'chrome' }] });
+  });
+
+  it('accepts the shapes PowerShell produces for none and for one', async () => {
+    const none = new WindowsAdapter(fakeRunner({ installedApps: { installed: null } }).runner);
+    expect(await none.installedApps(items)).toEqual([]);
+    const one = new WindowsAdapter(fakeRunner({ installedApps: { installed: 'Chrome' } }).runner);
+    expect(await one.installedApps(items)).toEqual(['Chrome']);
+  });
+
+  it('the script is a constant that takes its data only from the environment', () => {
+    expect(SCRIPTS.installedApps).toContain('$env:ALLAYA_ARGS');
+    expect(SCRIPTS.installedApps).not.toMatch(/\$\{|Invoke-Expression|iex\b/i);
+    expect(powershellArguments(SCRIPTS.installedApps).join(' ').length).toBeLessThan(
+      MAX_ENCODED_LENGTH,
+    );
+  });
+});

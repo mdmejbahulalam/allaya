@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import {
   CompositeAdapter,
   ComputerEngine,
+  MemoryAdapter,
   PowerShellRunner,
   WindowsAdapter,
 } from '@allaya/computer';
@@ -14,7 +15,7 @@ import { ElectronHost } from './computer/electron-host';
 import { FolderScreenshotStore } from './computer/screenshot-store';
 import { IpcDispatcher } from './ipc/dispatcher';
 import type { EventSink } from './ipc/events';
-import { createLogger } from './logging';
+import { createLogger, readLogTail } from './logging';
 import { appendFileSync } from 'node:fs';
 import { AppTrash, type KnownFolderId } from '@allaya/filesystem';
 import {
@@ -32,6 +33,7 @@ import {
   e2eBrowserHosts,
   e2eFilesDir,
   e2ePickedFolder,
+  e2eComputer,
   e2eSaveFile,
   e2eTray,
   e2eUpdateVersion,
@@ -222,7 +224,24 @@ function bootstrapBackend(): Container {
       // implemented for Windows only (everywhere else the engine reports those features as unavailable).
       engine: new ComputerEngine({
         adapter: new CompositeAdapter(
-          process.platform === 'win32' ? new WindowsAdapter(new PowerShellRunner()) : undefined,
+          E2E && e2eComputer() === 'memory'
+            ? new MemoryAdapter({
+                installed: ['Chrome', 'Notepad', 'PowerShell'],
+                windows: [
+                  {
+                    id: '11',
+                    title: 'Chrome',
+                    processName: 'chrome',
+                    pid: 4242,
+                    bounds: { x: 0, y: 0, width: 800, height: 600 },
+                    focused: false,
+                    minimized: false,
+                  },
+                ],
+              })
+            : process.platform === 'win32'
+              ? new WindowsAdapter(new PowerShellRunner())
+              : undefined,
           new ElectronHost(),
         ),
         ownPid: process.pid,
@@ -233,6 +252,15 @@ function bootstrapBackend(): Container {
     },
     files: fileAccess(),
     browser: browserAccess(),
+    diagnostics: {
+      logsFolder: paths.logs,
+      home: app.getPath('home'),
+      readLogTail: async (lines) => {
+        await fileLogSink.flush();
+        return readLogTail(paths.logs, lines);
+      },
+      pickSaveFile: E2E ? () => Promise.resolve(e2eSaveFile()) : pickSaveFileDialog,
+    },
     showApp: () => showApp(),
     updates: { port: updaterPort() },
     shellStatus: () => ({

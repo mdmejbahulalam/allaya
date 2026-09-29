@@ -151,6 +151,27 @@ export class WindowsAdapter implements ComputerAdapter {
     return result.pid ? { pid: result.pid } : {};
   }
 
+  async installedApps(
+    apps: ReadonlyArray<{ name: string; executable: string }>,
+  ): Promise<string[]> {
+    // Only plain catalog names ever reach the script (as data, never as code).
+    const items = apps.filter(
+      (a) => /^[A-Za-z0-9._-]{1,64}$/.test(a.executable) && /^[A-Za-z0-9 ._+-]{1,40}$/.test(a.name),
+    );
+    const result = await this.json<{ installed: string[] | string | null }>(
+      'installedApps',
+      { items },
+      30_000,
+    );
+    const list = Array.isArray(result.installed)
+      ? result.installed
+      : result.installed
+        ? [result.installed]
+        : [];
+    const known = new Set(items.map((i) => i.name));
+    return list.filter((name) => known.has(name));
+  }
+
   displays(): Promise<DisplayInfo[]> {
     return Promise.reject(
       new AllayaError('Displays are provided by the host', { code: 'UNSUPPORTED_PLATFORM' }),

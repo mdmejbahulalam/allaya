@@ -61,6 +61,10 @@ export class CompositeAdapter implements ComputerAdapter {
   launch(request: LaunchRequest): Promise<{ pid?: number }> {
     return this.input ? this.input.launch(request) : unsupported('Launching apps');
   }
+  installedApps(apps: ReadonlyArray<{ name: string; executable: string }>): Promise<string[]> {
+    if (!this.input?.installedApps) return unsupported('Detecting installed apps');
+    return this.input.installedApps(apps);
+  }
   displays(): Promise<DisplayInfo[]> {
     return this.host ? this.host.displays() : unsupported('Display information');
   }

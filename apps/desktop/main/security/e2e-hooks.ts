@@ -43,6 +43,10 @@ export const e2ePickedFolder = (): string | undefined => process.env['ALLAYA_E2E
 /** In E2E the native "Save as" dialog cannot be driven, so it "picks" this file instead. */
 export const e2eSaveFile = (): string | undefined => process.env['ALLAYA_E2E_SAVE_FILE'];
 
+/** `ALLAYA_E2E_COMPUTER=memory`: a stand-in desktop (a few apps and windows) so app control can be driven in a test. */
+export const e2eComputer = (): 'memory' | undefined =>
+  process.env['ALLAYA_E2E_COMPUTER'] === 'memory' ? 'memory' : undefined;
+
 /** `ALLAYA_E2E_TRAY=1`: give a test run a tray (a bare Linux display has none, so it is off by default). */
 export const e2eTray = (): boolean => process.env['ALLAYA_E2E_TRAY'] === '1';
 

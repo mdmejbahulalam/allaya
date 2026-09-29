@@ -1,8 +1,6 @@
 import { lazy } from 'react';
 import type { ComponentType } from 'react';
 import type { RouteId } from '@renderer/app/routes';
-import { EmptyScreen } from './placeholder';
-import { AppWindow } from 'lucide-react';
 
 const lazyNamed = <T extends Record<string, ComponentType>>(
   loader: () => Promise<T>,
@@ -19,14 +17,7 @@ export const SCREENS: Record<RouteId, ComponentType> = {
   tasks: lazyNamed(() => import('./tasks/tasks-screen'), 'TasksScreen'),
   automations: lazyNamed(() => import('./automations/automations-screen'), 'AutomationsScreen'),
   computer: lazyNamed(() => import('./computer/computer-screen'), 'ComputerScreen'),
-  apps: () => (
-    <EmptyScreen
-      icon={AppWindow}
-      titleKey="apps.title"
-      emptyTitleKey="apps.emptyTitle"
-      emptyBodyKey="apps.emptyBody"
-    />
-  ),
+  apps: lazyNamed(() => import('./apps/apps-screen'), 'AppsScreen'),
   browser: lazyNamed(() => import('./browser/browser-screen'), 'BrowserScreen'),
   files: lazyNamed(() => import('./files/files-screen'), 'FilesScreen'),
   memory: lazyNamed(() => import('./memory/memory-screen'), 'MemoryScreen'),

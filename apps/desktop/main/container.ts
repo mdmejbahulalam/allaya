@@ -61,7 +61,11 @@ import { BrowserService, type BrowserLaunchState } from './services/browser-serv
 import { EventPublisher } from './ipc/events';
 import { HandlerRegistry } from './ipc/registry';
 import { registerAgentHandlers } from './ipc/handlers/agent';
+import { registerAppsHandlers } from './ipc/handlers/apps';
+import { AppsService } from './services/apps-service';
+import { registerDiagnosticsHandlers } from './ipc/handlers/diagnostics';
 import { registerShellHandlers } from './ipc/handlers/shell';
+import { DiagnosticsService } from './services/diagnostics-service';
 import { UpdateService, type UpdaterPort } from './shell/update-service';
 import { ACTIVITY_RETENTION_DAYS, registerActivityHandlers } from './ipc/handlers/activity';
 import { registerAppHandlers } from './ipc/handlers/app';
@@ -110,6 +114,13 @@ export interface ContainerOptions {
     opener?: (absolutePath: string) => Promise<void>;
     pickFolder?: (title: string) => Promise<string | undefined>;
     reveal?: (absolutePath: string) => void;
+  };
+  /** What the Diagnostics page can read and save beyond the live statuses (all optional: tests omit them). */
+  diagnostics?: {
+    readLogTail?: (lines: number) => Promise<string[]>;
+    logsFolder?: string;
+    home?: string;
+    pickSaveFile?: (title: string, defaultName: string) => Promise<string | undefined>;
   };
   /** Puts the main window in front (only the running app has windows). */
   showApp?: () => void;
@@ -469,30 +480,59 @@ export function createContainer(options: ContainerOptions): Container {
     logger: options.logger.child('updates'),
     onChange: (status) => events.publish('updates:changed', status),
   });
-  registerShellHandlers(
-    registry,
-    updates,
+  const shellStatus =
     options.shellStatus ??
-      (() => ({
-        trayAvailable: false,
-        launchAtLoginSupported: false,
-        showAppKey: {
-          accelerator: settings.get('shortcuts.showApp'),
-          registered: false,
-          reason: 'unavailable' as const,
-        },
-      })),
-    { showApp: () => options.showApp?.(), stopEverything },
-  );
-  registerActivityHandlers(registry, audit, () => events.publish('activity:changed', {}));
-  registerAgentHandlers(registry, runs, {
-    emergencyStop: () =>
-      options.emergencyStop?.() ?? {
-        accelerator: settings.get('shortcuts.emergencyStop'),
+    (() => ({
+      trayAvailable: false,
+      launchAtLoginSupported: false,
+      showAppKey: {
+        accelerator: settings.get('shortcuts.showApp'),
         registered: false,
         reason: 'unavailable' as const,
       },
+    }));
+  const emergencyStopStatus = () =>
+    options.emergencyStop?.() ?? {
+      accelerator: settings.get('shortcuts.emergencyStop'),
+      registered: false,
+      reason: 'unavailable' as const,
+    };
+  registerShellHandlers(registry, updates, shellStatus, {
+    showApp: () => options.showApp?.(),
+    stopEverything,
   });
+  registerDiagnosticsHandlers(
+    registry,
+    new DiagnosticsService({
+      appInfo: options.getAppInfo,
+      database,
+      providers,
+      settings,
+      permissions,
+      automations,
+      memory,
+      browser,
+      engine,
+      updates: () => updates.status(),
+      shell: shellStatus,
+      emergencyStop: emergencyStopStatus,
+      ...(options.diagnostics ?? {}),
+    }),
+  );
+  registerAppsHandlers(
+    registry,
+    new AppsService({
+      engine,
+      tools,
+      audit,
+      runs,
+      settings,
+      osLocale: () => options.getAppInfo().osLocale,
+      logger: options.logger.child('apps'),
+    }),
+  );
+  registerActivityHandlers(registry, audit, () => events.publish('activity:changed', {}));
+  registerAgentHandlers(registry, runs, { emergencyStop: emergencyStopStatus });
 
   return {
     database,

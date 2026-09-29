@@ -90,6 +90,11 @@ export interface ComputerAdapter {
   /** Asks the window to close (as the ✕ button does). Never kills the process; the app may prompt to save. */
   closeWindow(id: string): Promise<void>;
   launch(request: LaunchRequest): Promise<{ pid?: number }>;
+  /**
+   * Which of these catalog apps are installed (best effort). Absent where the adapter cannot tell; callers then show
+   * "unknown" rather than guess.
+   */
+  installedApps?(apps: ReadonlyArray<{ name: string; executable: string }>): Promise<string[]>;
 
   displays(): Promise<DisplayInfo[]>;
   screenshot(options?: { displayId?: number }): Promise<ScreenshotResult>;

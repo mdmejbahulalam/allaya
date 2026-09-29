@@ -545,7 +545,43 @@
     "installed": "Installed",
     "running": "Running",
     "lastUsed": "Last used",
-    "automation": "Automation support"
+    "automation": "Automation support",
+    "intro": "The applications Allaya knows how to open. It only ever opens apps from this list — never a program someone typed.",
+    "refresh": "Refresh",
+    "search": "Search apps",
+    "list": "Applications",
+    "noMatch": "No apps match.",
+    "installedOnly": "Show only installed apps",
+    "noControl": "This computer cannot open or control apps from Allaya (that works on Windows). The list shows what Allaya knows about.",
+    "neverUsed": "Not used by Allaya yet",
+    "support": {
+      "full": "Full control",
+      "basic": "Open, close, switch",
+      "limited": "Open and close only",
+      "none": "Not available here"
+    },
+    "supportHint": {
+      "full": "Allaya can use its keyboard, mouse and controls (with your permission).",
+      "basic": "Allaya can open it, close it and bring it to the front.",
+      "limited": "A command shell: Allaya can open and close it but never types into it.",
+      "none": "This computer does not let Allaya control apps."
+    },
+    "riskAsk": "Opening this one asks you first.",
+    "open": "Open",
+    "close": "Close",
+    "focus": "Switch to",
+    "permissions": "Manage permissions",
+    "installedState": {
+      "yes": "Installed",
+      "no": "Not installed",
+      "unknown": "Install status unknown"
+    },
+    "runningState": {
+      "yes": "Running",
+      "no": "Not running",
+      "unknown": "Running status unknown"
+    },
+    "lastUsedAt": "Last used by Allaya {when}"
   },
   "browser": {
     "title": "Browser",
@@ -1057,6 +1093,59 @@
       "systemVoiceAuto": "Automatic (by language)",
       "cloudVoice": "Cloud voice",
       "rate": "Speaking speed"
+    },
+    "pointer": {
+      "open": "Open {name}",
+      "activity": "Open Activity",
+      "models": "Your AI providers, keys and models are managed on the Models screen.",
+      "api": "API keys are kept in the encrypted vault and managed with your providers on the Models screen.",
+      "computer": "What Allaya may do on your computer, and the controls for it, are on the Computer screen.",
+      "browser": "The browser Allaya uses, and the websites it may open, are on the Browser screen.",
+      "files": "The folders Allaya may use are on the Files screen.",
+      "memory": "What Allaya remembers about you, and the switch that turns it off, are on the Memory screen.",
+      "automations": "Schedules, triggers and run history are on the Automations screen.",
+      "permissions": "Each kind of action can be set to ask, allow or block on the Permissions screen.",
+      "security": "Allaya asks before risky actions, and the emergency stop always works. Permissions and the record of everything Allaya did are one click away.",
+      "notificationsHint": "Allaya only shows a desktop notification when its window is not in front, and a question never repeats what it asks."
+    },
+    "diagnostics": {
+      "title": "Diagnostics",
+      "hint": "How Allaya is doing right now. Nothing here leaves your computer unless you export it.",
+      "refresh": "Refresh",
+      "export": "Export diagnostics",
+      "exportHint": "The file holds statuses, counts and recent log lines. Keys, chats, memories, files and your folder names are removed.",
+      "saved": "Diagnostics saved.",
+      "failed": "Could not read diagnostics.",
+      "yes": "yes",
+      "no": "no",
+      "none": "none",
+      "version": "Allaya version",
+      "electron": "Electron version",
+      "os": "Operating system",
+      "database": "Database",
+      "databaseInfo": "{migrations} migrations, {tables} tables",
+      "providers": "AI providers",
+      "providersInfo": "{connected} of {total} connected",
+      "voice": "Voice",
+      "computer": "Computer control",
+      "browser": "Browser",
+      "automations": "Automations",
+      "automationsInfo": "{enabled} of {total} on",
+      "memory": "Memory",
+      "permissions": "Permissions",
+      "permissionsInfo": "{count} changed from the default",
+      "shell": "Tray and keys",
+      "tray": "tray",
+      "updates": "Updates",
+      "engine": {
+        "system": "system voice",
+        "cloud": "cloud voice"
+      },
+      "tone": {
+        "ok": "OK",
+        "attention": "Needs a look",
+        "off": "Off"
+      }
     }
   },
   "palette": {

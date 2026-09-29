@@ -43,6 +43,7 @@ export interface TestBackendOptions {
   memory?: ContainerOptions['memory'];
   shellStatus?: ContainerOptions['shellStatus'];
   showApp?: ContainerOptions['showApp'];
+  diagnostics?: ContainerOptions['diagnostics'];
   updates?: ContainerOptions['updates'];
 }
 
@@ -82,6 +83,7 @@ export function createTestBackend(options: TestBackendOptions = {}): TestBackend
     ...(options.memory ? { memory: options.memory } : {}),
     ...(options.shellStatus ? { shellStatus: options.shellStatus } : {}),
     ...(options.showApp ? { showApp: options.showApp } : {}),
+    ...(options.diagnostics ? { diagnostics: options.diagnostics } : {}),
     ...(options.updates ? { updates: options.updates } : {}),
     ...(options.confirmationTimeoutMs !== undefined
       ? { confirmationTimeoutMs: options.confirmationTimeoutMs }

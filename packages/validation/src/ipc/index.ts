@@ -1,10 +1,12 @@
 import type { z } from 'zod';
 import { activityContract } from './activity';
 import { agentContract } from './agent';
+import { appsContract } from './apps';
 import { automationsContract } from './automations';
 import { appContract } from './app';
 import { browserContract } from './browser';
 import { chatContract } from './chat';
+import { diagnosticsContract } from './diagnostics';
 import { computerContract } from './computer';
 import { filesContract } from './files';
 import { memoryContract } from './memory';
@@ -22,12 +24,14 @@ export * from './activity';
 export * from './agent';
 export * from './providers';
 export * from './chat';
+export * from './diagnostics';
 export * from './voice';
 export * from './tools';
 export * from './computer';
 export * from './files';
 export * from './browser';
 export * from './tasks';
+export * from './apps';
 export * from './automations';
 export * from './shell';
 export * from './updates';
@@ -52,6 +56,8 @@ export const ipcInvokeContract = {
   ...browserContract.invoke,
   ...tasksContract.invoke,
   ...automationsContract.invoke,
+  ...diagnosticsContract.invoke,
+  ...appsContract.invoke,
   ...memoryContract.invoke,
   ...shellContract.invoke,
   ...updatesContract.invoke,

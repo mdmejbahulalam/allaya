@@ -1,4 +1,4 @@
-import { and, desc, eq, isNotNull, lt, or, sql, type SQL } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNotNull, lt, or, sql, type SQL } from 'drizzle-orm';
 import type { AllayaDb } from '../connection';
 import { activityLogs, toolCalls, toolResults } from '../schema';
 
@@ -180,6 +180,25 @@ export class ToolAuditRepository {
       .limit(filter.limit + 1)
       .all();
     return { entries: rows.slice(0, filter.limit), hasMore: rows.length > filter.limit };
+  }
+
+  /** When one of these tools last did something whose description mentions `needle` (literal match), if ever. */
+  lastActivityAt(tools: readonly string[], needle: string): number | undefined {
+    const pattern = `%${needle.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+    const row = this.db
+      .select({ at: activityLogs.timestamp })
+      .from(activityLogs)
+      .where(
+        and(
+          inArray(activityLogs.tool, [...tools]),
+          eq(activityLogs.result, 'success'),
+          sql`${activityLogs.action} like ${pattern} escape '\\'`,
+        ),
+      )
+      .orderBy(desc(activityLogs.timestamp))
+      .limit(1)
+      .get();
+    return row?.at;
   }
 
   /** Removes the whole record (activity lines and the call records behind them). Returns how many lines went. */

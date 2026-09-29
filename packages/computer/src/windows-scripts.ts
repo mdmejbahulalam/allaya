@@ -63,6 +63,35 @@ $p = Start-Process @params
 Done @{ pid = if ($p) { [int]$p.Id } else { $null } }
 `,
 
+  installedApps:
+    PRELUDE +
+    String.raw`
+$startApps = @()
+try { $startApps = @(Get-StartApps | ForEach-Object { [string]$_.Name }) } catch { }
+$roots = @(
+  'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths',
+  'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths',
+  'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\App Paths'
+)
+$installed = @()
+foreach ($item in @($a.items)) {
+  $exe = [string]$item.executable
+  $name = [string]$item.name
+  $found = $false
+  if (Get-Command $exe -CommandType Application -ErrorAction SilentlyContinue) { $found = $true }
+  if (-not $found) {
+    foreach ($root in $roots) {
+      if (Test-Path -LiteralPath ($root + '\' + $exe + '.exe')) { $found = $true; break }
+    }
+  }
+  if (-not $found) {
+    foreach ($start in $startApps) { if ($start -like ('*' + $name + '*')) { $found = $true; break } }
+  }
+  if ($found) { $installed += $name }
+}
+Done @{ installed = @($installed) }
+`,
+
   moveMouse:
     PRELUDE +
     NATIVE +

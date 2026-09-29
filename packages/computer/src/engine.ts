@@ -1,5 +1,5 @@
 import { AllayaError, sleep } from '@allaya/shared';
-import { SENSITIVE_PROCESSES, resolveApp, type AppEntry } from './apps';
+import { APP_CATALOG, SENSITIVE_PROCESSES, resolveApp, type AppEntry } from './apps';
 import { blockedChordReason, formatChord, parseChord } from './keys';
 import type {
   ComputerAdapter,
@@ -99,6 +99,22 @@ export class ComputerEngine {
   async windowsOf(app: AppEntry): Promise<WindowInfo[]> {
     const wanted = new Set(app.processes.map(norm));
     return (await this.listWindows()).filter((w) => wanted.has(norm(w.processName)));
+  }
+
+  /**
+   * Which catalog apps are installed, or `undefined` when this machine's adapter cannot tell (then callers say
+   * "unknown" instead of guessing).
+   */
+  async installedApps(): Promise<Set<string> | undefined> {
+    if (!this.adapter.installedApps) return undefined;
+    try {
+      const names = await this.adapter.installedApps(
+        APP_CATALOG.map((a) => ({ name: a.name, executable: a.windows })),
+      );
+      return new Set(names);
+    } catch {
+      return undefined;
+    }
   }
 
   /** Launches a catalog app and waits for its window. `window` is `undefined` if it did not appear in time. */

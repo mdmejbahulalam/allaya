@@ -1,4 +1,4 @@
-import { appendFile, mkdir, readdir, rm } from 'node:fs/promises';
+import { appendFile, mkdir, readFile, readdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import {
   ConsoleSink,
@@ -50,4 +50,19 @@ export function createLogger(options: { logsDir: string; level: LogLevel; consol
   const sinks: LogSink[] = [file];
   if (options.console) sinks.push(new ConsoleSink());
   return { logger: new StructuredLogger(sinks, 'main', options.level), file };
+}
+
+/** The last `lines` lines of the newest log file in `dir` (empty if there is none). Never throws. */
+export async function readLogTail(dir: string, lines: number): Promise<string[]> {
+  try {
+    const files = (await readdir(dir))
+      .filter((f) => /^allaya-\d{4}-\d{2}-\d{2}\.log$/.test(f))
+      .sort();
+    const newest = files.at(-1);
+    if (!newest) return [];
+    const text = await readFile(join(dir, newest), 'utf8');
+    return text.split('\n').filter(Boolean).slice(-lines);
+  } catch {
+    return [];
+  }
 }
