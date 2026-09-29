@@ -133,10 +133,26 @@ executes a half-received tool call.
 Tests: `tests/unit/tools/*` (policy invariants, broker, executor with mutation-checked properties), `tests/integration/agent-tools.test.ts`
 (the loop, confirmations by button/typed/spoken answer, permissions, audit, cancellation), `tests/e2e/tools.spec.ts` (real UI).
 
-## 7. Not yet covered (honest status)
+## 7. Computer control
+
+- **Launching** is catalog-only. The model supplies a _name_; a fixed table decides what runs. Paths, command lines and shell
+  text are rejected (`resolveApp`, `WindowsAdapter.launch`).
+- **Input** (typing, shortcuts, clicks, UI Automation) is refused for shells, system tools (Task Manager, Registry Editor, MMC,
+  UAC prompt…), elevated windows and Allaya itself — enforced in the engine, so neither the model nor an approved confirmation can
+  override it. Shortcuts that leave the window (Win+…, Alt+F4, Ctrl+Alt+Del, Ctrl+Shift+Esc) are refused. Text is bounded, click
+  coordinates must be on a display and not inside an off-limits window, and input is rate limited.
+- **Windows helpers never receive code from data**: each PowerShell program is a constant; arguments are JSON in `ALLAYA_ARGS`.
+  Window ids must be decimal handles and executables plain names before they reach a script. (`tests/unit/computer/windows-adapter.test.ts`
+  proves the script text is identical whatever the input, and executes the launch program with hostile arguments under a real
+  PowerShell where available.)
+- **Privacy**: typed text and clipboard contents are kept out of the audit log; clipboard reads always ask; screenshots are saved
+  locally and never sent to a provider.
+- **Honesty**: input tools report their effect as _unverified_ rather than claiming success.
+
+## 8. Not yet covered (honest status)
 
 See `docs/STATUS.md` for the per-requirement state. Security items that are designed but not yet built or not yet
-verifiable in this environment are tracked there, notably: the real computer/file/browser tools and their path and scope
-restrictions, the global (system-wide) emergency-stop shortcut, the Permissions screen, and Windows-specific hardening (UI Automation scope, installer signing,
+verifiable in this environment are tracked there, notably: the real file/browser tools and their path and scope
+restrictions, the Windows input adapter's behaviour on a real desktop, the global (system-wide) emergency-stop shortcut, the Permissions screen, and Windows-specific hardening (UI Automation scope, installer signing,
 auto-update signature verification). Those require the corresponding phases and, for the Windows-specific items,
 a real Windows machine.

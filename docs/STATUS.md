@@ -159,9 +159,42 @@ All checks below run in CI-equivalent form in this environment: `pnpm typecheck`
   acceptable because the renderer is the user's own UI (the restriction protects against _mis-heard_ speech, not a hostile renderer).
 - Tool _plans_ spanning several user turns (a persistent task, pause/resume) belong to the task engine (Phase 9).
 
+## Phase 6 — Computer control 🪟 (engine and safety verified; Windows behaviour NOT verified)
+
+`@allaya/computer` (Electron-free) + `ElectronHost` (screenshots, clipboard, displays) + the Computer screen.
+
+| Item                                                                                                                                                                                                                          | State                                             |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| Adapter interface; capabilities are reported honestly and tools that cannot work are **never offered** to the model                                                                                                           | ✅ (unit + integration + E2E)                     |
+| App launcher only from a **catalog** (no paths, commands or shell text; catalog covers every app the language engine recognises); shells are MEDIUM risk                                                                      | ✅ (unit)                                         |
+| Input safety: no synthetic keyboard/mouse into shells, system tools, elevated windows or Allaya itself; blocked shortcuts (Win+…, Alt+F4, Ctrl+Alt+Del, Ctrl+Shift+Esc); bounded text; on-screen coordinates only; rate limit | ✅ (unit against an in-memory desktop)            |
+| Launch/close are **verified** by looking for the window (a window that never appears, or refuses to close, is a failure — not a success)                                                                                      | ✅ (unit + integration)                           |
+| Typed text and clipboard contents never enter the audit log (only their length)                                                                                                                                               | ✅ (unit + integration)                           |
+| Tools: `open_app`, `close_app`, `list_windows`, `focus_window`, `take_screenshot`, `read_clipboard`, `write_clipboard`, `type_text`, `press_keys`, `click_element`, `click_at` (HIGH), `scroll`                               | ✅ engine · 🪟 real desktop                       |
+| **Real screenshots** (Electron `desktopCapturer`) saved as verified PNGs; **real clipboard** read/write with read-back verification                                                                                           | ✅ (E2E under Xvfb)                               |
+| Windows adapter (PowerShell + Win32 `SendInput`/`EnumWindows`/UI Automation): arguments travel as JSON in an env var and can never become code                                                                                | ✅ injection-tested · 🪟 behaviour unverified     |
+| The C# interop **compiles** (Mono `mcs`), all ten PowerShell programs **parse** (real PowerShell 7 parser), the `launch` program was **executed for real** and treated shell metacharacters as data                           | ✅ where those tools exist (tests skip otherwise) |
+| Computer screen: capabilities, tools with risk, safe self-check (read-only), Windows-only notice                                                                                                                              | ✅ (unit + E2E)                                   |
+
+**Caveats — read these**
+
+- **Nothing in the Windows adapter has run on Windows.** Window enumeration, focusing, launching, mouse, `SendInput` typing
+  (including Bengali as Unicode), keyboard chords and UI Automation are written carefully and syntax-checked, but their behaviour
+  on a real desktop is unproven. Use **Computer → "Run a safe check"** on a Windows machine first; it lists windows and
+  captures the screen without typing or clicking anything.
+- Known Windows unknowns: DPI scaling and multi-monitor coordinate mapping (the input adapter assumes physical pixels, the same
+  space as screenshots; mixed-DPI setups are unverified); Windows may refuse to bring a window to the front despite the Alt-key
+  workaround; some apps ignore `WM_CLOSE`; PowerShell start-up adds a fraction of a second to every action.
+- The model **cannot see the screen**: screenshots are saved to disk and _not_ sent to any provider. Screen understanding
+  (vision) is not implemented, so `click_at` is a last resort and is HIGH risk. `click_element` (by visible name) is preferred.
+- `type_text`/`press_keys`/`click_*` cannot confirm what the target program did, so their results are reported as
+  **unverified** — the model is told not to claim more than "typed"/"pressed".
+- Only the applications in the catalog can be opened; apps discovered from the Start menu are not supported yet.
+- macOS/Linux: only screenshots and the clipboard exist (by design; no other adapter is implemented).
+
 ## Not started
 
-Phases 6–15 (computer control, files, browser, task engine, automation,
+Phases 7–15 (files, browser, task engine, automation,
 memory, security hardening, Windows polish, release). Anything that needs Windows UI Automation, the tray,
 global hotkeys, the installer, or auto-update **cannot be verified in this Linux environment** and will be marked 🪟
 until run on Windows.

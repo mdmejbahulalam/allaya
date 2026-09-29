@@ -99,12 +99,15 @@ export class ToolExecutor {
   async execute(call: ToolCallRequest, options: ExecuteOptions): Promise<ExecutionResult> {
     const startedAt = this.now().getTime();
     const base = { callId: call.id, tool: call.name, startedAt };
+    /** Set once the tool is known; carried on every result so the audit log never sees sensitive text. */
+    let auditSummary: string | undefined;
     const finish = (
       partial: Omit<ExecutionResult, 'callId' | 'tool' | 'startedAt' | 'durationMs'>,
     ): ExecutionResult => {
       const result: ExecutionResult = {
         ...base,
         ...partial,
+        ...(auditSummary !== undefined ? { auditSummary } : {}),
         durationMs: this.now().getTime() - startedAt,
       };
       options.onProgress?.({ type: 'finished', result });
@@ -217,6 +220,11 @@ export class ToolExecutor {
     } catch {
       summary = tool.name; // a broken describe() must never block the safety pipeline
     }
+    try {
+      auditSummary = tool.auditSummary?.(args, options.language);
+    } catch {
+      auditSummary = tool.name;
+    }
     const redacted = tool.redactArgs ? auditArguments(tool.redactArgs(args)) : auditArguments(args);
     const recorded = record({
       callId: call.id,
@@ -224,7 +232,7 @@ export class ToolExecutor {
       taskId: options.taskId,
       arguments: redacted,
       risk,
-      summary,
+      summary: auditSummary ?? summary,
     });
     if (!recorded) return unrecorded();
     options.onProgress?.({ type: 'started', callId: call.id, tool: tool.name, summary, risk });

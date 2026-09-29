@@ -123,6 +123,9 @@ importers:
       '@allaya/ai':
         specifier: workspace:*
         version: link:../../packages/ai
+      '@allaya/computer':
+        specifier: workspace:*
+        version: link:../../packages/computer
       '@allaya/database':
         specifier: workspace:*
         version: link:../../packages/database
@@ -201,6 +204,21 @@ importers:
       '@allaya/types':
         specifier: workspace:*
         version: link:../types
+
+  packages/computer:
+    dependencies:
+      '@allaya/shared':
+        specifier: workspace:*
+        version: link:../shared
+      '@allaya/tools':
+        specifier: workspace:*
+        version: link:../tools
+      '@allaya/types':
+        specifier: workspace:*
+        version: link:../types
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
 
   packages/database:
     dependencies:

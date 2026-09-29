@@ -1,7 +1,16 @@
 import { app, BrowserWindow, ipcMain, type IpcMainInvokeEvent } from 'electron';
 import { release } from 'node:os';
 import type { AppInfo } from '@allaya/validation';
+import { join } from 'node:path';
+import {
+  CompositeAdapter,
+  ComputerEngine,
+  PowerShellRunner,
+  WindowsAdapter,
+} from '@allaya/computer';
 import { createContainer, type Container } from './container';
+import { ElectronHost } from './computer/electron-host';
+import { FolderScreenshotStore } from './computer/screenshot-store';
 import { IpcDispatcher } from './ipc/dispatcher';
 import type { EventSink } from './ipc/events';
 import { createLogger } from './logging';
@@ -69,6 +78,20 @@ function bootstrapBackend(): Container {
     logger: logger.child('core'),
     getAppInfo,
     strict: environment !== 'production',
+    computer: {
+      // Screenshots, clipboard and displays come from Electron everywhere; window/mouse/keyboard control is
+      // implemented for Windows only (everywhere else the engine reports those features as unavailable).
+      engine: new ComputerEngine({
+        adapter: new CompositeAdapter(
+          process.platform === 'win32' ? new WindowsAdapter(new PowerShellRunner()) : undefined,
+          new ElectronHost(),
+        ),
+        ownPid: process.pid,
+      }),
+      screenshots: new FolderScreenshotStore(
+        E2E ? join(paths.userData, 'screenshots') : join(app.getPath('pictures'), 'Allaya'),
+      ),
+    },
     cipher: E2E ? new InsecureTestCipher() : new SafeStorageCipher(),
     ...(E2E
       ? {

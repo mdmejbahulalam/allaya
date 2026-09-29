@@ -10,7 +10,6 @@ import {
   FolderOpen,
   Globe,
   ListChecks,
-  MonitorCog,
   ShieldCheck,
 } from 'lucide-react';
 
@@ -42,14 +41,7 @@ export const SCREENS: Record<RouteId, ComponentType> = {
       emptyBodyKey="automations.emptyBody"
     />
   ),
-  computer: () => (
-    <EmptyScreen
-      icon={MonitorCog}
-      titleKey="computer.title"
-      emptyTitleKey="computer.emptyTitle"
-      emptyBodyKey="computer.emptyBody"
-    />
-  ),
+  computer: lazyNamed(() => import('./computer/computer-screen'), 'ComputerScreen'),
   apps: () => (
     <EmptyScreen
       icon={AppWindow}

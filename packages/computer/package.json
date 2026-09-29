@@ -1,0 +1,19 @@
+{
+  "name": "@allaya/computer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Computer control engine: adapter interface, app catalog, input-safety rules, Windows (PowerShell) adapter and an in-memory adapter for tests. Electron-free.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@allaya/shared": "workspace:*",
+    "@allaya/tools": "workspace:*",
+    "@allaya/types": "workspace:*",
+    "zod": "^4.6.5"
+  }
+}

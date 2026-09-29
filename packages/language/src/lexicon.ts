@@ -595,6 +595,9 @@ const APP_ENTRIES: AliasEntry[] = [
   { canonical: 'Postman', aliases: ['postman', 'পোস্টম্যান'] },
 ];
 
+/** Canonical names of every application the language engine can recognise. */
+export const KNOWN_APP_NAMES: readonly string[] = APP_ENTRIES.map((entry) => entry.canonical);
+
 /** Websites/search engines Allaya can be asked to use (targets of "search Google", "open YouTube"). */
 const WEB_ENTRIES: AliasEntry[] = [
   { canonical: 'Google', aliases: ['google', 'গুগল', 'গুগলে'] },

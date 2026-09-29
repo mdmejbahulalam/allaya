@@ -43,6 +43,11 @@ export interface ToolDefinition<S extends z.ZodType = z.ZodType, O = unknown> {
   timeoutMs?: number;
   /** One line, in the user's language, saying exactly what will happen. Shown in confirmations and the timeline. */
   describe(args: z.output<S>, language: ToolLanguage): string;
+  /**
+   * What the *audit log* records instead of `describe` when the description would echo sensitive content (text
+   * being typed, clipboard contents). The user still sees the full `describe` line when asked to confirm.
+   */
+  auditSummary?(args: z.output<S>, language: ToolLanguage): string;
   execute(args: z.output<S>, context: ToolContext): Promise<O>;
   /** Independent check that the effect really happened (re-read the file, list the window, …). */
   verify?(args: z.output<S>, output: O, context: ToolContext): Promise<VerificationResult>;
@@ -83,6 +88,8 @@ export interface ExecutionResult {
   evidence?: string;
   /** What the tool said it would do (localized). Empty for unknown tools. */
   summary: string;
+  /** Privacy-preserving version of `summary` for the audit log, when the tool provides one. */
+  auditSummary?: string;
   startedAt: number;
   durationMs: number;
 }

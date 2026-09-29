@@ -265,7 +265,42 @@
     "emptyTitle": "Allaya isn't controlling the computer right now.",
     "emptyBody": "When Allaya works on your computer, you'll see a live preview and every action here.",
     "currentApp": "Current application",
-    "currentAction": "Current action"
+    "currentAction": "Current action",
+    "description": "What Allaya can do on this computer, and how careful it is about it.",
+    "statusTitle": "This computer",
+    "platformLine": "{platform} · {adapter}",
+    "capabilitiesTitle": "Abilities",
+    "capability": {
+      "windows": "See and switch between windows",
+      "launch": "Open applications",
+      "screenshot": "Take screenshots",
+      "clipboard": "Read and write the clipboard",
+      "mouse": "Click and scroll",
+      "keyboard": "Type and press shortcuts",
+      "uiAutomation": "Click buttons by name"
+    },
+    "available": "Available",
+    "unavailable": "Not available here",
+    "windowsOnly": "Controlling windows, the keyboard and the mouse works on Windows only. Screenshots and the clipboard work here.",
+    "toolsTitle": "What Allaya can ask to do",
+    "toolsHint": "Every action goes through a permission check. Risky ones ask you first; some are never allowed (terminals, administrator windows, system shortcuts).",
+    "noTools": "No computer actions are available on this machine.",
+    "risk": {
+      "varies": "Depends on the request"
+    },
+    "readOnly": "Only looks",
+    "changes": "Changes things",
+    "screenshotsFolder": "Screenshots are saved in",
+    "selfTest": "Run a safe check",
+    "selfTestHint": "Lists windows and captures the screen. It never types, clicks or opens anything.",
+    "selfTestRunning": "Checking…",
+    "selfTestPassed": "Everything responded.",
+    "selfTestFailed": "Something didn't respond — details below.",
+    "selfTestStep": {
+      "platform": "Platform",
+      "list windows": "List windows",
+      "capture screen": "Capture the screen"
+    }
   },
   "apps": {
     "title": "Applications",

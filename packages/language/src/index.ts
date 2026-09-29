@@ -6,5 +6,6 @@ export * from './normalizer';
 export * from './intent';
 export * from './context';
 export * from './responses';
+export { KNOWN_APP_NAMES } from './lexicon';
 export type { KnownFolder, VerbCanon } from './lexicon';
 export { BANGLISH_WORDS, ENGLISH_WORDS } from './lexicon-banglish';

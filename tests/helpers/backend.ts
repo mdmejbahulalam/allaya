@@ -3,6 +3,7 @@ import type { FetchLike } from '@allaya/ai';
 import { MemorySink, StructuredLogger, type Logger } from '@allaya/shared';
 import type { AppInfo } from '@allaya/validation';
 import type { ToolDefinition } from '@allaya/tools';
+import type { ComputerEngine, ScreenshotStore } from '@allaya/computer';
 import { createContainer, type Container } from '@main/container';
 import { IpcDispatcher, type SenderInfo } from '@main/ipc/dispatcher';
 import { MemoryEventSink } from '@main/ipc/events';
@@ -33,6 +34,7 @@ export interface TestBackendOptions {
   cipherAvailable?: boolean;
   databasePath?: string;
   extraTools?: ToolDefinition[];
+  computer?: { engine: ComputerEngine; screenshots?: ScreenshotStore & { folder?: string } };
   confirmationTimeoutMs?: number;
 }
 
@@ -66,6 +68,7 @@ export function createTestBackend(options: TestBackendOptions = {}): TestBackend
     cipher,
     strict: true,
     ...(options.extraTools ? { extraTools: options.extraTools } : {}),
+    ...(options.computer ? { computer: options.computer } : {}),
     ...(options.confirmationTimeoutMs !== undefined
       ? { confirmationTimeoutMs: options.confirmationTimeoutMs }
       : {}),

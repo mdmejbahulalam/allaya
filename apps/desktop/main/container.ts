@@ -12,6 +12,12 @@ import { RunRegistry, type Logger } from '@allaya/shared';
 import type { ProviderId } from '@allaya/types';
 import type { AppInfo } from '@allaya/validation';
 import type { ProviderFactoryOptions } from '@allaya/ai';
+import {
+  CompositeAdapter,
+  ComputerEngine,
+  createComputerTools,
+  type ScreenshotStore,
+} from '@allaya/computer';
 import type { ToolDefinition } from '@allaya/tools';
 import { EventPublisher } from './ipc/events';
 import { HandlerRegistry } from './ipc/registry';
@@ -19,10 +25,12 @@ import { registerAgentHandlers } from './ipc/handlers/agent';
 import { registerAppHandlers } from './ipc/handlers/app';
 import { registerChatHandlers } from './ipc/handlers/chat';
 import { registerProviderHandlers } from './ipc/handlers/providers';
+import { registerComputerHandlers } from './ipc/handlers/computer';
 import { registerToolHandlers } from './ipc/handlers/tools';
 import { registerVoiceHandlers } from './ipc/handlers/voice';
 import { ChatService } from './services/chat-service';
 import { ProviderService } from './services/provider-service';
+import { ComputerService } from './services/computer-service';
 import { PermissionService } from './services/permission-service';
 import { SettingsService } from './services/settings-service';
 import { ToolService } from './services/tool-service';
@@ -39,6 +47,8 @@ export interface ContainerOptions {
   strict: boolean;
   /** Test seam: fake `fetch`, base URLs, timeouts. Never set in production. */
   providerOptions?: Partial<Omit<ProviderFactoryOptions, 'getApiKey'>>;
+  /** Computer control for this machine. Omitted in tests that do not touch the desktop (then none is offered). */
+  computer?: { engine: ComputerEngine; screenshots?: ScreenshotStore & { folder?: string } };
   /** Extra tools to register (each later phase supplies its own; E2E adds harmless test tools). */
   extraTools?: ToolDefinition[];
   /** How long an unanswered confirmation stays open. Tests shorten it. */
@@ -56,6 +66,7 @@ export interface Container {
   chat: ChatService;
   voice: VoiceService;
   tools: ToolService;
+  computer: ComputerService;
   permissions: PermissionService;
   runs: RunRegistry;
   events: EventPublisher;
@@ -94,12 +105,23 @@ export function createContainer(options: ContainerOptions): Container {
   });
 
   const permissions = new PermissionService(new PermissionRepository(database.db));
+  // No computer configured ⇒ an engine with no capabilities, so the model is offered no computer tools at all.
+  const engine =
+    options.computer?.engine ??
+    new ComputerEngine({ adapter: new CompositeAdapter(undefined, undefined) });
+  const computerTools = createComputerTools(engine, options.computer?.screenshots);
+  const computer = new ComputerService({
+    engine,
+    tools: computerTools,
+    ...(options.computer?.screenshots ? { screenshots: options.computer.screenshots } : {}),
+    logger: options.logger.child('computer'),
+  });
   const tools = new ToolService({
     permissions,
     audit: new ToolAuditRepository(database.db),
     events,
     logger: options.logger.child('tools'),
-    ...(options.extraTools ? { tools: options.extraTools } : {}),
+    tools: [...computerTools, ...(options.extraTools ?? [])],
     ...(options.confirmationTimeoutMs !== undefined
       ? { confirmationTimeoutMs: options.confirmationTimeoutMs }
       : {}),
@@ -132,6 +154,7 @@ export function createContainer(options: ContainerOptions): Container {
   registerChatHandlers(registry, chat);
   registerVoiceHandlers(registry, voice);
   registerToolHandlers(registry, tools, permissions);
+  registerComputerHandlers(registry, computer);
   registerAgentHandlers(registry, runs);
 
   return {
@@ -141,6 +164,7 @@ export function createContainer(options: ContainerOptions): Container {
     chat,
     voice,
     tools,
+    computer,
     permissions,
     runs,
     events,

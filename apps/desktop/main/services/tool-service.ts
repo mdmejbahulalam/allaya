@@ -136,7 +136,7 @@ export class ToolService {
             id: result.callId,
             taskId,
             toolName: result.tool,
-            summary: result.summary,
+            summary: result.auditSummary ?? result.summary,
             risk: result.risk,
             permissionDecision: result.permission,
             status: result.status,

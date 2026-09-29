@@ -26,19 +26,20 @@ Operating system
 
 ## Packages
 
-| Package              | Responsibility                                                                 |
-| -------------------- | ------------------------------------------------------------------------------ |
-| `@allaya/shared`     | Result/errors, ids, clock, typed event bus, cancellation, redaction, logging   |
-| `@allaya/types`      | Domain vocabulary (risk levels, task states, intents, …) as const tuples       |
-| `@allaya/validation` | Zod schemas: IPC contract, settings registry, tool argument schemas            |
-| `@allaya/database`   | Drizzle schema, migrations, SQLite connection, repositories                    |
-| `@allaya/ai`         | Provider adapters, SSE, retry/cancel, model router, token estimates            |
-| `@allaya/security`   | Credential vault (OS-encrypted, no plaintext fallback)                         |
-| `@allaya/agent`      | System prompt policy (language rules, "no tools" honesty)                      |
-| `@allaya/language`   | Bengali/Banglish/English detection, normaliser, intent parser, dates, replies  |
-| `@allaya/speech`     | Pure voice logic: state machine, VAD, transcript safety gate, speech-text prep |
-| `@allaya/voice`      | Main-process STT/TTS providers (OpenAI-compatible)                             |
-| `@allaya/tools`      | Tool registry, risk/permission policy, confirmation broker, execution pipeline |
+| Package              | Responsibility                                                                                  |
+| -------------------- | ----------------------------------------------------------------------------------------------- |
+| `@allaya/shared`     | Result/errors, ids, clock, typed event bus, cancellation, redaction, logging                    |
+| `@allaya/types`      | Domain vocabulary (risk levels, task states, intents, …) as const tuples                        |
+| `@allaya/validation` | Zod schemas: IPC contract, settings registry, tool argument schemas                             |
+| `@allaya/database`   | Drizzle schema, migrations, SQLite connection, repositories                                     |
+| `@allaya/ai`         | Provider adapters, SSE, retry/cancel, model router, token estimates                             |
+| `@allaya/security`   | Credential vault (OS-encrypted, no plaintext fallback)                                          |
+| `@allaya/agent`      | System prompt policy (language rules, "no tools" honesty)                                       |
+| `@allaya/language`   | Bengali/Banglish/English detection, normaliser, intent parser, dates, replies                   |
+| `@allaya/speech`     | Pure voice logic: state machine, VAD, transcript safety gate, speech-text prep                  |
+| `@allaya/voice`      | Main-process STT/TTS providers (OpenAI-compatible)                                              |
+| `@allaya/tools`      | Tool registry, risk/permission policy, confirmation broker, execution pipeline                  |
+| `@allaya/computer`   | Computer control engine: adapters (Windows/host/memory), app catalog, input-safety rules, tools |
 
 More packages arrive with their phases (see STATUS.md).
 
