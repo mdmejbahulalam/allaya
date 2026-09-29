@@ -37,5 +37,5 @@ jobs:
           if-no-files-found: error
       - name: Smoke-test the packaged program
         env:
-          ALLAYA_PACKAGED_EXE: ${{ github.workspace }}\apps\desktop\release\win-unpacked\Allaya.exe
+          ALLAYA_PACKAGED_EXE: ${{ github.workspace }}\apps\desktop\release\win-unpacked\allaya.exe
         run: pnpm test:packaged
