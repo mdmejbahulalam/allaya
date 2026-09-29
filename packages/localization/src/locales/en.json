@@ -967,7 +967,13 @@
       "minimizeToTray": "Keep running in the system tray when closed",
       "floating": "Show floating assistant",
       "quickActions": "Quick actions on Home",
-      "quickActionsHint": "Choose which shortcuts appear on the Home screen."
+      "quickActionsHint": "Choose which shortcuts appear on the Home screen.",
+      "notifications": "Desktop notifications when Allaya's window is not in front",
+      "autoUpdate": "Look for updates and download them automatically",
+      "trayHint": "With this on, closing the window keeps Allaya running in the tray, so schedules and background tasks continue.",
+      "loginUnsupported": "Starting with Windows is only available in the installed Windows app.",
+      "trayUnavailable": "No system tray was found on this computer, so the window closes normally.",
+      "floatingHint": "A small bar that stays on top and shows what Allaya is doing, with a STOP button."
     },
     "appearance": {
       "theme": "Theme",
@@ -1016,7 +1022,13 @@
       "emergencyStop": "Emergency stop",
       "search": "Search",
       "pressKeys": "Press a shortcut…",
-      "hint": "Shortcuts need Ctrl or Alt. Press Esc to cancel."
+      "hint": "Shortcuts need Ctrl or Alt. Press Esc to cancel.",
+      "showApp": "Show Allaya (system-wide)",
+      "showAppStatus": {
+        "in_use": "Another program is using this key, so it does not work outside Allaya's window. Choose another.",
+        "invalid": "This is not a key combination the system accepts. Choose another.",
+        "unavailable": "System-wide keys are not available here."
+      }
     },
     "comingSoonTitle": "This section arrives with its feature.",
     "comingSoonBody": "It will be available once the related capability is built.",
@@ -1251,5 +1263,47 @@
     },
     "answerByVoice": "You can also answer by voice: say “yes” or “no”.",
     "stopEverything": "Stop everything"
+  },
+  "tray": {
+    "tooltip": {
+      "idle": "Allaya — ready",
+      "working": "Allaya — working",
+      "paused": "Allaya — automations are paused"
+    },
+    "open": "Open Allaya",
+    "stop": "Stop everything",
+    "pauseAutomations": "Pause automations",
+    "resumeAutomations": "Turn automations back on",
+    "quit": "Quit Allaya",
+    "stillRunning": "Allaya is still running in the tray, so scheduled tasks can keep going. Use the tray icon to open or quit it."
+  },
+  "notify": {
+    "confirmTitle": "Allaya needs your OK",
+    "confirmBody": "Open Allaya to see what it wants to do."
+  },
+  "updates": {
+    "title": "Updates",
+    "current": "You have version {version}.",
+    "check": "Check for updates",
+    "checking": "Looking for updates…",
+    "upToDate": "You have the latest version.",
+    "available": "Version {version} is available.",
+    "download": "Download",
+    "downloading": "Downloading version {version}… {percent}%",
+    "ready": "Version {version} is ready. Allaya will restart to install it.",
+    "install": "Restart and install",
+    "busy": "Allaya is working right now. Install when it is done, or stop it first.",
+    "error": "Could not check for updates. Try again later.",
+    "unsupported": "Updates are not available in this build.",
+    "verify": "Updates are checked against the publisher's list before they are installed."
+  },
+  "floating": {
+    "ready": "Ready",
+    "working": "Working…",
+    "waiting": "Needs you",
+    "open": "Open Allaya",
+    "stop": "STOP",
+    "stopHint": "Stop everything Allaya is doing",
+    "label": "Allaya assistant"
   }
 }

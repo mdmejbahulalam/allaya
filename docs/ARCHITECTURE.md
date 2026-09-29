@@ -131,6 +131,22 @@ Three small pieces sit on top of the tool pipeline so the person can see and ste
 - **Activity** — `ToolAuditRepository` records every call; `activity:list` pages it (filters are parameterised, search is
   literal), `activity:clear` empties it, start-up prunes it, and `activity:changed` tells the screen when to look again.
 
+## Desktop shell
+
+Everything Allaya does outside its window is a small module with ports, so its decisions are tested without a desktop, and a
+thin Electron layer (`main/shell/electron-shell.ts`, `windows/*`, and the wiring in `main/index.ts`) supplies the real thing:
+
+- `close-policy` (hide to the tray or quit), `tray-menu` + `tray-controller` (the menu and tooltip follow what Allaya is doing),
+  `login-item` (start at sign-in, only for an installed build), `notifications` (only when the window is not in front; a
+  question never says what it asks), `update-service` (a state machine over an `UpdaterPort`; installs only when asked and idle),
+  `locale` (the shell speaks the interface language), and `global-shortcut` (one system-wide key with an honest status; the
+  emergency-stop key and the show-Allaya key are two instances).
+- The **floating bar** is a second `BrowserWindow` loading the same app at `#/floating`; the renderer branches on the hash and
+  shows a tiny page that only reads status and calls `desktop:stopEverything` / `desktop:showApp`.
+- **Stopping from outside the main window** (system-wide key, tray, floating bar) goes through `Container.stopEverything(via)`:
+  cancel every run, then publish `agent:stopped` so the main window silences the microphone and says "Stopped".
+- **Packaging** is `apps/desktop/electron-builder.yml` (see `docs/PACKAGING.md`).
+
 ## Data
 
 SQLite (better-sqlite3, WAL, foreign keys on) with Drizzle migrations. JSON payload columns are validated

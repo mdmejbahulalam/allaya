@@ -489,8 +489,56 @@ through the X server) in a one-off run: it stopped a reply in progress. That run
 - Activity has no export and no per-task view yet (a task's own actions are on the task); retention (90 days) is fixed.
 - `pnpm audit` was run once, on the day, with network access; it is not part of CI here.
 
+## Phase 13 — Windows polish 🪟 (logic and Electron behaviour verified on Linux; almost nothing verified on Windows itself)
+
+The tray, background running, sign-in start, notifications, updates, the system-wide "show Allaya" key, the floating
+assistant and the installer. The decisions live in small modules with fake ports (`main/shell/*`) that are tested without a
+desktop; a thin layer connects them to Electron. **Read the caveats: this is the phase that most needs a Windows machine.**
+
+| Item                                                                                                                                                                                                                                                                                                                                                                 | State                                                                                            |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| **Keep running in the tray**: closing the window hides it and Allaya carries on (schedules and background tasks continue); a real quit is never held back; without a tray, or with the setting off, closing quits. The first hide says so in a notification. Tray menu: open, stop everything, pause/resume automations, quit; tooltip says ready / working / paused | ✅ logic (unit); window hides and returns in real Electron (E2E); 🪟 no visible tray tested      |
+| **Start with Windows**: makes the system's sign-in start match the setting, only in an installed build on Windows/macOS (a development run never registers itself); starts hidden in the tray when the system launched it. Settings says when it is unavailable instead of offering a dead switch                                                                    | ✅ logic (unit + E2E for the note); 🪟 the real registration and hidden start not tested         |
+| **Desktop notifications** for a task that finished, failed or needs you, and for a question waiting — only when the window is not in front, only if switched on, never repeated within 10 seconds; a question's notification never says what is asked; clicking opens the right screen (the task, or Home)                                                           | ✅ logic (unit); 🪟 how Windows shows and routes them not tested                                 |
+| **System-wide "show Allaya" key** (default Ctrl+Alt+Space): registered with the OS, follows the setting, released on quit; Settings says when the system refuses it                                                                                                                                                                                                  | ✅ (unit; registered on X11 in E2E); 🪟 Windows not tested                                       |
+| **Floating assistant** (the Settings switch that used to do nothing): a small always-on-top bar with what Allaya is doing, STOP (which also silences the microphone in the main window) and a way back to the app; same sandbox and origin as the main window; closes with it                                                                                        | ✅ (renderer + E2E: status, STOP, open, on/off, always-on-top flag); 🪟 real stacking not tested |
+| **Updates**: looks shortly after start and every 6 hours (if allowed), downloads (if allowed), then waits; installing restarts Allaya, so it happens only when the person presses "Restart and install" and only when nothing is running; no downgrades; the Help screen shows the state and progress                                                                | ✅ service (unit + integration + E2E with a stand-in feed); ❌ the real feed was never used      |
+| **Installer configuration** (NSIS, per-user, choose folder, shortcuts, keeps user data on uninstall) and packaging of the app: 17 MB archive of production dependencies, native database files unpacked, migrations and icons shipped                                                                                                                                | ✅ package layout verified and smoke-tested on Linux; ❌ no Windows installer built or run       |
+| A **packaged-app smoke test** (`pnpm test:packaged`): launches the shipped program and checks the archive, driver, migrations, icons, protocol, isolation and update wiring                                                                                                                                                                                          | ✅ (Linux)                                                                                       |
+| App icon (window, installer, tray, notifications) and the Windows app id (`com.allaya.desktop`) so notifications and the taskbar group correctly                                                                                                                                                                                                                     | ✅ files generated; 🪟 not seen on Windows                                                       |
+
+**How it was tested:** `tests/unit/shell/*` (close policy, sign-in item, tray menu and controller, notifications, language, the
+update service with fake timers), `tests/integration/desktop.test.ts` (updates and the shell channels through the real backend,
+including refusing an install while busy), `tests/unit/renderer/desktop-screens.test.tsx` (Updates card, floating bar, "go to
+this screen"), `tests/e2e/desktop.spec.ts` (8 tests, real Electron), `tests/packaged/smoke.spec.ts` (the packaged app).
+Nineteen rules were **mutation-checked** (each broken on purpose; a test failed): a real quit is never held back, the setting
+and the tray decide hiding, hidden start needs a tray, sign-in item untouched where unsupported and only when it differs,
+notifications off/in-front/first-sight/repeat, a question never leaks its content, no install while busy or when nothing is
+ready, downloads follow the setting, background checks follow the setting, pause/resume not swapped, "working" outranks
+"paused", and the stop reaching every run and being announced.
+
+**Caveats — read these**
+
+- **Windows was never used for any of this.** Tray icons, the sign-in registration, toast notifications and their click
+  routing, `globalShortcut` behaviour, the taskbar and always-on-top stacking all behave per platform; here they were
+  exercised only on a bare Linux display (no system tray, no notification service) or by fake ports. The
+  `--hidden` sign-in start has been unit-tested for its decision, never run.
+- **Ctrl+Shift+Esc is Windows' own Task Manager key** and may be refused as the emergency-stop key (Phase 12); the status
+  says so if it happens. "Ctrl+Alt+Space" may clash with other programs. Nothing was tried on Windows.
+- **No Windows installer was ever produced.** The build reaches the point of assembling it and stops (it needs Wine); see
+  `docs/PACKAGING.md`. The installer will be **unsigned** (unknown publisher, SmartScreen warning), and without a signature
+  the updater cannot check who built an update — it can only check the file against the checksum in the feed.
+- **The real updater has never run**: there is no published release, so `electron-updater` has never fetched anything.
+  A stand-in feed proves the service and the screen, not the download, the checksum check or the restart on Windows.
+- Closing to the tray means Allaya keeps working out of sight. A run that needs a click waits (and a notification says a
+  question is waiting, without saying what); CRITICAL actions still need a click in the window.
+- The floating bar's position is not remembered (it opens top-right each time) and it is not tested with several monitors or
+  on Wayland. There is no jump list, taskbar progress or badge, no protocol or file association, no MSIX/winget package, no
+  delta updates, no beta channel and no way to roll back an update.
+- On Linux, tray support depends on the desktop environment, so it is off outside test runs; Linux and macOS are not
+  supported targets.
+
 ## Not started
 
-Phases 13–15 (Windows polish, testing pass, release). Anything that needs Windows UI Automation, the tray,
-global hotkeys on Windows, the installer, or auto-update **cannot be verified in this Linux environment** and will be marked 🪟
-until run on Windows.
+Phases 14–15 (a full testing pass, and the release). Anything that needs Windows UI Automation, the installer
+or auto-update **cannot be verified in this Linux environment** and stays marked 🪟 until run on Windows.

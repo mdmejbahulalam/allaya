@@ -17,3 +17,4 @@ test-results/
 *.sqlite-journal
 *.sqlite-wal
 *.sqlite-shm
+test-results-packaged/

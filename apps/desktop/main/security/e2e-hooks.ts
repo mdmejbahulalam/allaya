@@ -43,6 +43,12 @@ export const e2ePickedFolder = (): string | undefined => process.env['ALLAYA_E2E
 /** In E2E the native "Save as" dialog cannot be driven, so it "picks" this file instead. */
 export const e2eSaveFile = (): string | undefined => process.env['ALLAYA_E2E_SAVE_FILE'];
 
+/** `ALLAYA_E2E_TRAY=1`: give a test run a tray (a bare Linux display has none, so it is off by default). */
+export const e2eTray = (): boolean => process.env['ALLAYA_E2E_TRAY'] === '1';
+
+/** `ALLAYA_E2E_UPDATE_VERSION=9.9.9`: a stand-in update feed that always offers this version. */
+export const e2eUpdateVersion = (): string | undefined => process.env['ALLAYA_E2E_UPDATE_VERSION'];
+
 /** `ALLAYA_E2E_BROWSER_EXE`: the Chromium to drive in test runs (there is no Edge/Chrome in CI). */
 export const e2eBrowserExecutable = (): string | undefined => process.env['ALLAYA_E2E_BROWSER_EXE'];
 

@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Allaya — a personal AI computer agent / digital employee for Windows",
+  "description": "Allaya \u2014 a personal AI computer agent / digital employee for Windows",
   "license": "UNLICENSED",
   "packageManager": "pnpm@10.33.0",
   "engines": {
@@ -20,7 +20,8 @@
     "test:watch": "vitest",
     "test:e2e": "pnpm --filter @allaya/desktop build:e2e && xvfb-run -a playwright test",
     "db:generate": "pnpm --filter @allaya/database db:generate",
-    "check": "pnpm typecheck && pnpm lint && pnpm test"
+    "check": "pnpm typecheck && pnpm lint && pnpm test",
+    "test:packaged": "playwright test -c playwright.packaged.config.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",

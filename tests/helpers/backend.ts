@@ -41,6 +41,9 @@ export interface TestBackendOptions {
   tasks?: ContainerOptions['tasks'];
   automations?: ContainerOptions['automations'];
   memory?: ContainerOptions['memory'];
+  shellStatus?: ContainerOptions['shellStatus'];
+  showApp?: ContainerOptions['showApp'];
+  updates?: ContainerOptions['updates'];
 }
 
 export interface TestBackend {
@@ -77,6 +80,9 @@ export function createTestBackend(options: TestBackendOptions = {}): TestBackend
     ...(options.files ? { files: options.files } : {}),
     ...(options.browser ? { browser: options.browser } : {}),
     ...(options.memory ? { memory: options.memory } : {}),
+    ...(options.shellStatus ? { shellStatus: options.shellStatus } : {}),
+    ...(options.showApp ? { showApp: options.showApp } : {}),
+    ...(options.updates ? { updates: options.updates } : {}),
     ...(options.confirmationTimeoutMs !== undefined
       ? { confirmationTimeoutMs: options.confirmationTimeoutMs }
       : {}),

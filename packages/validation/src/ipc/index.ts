@@ -10,7 +10,9 @@ import { filesContract } from './files';
 import { memoryContract } from './memory';
 import { providersContract } from './providers';
 import { tasksContract } from './tasks';
+import { shellContract } from './shell';
 import { toolsContract } from './tools';
+import { updatesContract } from './updates';
 import { voiceContract } from './voice';
 import type { ChannelSpec, IpcResult } from './common';
 
@@ -27,6 +29,8 @@ export * from './files';
 export * from './browser';
 export * from './tasks';
 export * from './automations';
+export * from './shell';
+export * from './updates';
 export * from './memory';
 
 /**
@@ -49,6 +53,8 @@ export const ipcInvokeContract = {
   ...tasksContract.invoke,
   ...automationsContract.invoke,
   ...memoryContract.invoke,
+  ...shellContract.invoke,
+  ...updatesContract.invoke,
 } as const satisfies Record<string, ChannelSpec>;
 
 export const ipcEventContract = {
@@ -65,6 +71,8 @@ export const ipcEventContract = {
   ...tasksContract.events,
   ...automationsContract.events,
   ...memoryContract.events,
+  ...shellContract.events,
+  ...updatesContract.events,
 } as const satisfies Record<string, z.ZodType>;
 
 export type InvokeChannel = keyof typeof ipcInvokeContract;

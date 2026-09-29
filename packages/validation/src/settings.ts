@@ -17,6 +17,9 @@ export const settingsSchemas = {
   'general.startWithWindows': z.boolean(),
   'general.minimizeToTray': z.boolean(),
   'general.showFloatingAssistant': z.boolean(),
+  // Desktop notifications (only while Allaya's window is not in front) and updates.
+  'notifications.native': z.boolean(),
+  'updates.auto': z.boolean(),
   'general.quickActions': z
     .array(
       z.enum(['open_folder', 'open_browser', 'open_app', 'screenshot', 'find_file', 'run_task']),
@@ -65,6 +68,7 @@ export const settingsSchemas = {
   'shortcuts.newTask': z.string().max(64),
   'shortcuts.voice': z.string().max(64),
   'shortcuts.emergencyStop': z.string().max(64),
+  'shortcuts.showApp': z.string().max(64),
   'shortcuts.search': z.string().max(64),
   // Onboarding
   'onboarding.completed': z.boolean(),
@@ -81,6 +85,8 @@ export const settingsDefaults: SettingsSnapshot = {
   'general.startWithWindows': false,
   'general.minimizeToTray': true,
   'general.showFloatingAssistant': false,
+  'notifications.native': true,
+  'updates.auto': true,
   'general.quickActions': [
     'open_folder',
     'open_browser',
@@ -124,6 +130,7 @@ export const settingsDefaults: SettingsSnapshot = {
   'shortcuts.newTask': 'Ctrl+N',
   'shortcuts.voice': 'Ctrl+Shift+V',
   'shortcuts.emergencyStop': 'Ctrl+Shift+Escape',
+  'shortcuts.showApp': 'Ctrl+Alt+Space',
   'shortcuts.search': 'Ctrl+/',
   'onboarding.completed': false,
   'profile.displayName': '',

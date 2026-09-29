@@ -1,6 +1,6 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { App } from './app/app';
+import { App, FloatingApp } from './app/app';
 import { installStyleNonce } from './lib/nonce';
 import './styles/index.css';
 
@@ -8,7 +8,5 @@ import './styles/index.css';
 installStyleNonce();
 
 createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
+  <StrictMode>{location.hash === '#/floating' ? <FloatingApp /> : <App />}</StrictMode>,
 );

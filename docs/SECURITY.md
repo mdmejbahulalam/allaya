@@ -360,7 +360,36 @@ Tests: `tests/security/ipc-surface.test.ts`, `tests/integration/activity.test.ts
 refused; the screen would say so), key delivery was checked once by hand on X11; the Activity record is a convenience log, not
 tamper-proof; no third-party review or penetration test has been done.
 
-## 14. Not yet covered (honest status)
+## 14. The desktop shell (tray, notifications, updates, the floating bar)
+
+- **Running out of sight is visible and stoppable.** With "keep running in the tray", closing the window does not quit; the
+  first time, a notification says so. The tray icon's tooltip says whether Allaya is ready, working or paused, and its menu has
+  STOP, pause/resume automations and Quit. The person can turn the behaviour off. A real quit is never held back.
+- **Nothing about a question leaks to the desktop.** A notification that a question is waiting says only that, never what is
+  being asked (a notification can be read on a locked screen); the details are in the window, and CRITICAL actions still need a
+  click there. A task's notification does show its title (the person's own words, or an automation's name): turn notifications
+  off in Settings if that is a concern.
+- **Updates are never silent about restarting.** Allaya looks for updates and may download them (both can be turned off), but
+  restarting into one happens only when the person presses the button, and never while something is running. Downgrades are
+  refused. Trust in an update rests on the feed: the updater checks the file's checksum against the feed's list, and — only for a
+  **signed** build (`publisherName`) — the publisher's signature. **The build is not signed yet**, so today an attacker who
+  could publish to the release feed could ship a malicious update; protect the publishing account (two-factor, restricted
+  access) and sign the build before release. This is the largest supply-chain risk in the project.
+- **The sign-in start is the installed app only.** A development or test run never registers itself; the sign-in launch uses
+  `--hidden` so it stays in the tray. It is off by default.
+- **The floating bar has no extra power.** It is another page of the same app: same sandbox, same origin check, same channels
+  (its only extras are "show the app" and "stop everything", both harmless). It shows no confirmations and no content, only
+  status; STOP from it is the same emergency stop.
+- **The system-wide keys** (stop, show Allaya) can only stop everything or bring the window forward; neither reads anything.
+  If the system refuses one, the person is told.
+- **The installer is per-user** (no administrator rights) and its uninstaller keeps the person's data.
+
+Tests: `tests/unit/shell/*`, `tests/integration/desktop.test.ts`, `tests/e2e/desktop.spec.ts`,
+`tests/packaged/smoke.spec.ts`. **Unverified:** everything on Windows itself (see `docs/STATUS.md` Phase 13 and
+`docs/PACKAGING.md`), the real updater against a real feed, code signing (not done), and how Windows treats an unsigned
+installer.
+
+## 15. Not yet covered (honest status)
 
 See `docs/STATUS.md` for the per-requirement state. Security items that are designed but not yet built or not yet
 verifiable in this environment are tracked there, notably: NTFS-specific file behaviour, Edge/Chrome on Windows, the Windows input adapter's behaviour on a real desktop, the system-wide emergency-stop key on Windows, and Windows-specific hardening (UI Automation scope, installer signing,

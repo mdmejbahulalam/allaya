@@ -7,6 +7,7 @@ import { useMemoryStore } from '@renderer/stores/memory';
 import { useSafetyStore } from '@renderer/stores/safety';
 import { useVoiceStore } from '@renderer/stores/voice';
 import { useTasksStore } from '@renderer/stores/tasks';
+import { useUpdatesStore } from '@renderer/stores/updates';
 import { useUiStore } from '@renderer/stores/ui';
 import { useAgentStore } from '@renderer/stores/agent';
 import { useChatStore } from '@renderer/stores/chat';
@@ -81,8 +82,15 @@ export function useBackendSync(): void {
             .load()
             .catch(() => undefined),
       ),
+      // Someone clicked a notification or the tray: show that screen (and that task).
+      subscribe('app:navigate', ({ route, taskId }) => {
+        if (taskId) useTasksStore.getState().select(taskId);
+        useUiStore.getState().navigate(route);
+      }),
+      subscribe('updates:changed', (status) => useUpdatesStore.getState().set(status)),
       subscribe('activity:changed', () => useSafetyStore.getState().bumpActivity()),
       subscribe('agent:safetyChanged', () => useSafetyStore.getState().bumpSafety()),
+      subscribe('desktop:changed', () => useSafetyStore.getState().bumpSafety()),
       // The system-wide emergency-stop key was pressed, possibly while another program was in front.
       subscribe('agent:stopped', () => {
         // Main has stopped the runs; the microphone and speech live here, so silence them too.

@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import type { LanguagePreference } from '@allaya/types';
-import type { SettingKey, SettingValue } from '@allaya/validation';
+import type { SettingKey, SettingValue, ShellStatus } from '@allaya/validation';
 import { useT } from '@renderer/lib/i18n';
 import { cn } from '@renderer/lib/cn';
-import { IpcError } from '@renderer/lib/api';
+import { IpcError, invoke } from '@renderer/lib/api';
+import { useSafetyStore } from '@renderer/stores/safety';
 import { useSettingsStore } from '@renderer/stores/settings';
 import { toast } from '@renderer/stores/toasts';
 import { ScreenFrame } from '@renderer/components/shell/screen-frame';
@@ -67,10 +68,28 @@ function useSetting() {
   return { values, set };
 }
 
+/** What this computer lets the desktop shell do (so a switch that cannot work says so instead of doing nothing). */
+function useShellStatus(): ShellStatus | null {
+  const [status, setStatus] = useState<ShellStatus | null>(null);
+  const version = useSafetyStore((s) => s.safetyVersion);
+  useEffect(() => {
+    let cancelled = false;
+    invoke('desktop:getStatus').then(
+      (value) => !cancelled && setStatus(value),
+      () => undefined,
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [version]);
+  return status;
+}
+
 function GeneralSection() {
   const t = useT();
   const { values, set } = useSetting();
   const [name, setName] = useState(values['profile.displayName']);
+  const shell = useShellStatus();
   const actions = values['general.quickActions'];
   return (
     <Card>
@@ -91,21 +110,53 @@ function GeneralSection() {
           }
         />
       </SettingRow>
-      <SettingRow label={t.t('settings.general.startWithWindows')}>
+      <SettingRow
+        label={t.t('settings.general.startWithWindows')}
+        description={
+          shell && !shell.launchAtLoginSupported
+            ? t.t('settings.general.loginUnsupported')
+            : undefined
+        }
+      >
         <Switch
           label={t.t('settings.general.startWithWindows')}
           checked={values['general.startWithWindows']}
+          disabled={shell !== null && !shell.launchAtLoginSupported}
           onCheckedChange={(v) => void set('general.startWithWindows', v)}
         />
       </SettingRow>
-      <SettingRow label={t.t('settings.general.minimizeToTray')}>
+      <SettingRow
+        label={t.t('settings.general.minimizeToTray')}
+        description={
+          shell && !shell.trayAvailable
+            ? t.t('settings.general.trayUnavailable')
+            : t.t('settings.general.trayHint')
+        }
+      >
         <Switch
           label={t.t('settings.general.minimizeToTray')}
           checked={values['general.minimizeToTray']}
           onCheckedChange={(v) => void set('general.minimizeToTray', v)}
         />
       </SettingRow>
-      <SettingRow label={t.t('settings.general.floating')}>
+      <SettingRow label={t.t('settings.general.notifications')}>
+        <Switch
+          label={t.t('settings.general.notifications')}
+          checked={values['notifications.native']}
+          onCheckedChange={(v) => void set('notifications.native', v)}
+        />
+      </SettingRow>
+      <SettingRow label={t.t('settings.general.autoUpdate')}>
+        <Switch
+          label={t.t('settings.general.autoUpdate')}
+          checked={values['updates.auto']}
+          onCheckedChange={(v) => void set('updates.auto', v)}
+        />
+      </SettingRow>
+      <SettingRow
+        label={t.t('settings.general.floating')}
+        description={t.t('settings.general.floatingHint')}
+      >
         <Switch
           label={t.t('settings.general.floating')}
           checked={values['general.showFloatingAssistant']}
@@ -558,19 +609,29 @@ const SHORTCUT_ROWS = [
   ['shortcuts.newTask', 'newTask'],
   ['shortcuts.voice', 'voice'],
   ['shortcuts.emergencyStop', 'emergencyStop'],
+  ['shortcuts.showApp', 'showApp'],
   ['shortcuts.search', 'search'],
 ] as const satisfies ReadonlyArray<readonly [SettingKey, string]>;
 
 function ShortcutsSection() {
   const t = useT();
   const { values, set } = useSetting();
+  const shell = useShellStatus();
   return (
     <Card>
       <p className="mb-4 rounded-control bg-elevated px-3 py-2 text-small text-muted">
         {t.t('settings.shortcuts.hint')}
       </p>
       {SHORTCUT_ROWS.map(([key, name]) => (
-        <SettingRow key={key} label={t.t(`settings.shortcuts.${name}`)}>
+        <SettingRow
+          key={key}
+          label={t.t(`settings.shortcuts.${name}`)}
+          description={
+            name === 'showApp' && shell && !shell.showAppKey.registered
+              ? t.t(`settings.shortcuts.showAppStatus.${shell.showAppKey.reason ?? 'unavailable'}`)
+              : undefined
+          }
+        >
           <ShortcutRecorder
             label={t.t(`settings.shortcuts.${name}`)}
             value={values[key]}

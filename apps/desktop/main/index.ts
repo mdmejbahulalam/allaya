@@ -1,4 +1,5 @@
 import { app, BrowserWindow, globalShortcut, ipcMain, type IpcMainInvokeEvent } from 'electron';
+import { createTranslator } from '@allaya/localization';
 import { release } from 'node:os';
 import type { AppInfo } from '@allaya/validation';
 import { join } from 'node:path';
@@ -32,9 +33,25 @@ import {
   e2eFilesDir,
   e2ePickedFolder,
   e2eSaveFile,
+  e2eTray,
+  e2eUpdateVersion,
 } from './security/e2e-hooks';
 import { createProbeTool } from './security/e2e-tools';
 import { EmergencyStopShortcut } from './security/emergency-shortcut';
+import { GlobalShortcut } from './security/global-shortcut';
+import { decideClose, shouldStartHidden } from './shell/close-policy';
+import {
+  ElectronTray,
+  createUpdaterPort,
+  electronLoginItem,
+  electronNotifier,
+  iconPath,
+} from './shell/electron-shell';
+import { uiLocale } from './shell/locale';
+import { syncLoginItem } from './shell/login-item';
+import { NotificationController } from './shell/notifications';
+import { TrayController } from './shell/tray-controller';
+import type { UpdaterPort } from './shell/update-service';
 import { SafeStorageCipher } from './security/safe-storage-cipher';
 import { resolveAppPaths } from './paths';
 import { APP_INDEX_URL, installAppProtocol, registerAppScheme } from './security/app-protocol';
@@ -43,6 +60,7 @@ import {
   microphoneAllowed,
   senderFromEvent,
 } from './security/window-security';
+import { createFloatingWindow } from './windows/floating-window';
 import { createMainWindow } from './windows/main-window';
 import { bindTheme } from './windows/theme';
 
@@ -69,6 +87,37 @@ const { logger, file: fileLogSink } = createLogger({
 let container: Container | undefined;
 let mainWindow: BrowserWindow | undefined;
 let emergencyShortcut: EmergencyStopShortcut | undefined;
+let showAppShortcut: GlobalShortcut | undefined;
+let tray: TrayController | undefined;
+let floating: BrowserWindow | undefined;
+/** True once a real quit has begun (tray menu, installer restart, system shutdown): closing then really closes. */
+let quitting = false;
+let toldAboutTray = false;
+
+/** In a test run, an update feed that always offers the version the test names; installed builds use the real one. */
+function updaterPort(): UpdaterPort | undefined {
+  if (E2E) {
+    const version = e2eUpdateVersion();
+    if (!version) return undefined;
+    return {
+      check: () => Promise.resolve({ version }),
+      download: async (onProgress) => {
+        onProgress(40);
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        onProgress(100);
+      },
+      install: () => {
+        quitting = true;
+        app.quit();
+      },
+    };
+  }
+  return app.isPackaged
+    ? createUpdaterPort(logger.child('updates'), () => {
+        quitting = true;
+      })
+    : undefined;
+}
 
 const security = {
   ...(devServerUrl ? { devServerUrl } : {}),
@@ -184,6 +233,17 @@ function bootstrapBackend(): Container {
     },
     files: fileAccess(),
     browser: browserAccess(),
+    showApp: () => showApp(),
+    updates: { port: updaterPort() },
+    shellStatus: () => ({
+      trayAvailable: tray !== undefined,
+      launchAtLoginSupported: electronLoginItem.supported,
+      showAppKey: showAppShortcut?.status() ?? {
+        accelerator: 'Ctrl+Alt+Space',
+        registered: false,
+        reason: 'unavailable',
+      },
+    }),
     emergencyStop: () =>
       emergencyShortcut?.status() ?? {
         accelerator: 'Ctrl+Shift+Escape',
@@ -241,8 +301,7 @@ function bindEmergencyStop(c: Container): void {
     registrar: globalShortcut,
     accelerator: () => c.settings.get('shortcuts.emergencyStop'),
     onStop: () => {
-      const cancelled = c.runs.cancelAll('emergency stop');
-      c.events.publish('agent:stopped', { cancelled, via: 'shortcut' });
+      c.stopEverything('shortcut');
     },
     logger: logger.child('emergency-stop'),
   });
@@ -257,23 +316,201 @@ function bindEmergencyStop(c: Container): void {
   });
 }
 
-function openMainWindow(): void {
+/** Puts Allaya's window in front (making it if it was closed), optionally on a particular screen. */
+function showApp(target?: {
+  route: 'home' | 'tasks' | 'activity' | 'settings';
+  taskId?: string;
+}): void {
+  const fresh = !mainWindow || mainWindow.isDestroyed();
+  openMainWindow();
+  if (!target || !container) return;
+  const go = () =>
+    container?.events.publish('app:navigate', {
+      route: target.route,
+      ...(target.taskId ? { taskId: target.taskId } : {}),
+    });
+  // A window that has only just been made cannot hear the event until its page has loaded.
+  if (fresh && mainWindow) mainWindow.webContents.once('did-finish-load', go);
+  else go();
+}
+
+function openMainWindow(options: { startHidden?: boolean } = {}): void {
   if (mainWindow && !mainWindow.isDestroyed()) {
     if (mainWindow.isMinimized()) mainWindow.restore();
+    if (!mainWindow.isVisible()) mainWindow.show();
     mainWindow.focus();
     return;
   }
-  mainWindow = createMainWindow({
+  const window = createMainWindow({
     preloadPath: paths.preload,
     userDataDir: paths.userData,
     security,
     logger,
     backgroundColor: '#0B0D12',
-    showImmediately: E2E,
+    showImmediately: E2E && !options.startHidden,
+    iconPath: iconPath('icon.png'),
+    ...(options.startHidden ? { startHidden: true } : {}),
   });
-  if (devServerUrl) void mainWindow.loadURL(devServerUrl);
-  else void mainWindow.loadURL(APP_INDEX_URL);
+  mainWindow = window;
+  // With "keep running in the tray" on, closing the window hides it and Allaya carries on (schedules keep going).
+  window.on('close', (event) => {
+    const decision = decideClose({
+      quitting,
+      keepInTray: container?.settings.get('general.minimizeToTray') ?? false,
+      trayAvailable: tray !== undefined,
+    });
+    if (decision !== 'hide') return;
+    event.preventDefault();
+    window.hide();
+    if (!toldAboutTray) {
+      toldAboutTray = true;
+      electronNotifier.show({
+        title: shellTranslator().t('tray.stillRunning'),
+        onClick: () => showApp(),
+      });
+    }
+  });
+  window.on('closed', () => closeFloating());
+  if (devServerUrl) void window.loadURL(devServerUrl);
+  else void window.loadURL(APP_INDEX_URL);
 }
+
+function closeFloating(): void {
+  if (floating && !floating.isDestroyed()) floating.destroy();
+  floating = undefined;
+}
+
+const shellTranslator = () =>
+  createTranslator({
+    locale: uiLocale(container?.settings.get('language.ui') ?? 'auto', app.getLocale()),
+  });
+
+/**
+ * The parts of Allaya that live outside its window: the tray, starting at sign-in, desktop notifications and the
+ * system-wide "show Allaya" key. Each follows its setting and falls back quietly where the system cannot do it.
+ */
+function bindShell(c: Container): void {
+  // ── the tray ────────────────────────────────────────────────────────────
+  const wantTray = E2E ? e2eTray() : process.platform === 'win32' || process.platform === 'darwin';
+  if (wantTray) {
+    try {
+      tray = new TrayController({
+        port: new ElectronTray(),
+        translator: shellTranslator,
+        state: () => ({
+          activeRuns: c.runs.active().length,
+          automationsPaused: c.settings.get('automations.paused'),
+        }),
+        actions: {
+          open: () => showApp(),
+          stop: () => {
+            c.stopEverything('tray');
+          },
+          setAutomationsPaused: (paused) => c.automations.setPaused(paused),
+          quit: () => app.quit(),
+        },
+      });
+      const refresh = () => tray?.refresh();
+      c.runs.events.on('changed', refresh);
+      c.settings.events.on('changed', refresh);
+    } catch (error) {
+      logger.warn('Could not create the tray icon', { error: String(error) });
+      tray = undefined;
+    }
+  }
+
+  // ── starting at sign-in ─────────────────────────────────────────────────
+  const applyLogin = () => {
+    try {
+      syncLoginItem(electronLoginItem, c.settings.get('general.startWithWindows'));
+    } catch (error) {
+      logger.warn('Could not change starting at sign-in', { error: String(error) });
+    }
+    c.events.publish('desktop:changed', {});
+  };
+  applyLogin();
+  let login = c.settings.get('general.startWithWindows');
+
+  // ── notifications ───────────────────────────────────────────────────────
+  const notifications = new NotificationController({
+    notifier: electronNotifier,
+    enabled: () => c.settings.get('notifications.native'),
+    windowInFront: () =>
+      mainWindow !== undefined &&
+      !mainWindow.isDestroyed() &&
+      mainWindow.isVisible() &&
+      mainWindow.isFocused() &&
+      !mainWindow.isMinimized(),
+    translator: shellTranslator,
+    open: (target) => showApp(target),
+  });
+  c.tasks.subscribe((task) =>
+    notifications.taskChanged({
+      id: task.id,
+      title: task.title,
+      state: task.state,
+      outcome: task.outcome,
+    }),
+  );
+  c.events.addSink({
+    send(channel) {
+      if (channel === 'tools:confirmationRequested') notifications.confirmationRequested();
+    },
+  });
+
+  // ── the floating assistant ──────────────────────────────────────────────
+  const applyFloating = () => {
+    const wanted = c.settings.get('general.showFloatingAssistant');
+    if (!wanted) return closeFloating();
+    if (floating && !floating.isDestroyed()) return;
+    const base = devServerUrl ?? APP_INDEX_URL;
+    floating = createFloatingWindow({
+      preloadPath: paths.preload,
+      security,
+      logger,
+      url: `${base}#/floating`,
+      backgroundColor: '#0B0D12',
+      iconPath: iconPath('icon.png'),
+      showImmediately: E2E,
+    });
+    floating.on('closed', () => {
+      floating = undefined;
+    });
+  };
+  applyFloating();
+  let floatingWanted = c.settings.get('general.showFloatingAssistant');
+
+  // ── the system-wide "show Allaya" key ───────────────────────────────────
+  const show = new GlobalShortcut({
+    registrar: globalShortcut,
+    accelerator: () => c.settings.get('shortcuts.showApp'),
+    onPress: () => showApp(),
+    logger: logger.child('show-key'),
+    name: 'show-app',
+  });
+  showAppShortcut = show;
+  show.apply();
+  let showKey = c.settings.get('shortcuts.showApp');
+
+  c.settings.events.on('changed', (snapshot) => {
+    if (snapshot['general.startWithWindows'] !== login) {
+      login = snapshot['general.startWithWindows'];
+      applyLogin();
+    }
+    if (snapshot['general.showFloatingAssistant'] !== floatingWanted) {
+      floatingWanted = snapshot['general.showFloatingAssistant'];
+      applyFloating();
+    }
+    if (snapshot['shortcuts.showApp'] !== showKey) {
+      showKey = snapshot['shortcuts.showApp'];
+      show.apply();
+      c.events.publish('desktop:changed', {});
+    }
+  });
+}
+
+// Windows groups the taskbar button and attributes notifications by this id; it must match the installer's app id.
+if (process.platform === 'win32') app.setAppUserModelId('com.allaya.desktop');
 
 // Must be registered before the app is ready.
 registerAppScheme();
@@ -282,7 +519,7 @@ const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
   app.quit();
 } else {
-  app.on('second-instance', () => openMainWindow());
+  app.on('second-instance', () => showApp());
 
   void app.whenReady().then(() => {
     logger.info('Allaya starting', { version: app.getVersion(), environment });
@@ -290,11 +527,13 @@ if (!gotLock) {
     container = bootstrapBackend();
     bindTheme(container.settings, () => BrowserWindow.getAllWindows());
     bindEmergencyStop(container);
+    bindShell(container);
+    if (!E2E) container.updates.start();
 
-    openMainWindow();
+    openMainWindow({ startHidden: shouldStartHidden(process.argv, tray !== undefined) });
 
     app.on('activate', () => {
-      if (BrowserWindow.getAllWindows().length === 0) openMainWindow();
+      if (BrowserWindow.getAllWindows().length === 0) showApp();
     });
   });
 
@@ -302,8 +541,15 @@ if (!gotLock) {
     if (process.platform !== 'darwin') app.quit();
   });
 
+  app.on('before-quit', () => {
+    quitting = true;
+  });
+
   app.on('will-quit', () => {
     emergencyShortcut?.release();
+    showAppShortcut?.release();
+    closeFloating();
+    tray?.dispose();
     container?.dispose();
     void fileLogSink.flush();
   });

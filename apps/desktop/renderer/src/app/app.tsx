@@ -7,6 +7,7 @@ import { useAppInfoStore } from '@renderer/stores/app-info';
 import { useSettingsStore } from '@renderer/stores/settings';
 import { Toaster } from '@renderer/components/ui/toast';
 import { TooltipProvider } from '@renderer/components/ui/tooltip';
+import { FloatingAssistant } from '@renderer/features/floating/floating-assistant';
 import { AppShell } from './app-shell';
 import { useBackendSync } from './use-backend-sync';
 import { useMotionPreference, useThemeEffects } from './use-theme-effects';
@@ -16,7 +17,7 @@ const queryClient = new QueryClient({
 });
 
 /** Loads settings + app info from the trusted main process before first paint of the real UI. */
-function useBootstrap(): boolean {
+export function useBootstrap(): boolean {
   const [ready, setReady] = useState(false);
   const hydrate = useSettingsStore((s) => s.hydrate);
   const setInfo = useAppInfoStore((s) => s.set);
@@ -49,6 +50,29 @@ function Themed() {
       <TooltipProvider>
         <AppShell />
         <Toaster />
+      </TooltipProvider>
+    </MotionConfig>
+  );
+}
+
+/** The page of the small always-on-top bar (`#/floating`): the same themed, translated app, without the shell. */
+export function FloatingApp() {
+  const ready = useBootstrap();
+  if (!ready) return null;
+  return (
+    <I18nProvider>
+      <FloatingThemed />
+    </I18nProvider>
+  );
+}
+
+function FloatingThemed() {
+  useThemeEffects();
+  const reducedMotion = useMotionPreference();
+  return (
+    <MotionConfig reducedMotion={reducedMotion}>
+      <TooltipProvider>
+        <FloatingAssistant />
       </TooltipProvider>
     </MotionConfig>
   );

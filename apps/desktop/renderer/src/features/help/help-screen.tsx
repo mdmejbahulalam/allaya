@@ -4,6 +4,7 @@ import { useSettingsStore } from '@renderer/stores/settings';
 import { ScreenFrame } from '@renderer/components/shell/screen-frame';
 import { Card, CardHeader } from '@renderer/components/ui/card';
 import { Kbd } from '@renderer/components/ui/kbd';
+import { UpdatesCard } from './updates-card';
 
 export function HelpScreen() {
   const t = useT();
@@ -14,6 +15,7 @@ export function HelpScreen() {
     ['newTask', shortcuts['shortcuts.newTask']],
     ['voice', shortcuts['shortcuts.voice']],
     ['emergencyStop', shortcuts['shortcuts.emergencyStop']],
+    ['showApp', shortcuts['shortcuts.showApp']],
     ['search', shortcuts['shortcuts.search']],
   ] as const;
   return (
@@ -44,6 +46,7 @@ export function HelpScreen() {
             ))}
           </dl>
         </Card>
+        <UpdatesCard />
         <Card>
           <CardHeader title={t.t('help.aboutTitle')} />
           <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1 text-body">

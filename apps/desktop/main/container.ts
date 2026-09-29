@@ -14,7 +14,7 @@ import {
 import { CredentialVault, type Cipher, type CredentialStore } from '@allaya/security';
 import { AllayaError, RunRegistry, newId, type Logger } from '@allaya/shared';
 import type { ProviderId } from '@allaya/types';
-import type { AppInfo, EmergencyStopStatus } from '@allaya/validation';
+import type { AppInfo, EmergencyStopStatus, ShellStatus } from '@allaya/validation';
 import type { ProviderFactoryOptions } from '@allaya/ai';
 import {
   CompositeAdapter,
@@ -61,6 +61,8 @@ import { BrowserService, type BrowserLaunchState } from './services/browser-serv
 import { EventPublisher } from './ipc/events';
 import { HandlerRegistry } from './ipc/registry';
 import { registerAgentHandlers } from './ipc/handlers/agent';
+import { registerShellHandlers } from './ipc/handlers/shell';
+import { UpdateService, type UpdaterPort } from './shell/update-service';
 import { ACTIVITY_RETENTION_DAYS, registerActivityHandlers } from './ipc/handlers/activity';
 import { registerAppHandlers } from './ipc/handlers/app';
 import { registerChatHandlers } from './ipc/handlers/chat';
@@ -109,6 +111,12 @@ export interface ContainerOptions {
     pickFolder?: (title: string) => Promise<string | undefined>;
     reveal?: (absolutePath: string) => void;
   };
+  /** Puts the main window in front (only the running app has windows). */
+  showApp?: () => void;
+  /** What the desktop shell (tray, start at sign-in, system-wide keys) can do on this computer. */
+  shellStatus?: () => ShellStatus;
+  /** The update feed. Omitted where there is none (development, tests): updates then report "unsupported". */
+  updates?: { port?: UpdaterPort };
   /** The state of the system-wide emergency-stop key (only the running app can register one). */
   emergencyStop?: () => EmergencyStopStatus;
   memory?: {
@@ -160,6 +168,9 @@ export interface Container {
   tasks: TaskService;
   automations: AutomationService;
   memory: MemoryManager;
+  updates: UpdateService;
+  /** The emergency stop for callers outside the main window: stops everything and tells the main window it happened. */
+  stopEverything: (via: 'shortcut' | 'tray' | 'floating') => number;
   permissions: PermissionService;
   runs: RunRegistry;
   events: EventPublisher;
@@ -446,6 +457,33 @@ export function createContainer(options: ContainerOptions): Container {
     changed: () => events.publish('memory:changed', {}),
     ...(options.memory?.pickSaveFile ? { pickSaveFile: options.memory.pickSaveFile } : {}),
   });
+  const stopEverything = (via: 'shortcut' | 'tray' | 'floating'): number => {
+    const cancelled = runs.cancelAll('emergency stop');
+    events.publish('agent:stopped', { cancelled, via });
+    return cancelled;
+  };
+  const updates = new UpdateService({
+    port: options.updates?.port,
+    auto: () => settings.get('updates.auto'),
+    busy: () => runs.active().length > 0,
+    logger: options.logger.child('updates'),
+    onChange: (status) => events.publish('updates:changed', status),
+  });
+  registerShellHandlers(
+    registry,
+    updates,
+    options.shellStatus ??
+      (() => ({
+        trayAvailable: false,
+        launchAtLoginSupported: false,
+        showAppKey: {
+          accelerator: settings.get('shortcuts.showApp'),
+          registered: false,
+          reason: 'unavailable' as const,
+        },
+      })),
+    { showApp: () => options.showApp?.(), stopEverything },
+  );
   registerActivityHandlers(registry, audit, () => events.publish('activity:changed', {}));
   registerAgentHandlers(registry, runs, {
     emergencyStop: () =>
@@ -469,6 +507,8 @@ export function createContainer(options: ContainerOptions): Container {
     tasks,
     automations,
     memory,
+    updates,
+    stopEverything,
     permissions,
     runs,
     events,
@@ -477,6 +517,7 @@ export function createContainer(options: ContainerOptions): Container {
     dispose: () => {
       // Tasks first: they are paused as interrupted (resumable), not cancelled by the general stop below.
       automations.stop();
+      updates.stop();
       tasks.shutdown();
       runs.cancelAll('shutdown');
       void browserEngine.close().finally(() => proxy.stop());

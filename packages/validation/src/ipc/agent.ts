@@ -31,10 +31,10 @@ export const agentContract = {
     'agent:status': agentStatusEventSchema,
     /** The emergency-stop key was re-registered (the person chose another one): ask again for its status. */
     'agent:safetyChanged': z.object({}),
-    /** The system-wide emergency-stop key was pressed (the window may be hidden or unfocused). */
+    /** Everything was stopped from outside the main window (the system-wide key, the tray, the floating assistant). */
     'agent:stopped': z.object({
       cancelled: z.number().int().nonnegative(),
-      via: z.literal('shortcut'),
+      via: z.enum(['shortcut', 'tray', 'floating']),
     }),
   },
 } as const;

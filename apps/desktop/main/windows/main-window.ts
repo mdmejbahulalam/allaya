@@ -12,6 +12,10 @@ export interface MainWindowOptions {
   /** Show immediately (tests) instead of waiting for first paint. */
   showImmediately?: boolean;
   backgroundColor: string;
+  /** Start in the tray: create the window but do not show it. */
+  startHidden?: boolean;
+  /** The window icon (the taskbar uses the installed program's own icon on Windows). */
+  iconPath?: string;
 }
 
 export function createMainWindow(options: MainWindowOptions): BrowserWindow {
@@ -26,6 +30,7 @@ export function createMainWindow(options: MainWindowOptions): BrowserWindow {
     minHeight: 600,
     show: false,
     title: 'Allaya',
+    ...(options.iconPath ? { icon: options.iconPath } : {}),
     backgroundColor: options.backgroundColor,
     // Our own header renders in the title-bar area; native controls overlay it on Windows.
     titleBarStyle: 'hidden',
@@ -50,8 +55,10 @@ export function createMainWindow(options: MainWindowOptions): BrowserWindow {
   stateStore.track(window);
   if (state.maximized) window.maximize();
 
-  window.once('ready-to-show', () => window.show());
-  if (options.showImmediately) window.show();
+  if (!options.startHidden) {
+    window.once('ready-to-show', () => window.show());
+    if (options.showImmediately) window.show();
+  }
 
   window.webContents.on('render-process-gone', (_event, details) => {
     options.logger.error('Renderer process gone', {

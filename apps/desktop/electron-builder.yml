@@ -1,0 +1,70 @@
+# How Allaya is packaged. Build the app first (`pnpm build`), then run `pnpm --filter @allaya/desktop dist` (the Windows
+# installer; needs Windows, or Wine on Linux/macOS) or `pnpm --filter @allaya/desktop pack` (an unpacked folder for the
+# current system, used to check the package layout).
+appId: com.allaya.desktop
+productName: Allaya
+copyright: Copyright © Allaya
+directories:
+  output: release
+  buildResources: build
+
+# Only what runs is shipped: the built app, and (from package.json `dependencies`) the few modules that stay external.
+# The workspace packages are bundled into the main process by the build, so they are not shipped as folders.
+files:
+  - out/**
+  - package.json
+  - '!**/*.map'
+
+# The database driver is a native module: it cannot be loaded from inside the archive.
+asar: true
+asarUnpack:
+  - '**/node_modules/better-sqlite3/**'
+  - '**/*.node'
+# better-sqlite3 uses Node-API, which is stable across Node and Electron, so there is nothing to rebuild.
+npmRebuild: false
+
+extraResources:
+  # Read by the running app from `<resources>/migrations` (see `paths.ts`).
+  - from: ../../packages/database/migrations
+    to: migrations
+    filter: ['**/*.sql', 'meta/_journal.json']
+  - from: build/icon.png
+    to: icons/icon.png
+  - from: build/tray.png
+    to: icons/tray.png
+  - from: build/tray@2x.png
+    to: icons/tray@2x.png
+
+linux:
+  # Only used to check the package layout on Linux; the shipped product is the Windows installer.
+  executableName: allaya
+  category: Utility
+
+win:
+  icon: build/icon.ico
+  target:
+    - target: nsis
+      arch: [x64]
+  # Code signing is what lets Windows show a verified publisher and lets the updater check who built an update. It needs a
+  # certificate this repository does not have: set CSC_LINK / CSC_KEY_PASSWORD when building for release, and add
+  # `publisherName` here (the name on the certificate). Until then the installer is UNSIGNED and Windows will warn.
+  artifactName: '${productName}-Setup-${version}-${arch}.${ext}'
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Allaya
+  # The person's memories, activity and settings are theirs: uninstalling never deletes them.
+  deleteAppDataOnUninstall: false
+  runAfterFinish: true
+
+# Where updates come from (read by electron-updater from the installed app). Releases published here carry `latest.yml`
+# with each file's checksum; the updater refuses a file that does not match.
+publish:
+  provider: github
+  owner: mdmejbahulalam
+  repo: allaya
+  releaseType: release
