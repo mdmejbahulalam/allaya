@@ -123,6 +123,9 @@ importers:
       '@allaya/ai':
         specifier: workspace:*
         version: link:../../packages/ai
+      '@allaya/browser':
+        specifier: workspace:*
+        version: link:../../packages/browser
       '@allaya/computer':
         specifier: workspace:*
         version: link:../../packages/computer
@@ -207,6 +210,24 @@ importers:
       '@allaya/types':
         specifier: workspace:*
         version: link:../types
+
+  packages/browser:
+    dependencies:
+      '@allaya/shared':
+        specifier: workspace:*
+        version: link:../shared
+      '@allaya/tools':
+        specifier: workspace:*
+        version: link:../tools
+      '@allaya/types':
+        specifier: workspace:*
+        version: link:../types
+      playwright-core:
+        specifier: 1.63.0
+        version: 1.63.0
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
 
   packages/computer:
     dependencies:

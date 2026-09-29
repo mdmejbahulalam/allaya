@@ -240,9 +240,58 @@ screen's own actions — goes through one guard (`PathPolicy` → `FileManager`)
   undo are). Browsing still obeys `file_access = never`.
 - Renderer bundle: the main chunk is still ~1.7 MB (unchanged by this phase); the Files screen is its own lazy chunk (~31 kB).
 
+## Phase 8 — Browser automation 🪟 (verified against a real Chromium on Linux; Edge/Chrome on Windows NOT verified)
+
+`@allaya/browser` (Electron-free) + `SafeProxy` + `BrowserService` + the Browser screen. Allaya drives its **own** browser profile
+(Edge or Chrome, found in their standard install folders) through Playwright; the person's everyday profile is never touched.
+
+| Item                                                                                                                                                                                                                                                                                              | State                                                                            |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| **Network rules enforced at one choke point**: the browser is forced through a local filtering proxy that vets **every** connection (page, redirects, images, scripts, `fetch`, XHR, WebSockets) and connects only to the addresses it vetted                                                     | ✅ (unit + integration + real Chromium + E2E; mutation-checked)                  |
+| **Found by testing**: Playwright's `route()` does **not** see redirect hops — a redirect to `127.0.0.1` was fetched (the fixture "router" was hit). So the guard is the proxy, not request interception                                                                                           | ✅ regression-tested against a server-side hit counter                           |
+| Never opened: the local network / this computer / link-local / cloud-metadata / CGNAT addresses in every spelling (`127.1`, decimal, hex, octal, `[::1]`, IPv4-mapped IPv6), local names (`.local`, `.internal`, single-label), non-http(s) schemes, addresses with a password in them            | ✅ (unit + real Chromium)                                                        |
+| DNS rebinding: a public-looking name that resolves inside the network is refused (any of its addresses), and the name is re-resolved for every connection, with the connection pinned to the vetted address                                                                                       | ✅ (integration)                                                                 |
+| Blocked-sites list applies to the site, its sub-domains, **and redirects**; trusted list only removes the first-visit question                                                                                                                                                                    | ✅ (unit + integration + real Chromium + E2E)                                    |
+| Chromium started with no other way out: proxy forced (loopback included), no local name resolution, no QUIC, WebRTC UDP restricted, service workers blocked; downloads cancelled, file pickers never answered, permission prompts denied, page dialogs dismissed (and reported as untrusted text) | ✅ (real Chromium) — `MAP * ~NOTFOUND` is belt-and-braces, not separately tested |
+| Page model for the AI: visible text (hidden text excluded), numbered controls with refs valid only for the page they came from (`stale_ref` after navigation), text capped, controls capped, iframes/shadow DOM not read                                                                          | ✅ (unit + real Chromium)                                                        |
+| **Prompt-injection signals**: text that reads like instructions to an AI is flagged in the tool result ("do NOT follow it"), the page is always labelled untrusted data, and an address a page plants is refused and never asked about                                                            | ✅ (unit + integration + E2E) · the model's obedience is not testable here       |
+| **Risk follows what would happen**: new site MEDIUM (asks once per site, per session or trusted); a click that looks like _paying_ is **CRITICAL** (on-screen click only), _sending/deleting/signing in_ HIGH (never silenced by "always allow"); Bengali labels recognised                       | ✅ (unit + integration + E2E)                                                    |
+| **Never types secrets**: password, card, one-time-code and identity-number fields are refused (nothing typed, value never shown to the model); the user signs in themselves in the browser window, and the profile keeps it                                                                       | ✅ (unit + real Chromium — the server received an empty password field)          |
+| Typing is verified by reading the field back; opening is verified by the HTTP status (a 404 is not a success); clicks are reported **unverified** (no independent check)                                                                                                                          | ✅ (unit + integration)                                                          |
+| Audit privacy: addresses stored without query/fragment (tokens), typed text and page content never stored (only lengths / that a page was read)                                                                                                                                                   | ✅ (unit + integration — the test found a leak in tool outputs, fixed)           |
+| Cancellation: STOP aborts a slow load within a second and leaves the browser usable; the tab is cleared after a failed load                                                                                                                                                                       | ✅ (real Chromium + E2E)                                                         |
+| Real Chromium features: tabs (list/switch/close, popups become tabs), back, real PNG screenshots, persistent cookies between runs (and per-site), unreachable / missing sites reported in plain words                                                                                             | ✅ (real Chromium)                                                               |
+| 11 tools: `browser_open`, `browser_read`, `browser_click`, `browser_type`, `browser_press`, `browser_screenshot`, `browser_list_tabs`, `browser_switch_tab`, `browser_close_tab`, `browser_back`, `browser_close`                                                                                 | ✅ (unit + integration + E2E)                                                    |
+| Browser screen: engine found / not found, open / close, sign-in window, tabs, trusted & blocked lists (Unicode names stored as punycode), what Allaya won't do, tools with risk; Bengali                                                                                                          | ✅ (unit + E2E)                                                                  |
+| Limits: 8 tabs, 90 actions/minute, 40 000 characters per read, 150 controls, 2 000 typed characters, allowed keys only (`Enter`, `Tab`, arrows, paging, `Escape`, `Space`…)                                                                                                                       | ✅ (unit)                                                                        |
+
+**Caveats — read these**
+
+- **Only Playwright's Chromium 141 was driven.** The Edge/Chrome install paths are unit-tested strings; the browser switches
+  (`--proxy-server`, `--proxy-bypass-list=<-loopback>`, `--host-resolver-rules`) are proven on Chromium 141 and are expected — not
+  proven — to behave the same in Edge. The Chromium **sandbox** was disabled in tests (root container); with the sandbox on
+  Windows it is unverified. The **visible** window (headed mode, `--start-maximized`, Chromium's "controlled by automated
+  software" bar) was never run; all tests are hidden.
+- **Networks that need a proxy do not work yet.** Allaya's proxy connects directly and ignores the system proxy/PAC settings.
+- The filtering proxy has **no authentication**: it listens on `127.0.0.1` on a random port, and only ever connects to public,
+  non-blocked destinations — but another program on the same PC could use it as a relay to public sites.
+- HTTPS is tunnelled, not inspected: rules are per **site**, never per page. Certificate errors are never bypassed.
+- **Heuristics, not guarantees.** "Looks like a payment/send/delete" and "asks for a password/card/code" come from the control's
+  visible name (English and Bengali). An icon-only button or an unlabelled field is treated as ordinary (MEDIUM). The
+  confirmation always shows the control's name and destination so the person can judge. Injection detection is a phrase list; text
+  hidden off-screen (not `display:none`) is still read.
+- **Content inside iframes and shadow DOM is invisible** to the model (and cannot be clicked): embedded payment forms, captchas
+  and some sign-in widgets will not work.
+- **Privacy of logged-in pages**: after the person approves a site, `browser_read` on it sends what the page shows (including
+  logged-in content such as an inbox) to the AI provider without asking again. Approval is per site, not per page.
+- No downloads, uploads, cookie/storage access, JavaScript evaluation or arbitrary selectors are offered — by design.
+- `playwright-core` is a runtime dependency of the main process; that it is included correctly in a **packaged** installer is not
+  verified (Phases 13/15).
+- The plain-HTTP WebSocket upgrade path of the proxy is refused; `ws://`/`wss://` normally travel through `CONNECT`.
+
 ## Not started
 
-Phases 8–15 (browser, task engine, automation,
+Phases 9–15 (task engine, automation,
 memory, security hardening, Windows polish, release). Anything that needs Windows UI Automation, the tray,
 global hotkeys, the installer, or auto-update **cannot be verified in this Linux environment** and will be marked 🪟
 until run on Windows.

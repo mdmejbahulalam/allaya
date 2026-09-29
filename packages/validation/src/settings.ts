@@ -6,6 +6,12 @@ import { LANGUAGE_PREFERENCES } from '@allaya/types';
  * declared here, and each value is validated against its own schema — there is no
  * generic "write anything" channel.
  */
+/** A normalised (lowercase, punycode) domain name, as `normalizeDomain` in `@allaya/browser` produces it. */
+const domain = z
+  .string()
+  .max(253)
+  .regex(/^(?=.{1,253}$)(?!-)[a-z0-9-]{1,63}(?<!-)(?:\.(?!-)[a-z0-9-]{1,63}(?<!-))+$/);
+
 export const settingsSchemas = {
   // General
   'general.startWithWindows': z.boolean(),
@@ -46,6 +52,10 @@ export const settingsSchemas = {
   'voice.speechRate': z.number().min(0.5).max(2),
   'voice.sttModel': z.string().regex(/^[A-Za-z0-9._:-]{1,60}$/),
   'voice.ttsModel': z.string().regex(/^[A-Za-z0-9._:-]{1,60}$/),
+  // Browser. Sites Allaya may visit without asking, and sites it must never visit.
+  'browser.trustedDomains': z.array(domain).max(200),
+  'browser.blockedDomains': z.array(domain).max(200),
+  'browser.headless': z.boolean(),
   // Shortcuts
   'shortcuts.commandPalette': z.string().max(64),
   'shortcuts.newTask': z.string().max(64),
@@ -101,6 +111,9 @@ export const settingsDefaults: SettingsSnapshot = {
   'voice.speechRate': 1,
   'voice.sttModel': 'whisper-1',
   'voice.ttsModel': 'gpt-4o-mini-tts',
+  'browser.trustedDomains': [],
+  'browser.blockedDomains': [],
+  'browser.headless': false,
   'shortcuts.commandPalette': 'Ctrl+K',
   'shortcuts.newTask': 'Ctrl+N',
   'shortcuts.voice': 'Ctrl+Shift+V',

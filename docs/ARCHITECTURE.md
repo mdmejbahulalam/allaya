@@ -41,6 +41,7 @@ Operating system
 | `@allaya/tools`      | Tool registry, risk/permission policy, confirmation broker, execution pipeline                  |
 | `@allaya/computer`   | Computer control engine: adapters (Windows/host/memory), app catalog, input-safety rules, tools |
 | `@allaya/filesystem` | Scoped file operations: path policy, guarded ops, trash, undo journal, file tools               |
+| `@allaya/browser`    | Browser automation: URL policy, filtering proxy, page model, engine, Playwright session, tools  |
 
 More packages arrive with their phases (see STATUS.md).
 

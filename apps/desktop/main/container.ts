@@ -10,7 +10,7 @@ import {
   type DatabaseHandle,
 } from '@allaya/database';
 import { CredentialVault, type Cipher, type CredentialStore } from '@allaya/security';
-import { RunRegistry, newId, type Logger } from '@allaya/shared';
+import { AllayaError, RunRegistry, newId, type Logger } from '@allaya/shared';
 import type { ProviderId } from '@allaya/types';
 import type { AppInfo } from '@allaya/validation';
 import type { ProviderFactoryOptions } from '@allaya/ai';
@@ -20,6 +20,17 @@ import {
   createComputerTools,
   type ScreenshotStore,
 } from '@allaya/computer';
+import {
+  BrowserEngine,
+  PlaywrightSession,
+  SafeProxy,
+  UrlPolicy,
+  createBrowserTools,
+  findBrowser,
+  type BrowserSession,
+  type FoundBrowser,
+  type UrlPolicyOptions,
+} from '@allaya/browser';
 import {
   AppTrash,
   FileManager,
@@ -33,6 +44,8 @@ import { DbJournal } from './files/db-journal';
 import { FolderRoots } from './files/folder-roots';
 import { FileService } from './services/file-service';
 import { registerFileHandlers } from './ipc/handlers/files';
+import { registerBrowserHandlers } from './ipc/handlers/browser';
+import { BrowserService, type BrowserLaunchState } from './services/browser-service';
 import { EventPublisher } from './ipc/events';
 import { HandlerRegistry } from './ipc/registry';
 import { registerAgentHandlers } from './ipc/handlers/agent';
@@ -83,6 +96,24 @@ export interface ContainerOptions {
     pickFolder?: (title: string) => Promise<string | undefined>;
     reveal?: (absolutePath: string) => void;
   };
+  /**
+   * The browser Allaya may drive. Omitted in tests that do not browse (then the model is offered no browser tools).
+   * The browser itself is started only when something first needs it.
+   */
+  browser?: {
+    /** Allaya's own browser profile (cookies, sign-ins): never the person's everyday profile. */
+    profileDir: string;
+    /** Which installed browser to drive. Defaults to Edge, then Chrome, in their standard folders. */
+    discover?: () => FoundBrowser | undefined;
+    /** Only for containers where Chromium cannot use its sandbox (running as root). */
+    noSandbox?: boolean;
+    /** Test seam: a scripted browser in place of Chromium. */
+    createSession?: (headless: boolean, policy: UrlPolicy) => Promise<BrowserSession>;
+    /** Test seam: lets named fixture hosts reach this machine, and decides how names resolve. */
+    policyOptions?: Pick<UrlPolicyOptions, 'allowHosts' | 'resolve'>;
+    /** Force a hidden browser regardless of the setting (test runs). */
+    forceHeadless?: boolean;
+  };
   /** Extra tools to register (each later phase supplies its own; E2E adds harmless test tools). */
   extraTools?: ToolDefinition[];
   /** How long an unanswered confirmation stays open. Tests shorten it. */
@@ -102,6 +133,7 @@ export interface Container {
   tools: ToolService;
   computer: ComputerService;
   files: FileService;
+  browser: BrowserService;
   permissions: PermissionService;
   runs: RunRegistry;
   events: EventPublisher;
@@ -181,12 +213,74 @@ export function createContainer(options: ContainerOptions): Container {
     });
     fileTools = createFileTools(fileManager);
   }
+  // Browser: one URL policy shared by the engine (checks before navigating) and the network proxy (checks every
+  // connection the browser makes), reading the user's trusted/blocked lists live.
+  const launchState: BrowserLaunchState = { forceHeaded: false, headless: true };
+  const browserOptions = options.browser;
+  const urlPolicy = new UrlPolicy({
+    blocked: () => settings.get('browser.blockedDomains'),
+    trusted: () => settings.get('browser.trustedDomains'),
+    ...(browserOptions?.policyOptions ?? {}),
+  });
+  const discover = browserOptions?.discover ?? (() => findBrowser());
+  const proxy = new SafeProxy({ policy: urlPolicy });
+  const browserEngine = new BrowserEngine({
+    policy: urlPolicy,
+    session: async () => {
+      if (!browserOptions) {
+        throw new AllayaError('The browser is not available here', {
+          code: 'UNSUPPORTED_PLATFORM',
+        });
+      }
+      const headless =
+        browserOptions.forceHeadless === true
+          ? true
+          : launchState.forceHeaded
+            ? false
+            : settings.get('browser.headless');
+      launchState.headless = headless;
+      if (browserOptions.createSession) return browserOptions.createSession(headless, urlPolicy);
+      const found = discover();
+      if (!found) {
+        throw new AllayaError(
+          'No compatible browser was found. Install Microsoft Edge or Google Chrome to let Allaya browse.',
+          { code: 'UNSUPPORTED_PLATFORM' },
+        );
+      }
+      await proxy.start();
+      return PlaywrightSession.launch({
+        profileDir: browserOptions.profileDir,
+        executablePath: found.path,
+        proxy,
+        headless,
+        ...(browserOptions.noSandbox ? { noSandbox: true } : {}),
+      });
+    },
+  });
+  const browserTools = browserOptions
+    ? createBrowserTools(browserEngine, options.computer?.screenshots)
+    : [];
+  const browser = new BrowserService({
+    engine: browserEngine,
+    settings,
+    engineKind: () =>
+      browserOptions?.createSession
+        ? 'chromium'
+        : browserOptions
+          ? (discover()?.kind ?? undefined)
+          : undefined,
+    tools: browserTools,
+    launch: launchState,
+    profileFolder: browserOptions?.profileDir ?? '',
+    logger: options.logger.child('browser'),
+  });
+  browserEngine.onChange(() => events.publish('browser:changed', {}));
   const tools = new ToolService({
     permissions,
     audit: new ToolAuditRepository(database.db),
     events,
     logger: options.logger.child('tools'),
-    tools: [...computerTools, ...fileTools, ...(options.extraTools ?? [])],
+    tools: [...computerTools, ...fileTools, ...browserTools, ...(options.extraTools ?? [])],
     ...(options.confirmationTimeoutMs !== undefined
       ? { confirmationTimeoutMs: options.confirmationTimeoutMs }
       : {}),
@@ -236,6 +330,7 @@ export function createContainer(options: ContainerOptions): Container {
   registerToolHandlers(registry, tools, permissions);
   registerComputerHandlers(registry, computer);
   registerFileHandlers(registry, fileService);
+  registerBrowserHandlers(registry, browser);
   registerAgentHandlers(registry, runs);
 
   return {
@@ -247,6 +342,7 @@ export function createContainer(options: ContainerOptions): Container {
     tools,
     computer,
     files: fileService,
+    browser,
     permissions,
     runs,
     events,
@@ -254,6 +350,7 @@ export function createContainer(options: ContainerOptions): Container {
     logger: options.logger,
     dispose: () => {
       runs.cancelAll('shutdown');
+      void browserEngine.close().finally(() => proxy.stop());
       database.close();
     },
   };

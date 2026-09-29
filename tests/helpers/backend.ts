@@ -36,6 +36,7 @@ export interface TestBackendOptions {
   extraTools?: ToolDefinition[];
   computer?: { engine: ComputerEngine; screenshots?: ScreenshotStore & { folder?: string } };
   files?: ContainerOptions['files'];
+  browser?: ContainerOptions['browser'];
   confirmationTimeoutMs?: number;
 }
 
@@ -71,6 +72,7 @@ export function createTestBackend(options: TestBackendOptions = {}): TestBackend
     ...(options.extraTools ? { extraTools: options.extraTools } : {}),
     ...(options.computer ? { computer: options.computer } : {}),
     ...(options.files ? { files: options.files } : {}),
+    ...(options.browser ? { browser: options.browser } : {}),
     ...(options.confirmationTimeoutMs !== undefined
       ? { confirmationTimeoutMs: options.confirmationTimeoutMs }
       : {}),

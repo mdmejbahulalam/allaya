@@ -120,6 +120,17 @@ test('the model is offered only the tools that work on this machine', async () =
     .sort();
   expect(names).toEqual(
     [
+      'browser_back',
+      'browser_click',
+      'browser_close',
+      'browser_close_tab',
+      'browser_list_tabs',
+      'browser_open',
+      'browser_press',
+      'browser_read',
+      'browser_screenshot',
+      'browser_switch_tab',
+      'browser_type',
       'copy_file',
       'create_folder',
       'delete_file',

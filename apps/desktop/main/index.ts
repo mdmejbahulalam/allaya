@@ -26,6 +26,8 @@ import {
   E2E,
   InsecureTestCipher,
   e2eBaseUrls,
+  e2eBrowserExecutable,
+  e2eBrowserHosts,
   e2eFilesDir,
   e2ePickedFolder,
 } from './security/e2e-hooks';
@@ -132,6 +134,29 @@ function fileAccess() {
   };
 }
 
+function browserAccess() {
+  const profileDir = join(paths.userData, 'browser-profile');
+  if (!E2E) return { profileDir };
+  // Test runs: drive the Chromium they provide, hidden, and let only the named fixture hosts reach this machine.
+  const exe = e2eBrowserExecutable();
+  const hosts = e2eBrowserHosts();
+  return {
+    profileDir,
+    noSandbox: true,
+    forceHeadless: true,
+    ...(exe
+      ? { discover: () => ({ kind: 'chromium' as const, path: exe }) }
+      : { discover: () => undefined }),
+    policyOptions: {
+      allowHosts: () => hosts,
+      resolve: (host: string) =>
+        hosts.includes(host)
+          ? Promise.resolve(['127.0.0.1'])
+          : Promise.reject(new Error('ENOTFOUND')),
+    },
+  };
+}
+
 function bootstrapBackend(): Container {
   const c = createContainer({
     databasePath: paths.database,
@@ -154,6 +179,7 @@ function bootstrapBackend(): Container {
       ),
     },
     files: fileAccess(),
+    browser: browserAccess(),
     cipher: E2E ? new InsecureTestCipher() : new SafeStorageCipher(),
     ...(E2E
       ? {

@@ -39,3 +39,17 @@ export const e2eFilesDir = (): string | undefined => process.env['ALLAYA_E2E_FIL
 
 /** In E2E the native folder picker cannot be driven, so it "picks" this folder instead. */
 export const e2ePickedFolder = (): string | undefined => process.env['ALLAYA_E2E_PICK_FOLDER'];
+
+/** `ALLAYA_E2E_BROWSER_EXE`: the Chromium to drive in test runs (there is no Edge/Chrome in CI). */
+export const e2eBrowserExecutable = (): string | undefined => process.env['ALLAYA_E2E_BROWSER_EXE'];
+
+/**
+ * `ALLAYA_E2E_BROWSER_HOSTS='fake.test,other.test'`: public-looking names that reach the local fixture server. Every
+ * other name behaves as in production, so the private-network rules can be tested for real.
+ */
+export function e2eBrowserHosts(): string[] {
+  return (process.env['ALLAYA_E2E_BROWSER_HOSTS'] ?? '')
+    .split(',')
+    .map((host) => host.trim().toLowerCase())
+    .filter(Boolean);
+}

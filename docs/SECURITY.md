@@ -179,10 +179,43 @@ Tests: `tests/unit/filesystem/*` (real temp directories, `EXDEV` simulated, ten 
 `tests/integration/files.test.ts` (model and screen paths, audit contents, restart), `tests/e2e/files.spec.ts` (real Electron).
 **Unverified:** NTFS junction/short-name/case behaviour, the Recycle Bin, and the race between checking a path and using it.
 
-## 9. Not yet covered (honest status)
+## 9. Browser
+
+- **One choke point for the network.** The browser is started so that it can only reach the internet through Allaya's local
+  filtering proxy (`--proxy-server`, loopback included, no local name resolution, no QUIC, restricted WebRTC). The proxy judges
+  **every** connection — the page, redirects, images, scripts, `fetch`, XHR, WebSockets — _before_ connecting, and connects
+  to the addresses it vetted, so a name that answers differently a second time (DNS rebinding) leads nowhere. (Request
+  interception in Playwright was tried first and rejected: it does not see redirect hops, so a redirect to `127.0.0.1`
+  went through. The test that found it keeps guarding it.)
+- **What is never opened.** Anything on the local network or this computer (loopback, private, link-local, cloud-metadata,
+  CGNAT ranges — in decimal, hex, octal, IPv6 and IPv4-mapped forms), local names, non-http(s) schemes, addresses with
+  credentials in them, blocked sites (including via redirect). Look-alike (internationalised) site names are shown with their
+  real punycode name when asking.
+- **Asking.** A site not visited before asks once (per session, or never if trusted). Clicking what looks like _paying_ is
+  CRITICAL (on-screen click only); _sending, deleting, signing in_ are HIGH and cannot be silenced by "always allow"; the
+  question names the control and its destination.
+- **Never types secrets.** Password, card, one-time-code and identity fields are refused by the engine (not merely
+  confirmed). The person signs in themselves in Allaya's browser window; cookies live in Allaya's own profile, separate from
+  their everyday browser.
+- **A web page is untrusted input.** Its text is handed to the model as data with a standing warning; text that looks like
+  instructions to an AI is flagged; an address a page plants is refused without troubling the user; refs to controls expire
+  when the page changes.
+- **No dangerous surfaces.** Downloads are cancelled, file pickers are never answered, permission prompts are denied,
+  service workers are blocked, page dialogs are dismissed and reported, there is no JavaScript-evaluation, cookie or upload tool.
+- **Privacy.** The audit log keeps where the browser went (no query strings or fragments), never typed text or page content.
+  Screenshots are saved locally and not sent to any provider.
+- **Bounded.** 8 tabs, 90 actions a minute, capped reads and controls; STOP aborts loads.
+
+Tests: `tests/unit/browser/*` (URL/IP policy, page model, engine on a scripted web, tools), `tests/integration/safe-proxy.test.ts`
+(the proxy against real sockets), `tests/integration/browser-playwright.test.ts` (a **real Chromium** against a local server whose
+`/secret` path stands for the local network — it must stay at zero hits), `tests/integration/browser.test.ts` (agent loop, audit,
+settings), `tests/e2e/browser.spec.ts` (real Electron + Chromium). Eight safety properties are mutation-checked.
+**Unverified:** Edge/Chrome on Windows, the Chromium sandbox and the visible window, proxy-requiring networks (unsupported), and
+that `playwright-core` ships correctly in an installer.
+
+## 10. Not yet covered (honest status)
 
 See `docs/STATUS.md` for the per-requirement state. Security items that are designed but not yet built or not yet
-verifiable in this environment are tracked there, notably: the browser tools and their domain restrictions, NTFS-specific file
-behaviour, the Windows input adapter's behaviour on a real desktop, the global (system-wide) emergency-stop shortcut, the Permissions screen, and Windows-specific hardening (UI Automation scope, installer signing,
+verifiable in this environment are tracked there, notably: NTFS-specific file behaviour, Edge/Chrome on Windows, the Windows input adapter's behaviour on a real desktop, the global (system-wide) emergency-stop shortcut, the Permissions screen, and Windows-specific hardening (UI Automation scope, installer signing,
 auto-update signature verification). Those require the corresponding phases and, for the Windows-specific items,
 a real Windows machine.

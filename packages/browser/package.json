@@ -1,0 +1,20 @@
+{
+  "name": "@allaya/browser",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Browser automation: URL/network policy, page model with risk classification, engine over an adapter, Playwright session, and the browser tools the model may call. Electron-free.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@allaya/shared": "workspace:*",
+    "@allaya/tools": "workspace:*",
+    "@allaya/types": "workspace:*",
+    "playwright-core": "1.63.0",
+    "zod": "^4.6.5"
+  }
+}

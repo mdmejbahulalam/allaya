@@ -15,6 +15,7 @@
   },
   "devDependencies": {
     "@allaya/agent": "workspace:*",
+    "@allaya/browser": "workspace:*",
     "@allaya/ai": "workspace:*",
     "@allaya/computer": "workspace:*",
     "@allaya/database": "workspace:*",
