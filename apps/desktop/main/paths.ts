@@ -1,5 +1,6 @@
 import { join } from 'node:path';
 import { app } from 'electron';
+import { E2E } from './security/e2e-hooks';
 
 export interface AppPaths {
   userData: string;
@@ -11,13 +12,13 @@ export interface AppPaths {
 }
 
 /**
- * All filesystem locations Allaya owns. `ALLAYA_USER_DATA_DIR` lets automated tests
- * use an isolated profile; it is honoured only for unpackaged builds or when
- * `ALLAYA_E2E=1` is set, so a production install can't be redirected by environment.
+ * All filesystem locations Allaya owns. `ALLAYA_USER_DATA_DIR` lets automated tests use an isolated
+ * profile; it is honoured only by the dedicated `e2e` build (a compile-time flag), so neither a packaged
+ * install nor a normal production build can be redirected through the environment.
  */
 export function resolveAppPaths(): AppPaths {
   const override = process.env['ALLAYA_USER_DATA_DIR'];
-  if (override && (!app.isPackaged || process.env['ALLAYA_E2E'] === '1')) {
+  if (E2E && override) {
     app.setPath('userData', override);
   }
   const userData = app.getPath('userData');

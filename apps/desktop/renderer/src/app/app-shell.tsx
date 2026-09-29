@@ -5,7 +5,9 @@ import { useT } from '@renderer/lib/i18n';
 import { matchesShortcut } from '@renderer/lib/shortcuts';
 import { useViewportTier } from '@renderer/lib/use-viewport';
 import { cn } from '@renderer/lib/cn';
+import { invoke } from '@renderer/lib/api';
 import { useAgentStore } from '@renderer/stores/agent';
+import { selectConnection, useProvidersStore } from '@renderer/stores/providers';
 import { useSettingsStore } from '@renderer/stores/settings';
 import { useUiStore } from '@renderer/stores/ui';
 import { CommandPalette, type PaletteItem } from '@renderer/components/shell/command-palette';
@@ -49,6 +51,7 @@ export function AppShell() {
     setSidebarHover,
   } = useUiStore();
   const isWorking = useAgentStore((s) => s.isWorking);
+  const connection = useProvidersStore(selectConnection);
 
   // ── Sidebar: pinned honours the user's setting; unpinned is a rail that expands on hover.
   const forcedCollapsed = tier === 'sm';
@@ -165,13 +168,13 @@ export function AppShell() {
         {t.t('a11y.skipToContent')}
       </a>
       <Header
-        connection="not_configured"
+        connection={connection}
         working={isWorking}
         contextVisible={contextVisible}
         onOpenPalette={() => setPaletteOpen(true)}
         onToggleContext={() => setContextOpen(!contextVisible)}
         onOpenSettings={() => navigate('settings')}
-        onStop={() => useAgentStore.getState().setStatus('paused')}
+        onStop={() => void invoke('agent:stop').catch(() => undefined)}
       />
 
       <div className="flex min-h-0 flex-1">

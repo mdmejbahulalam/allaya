@@ -18,7 +18,7 @@
     "format:check": "prettier --check .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "pnpm --filter @allaya/desktop build && xvfb-run -a playwright test",
+    "test:e2e": "pnpm --filter @allaya/desktop build:e2e && xvfb-run -a playwright test",
     "db:generate": "pnpm --filter @allaya/database db:generate",
     "check": "pnpm typecheck && pnpm lint && pnpm test"
   },

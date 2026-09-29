@@ -117,12 +117,21 @@ importers:
         specifier: ^5.0.15
         version: 5.0.15(@types/react@19.3.0)(react@19.3.0)
     devDependencies:
+      '@allaya/agent':
+        specifier: workspace:*
+        version: link:../../packages/agent
+      '@allaya/ai':
+        specifier: workspace:*
+        version: link:../../packages/ai
       '@allaya/database':
         specifier: workspace:*
         version: link:../../packages/database
       '@allaya/localization':
         specifier: workspace:*
         version: link:../../packages/localization
+      '@allaya/security':
+        specifier: workspace:*
+        version: link:../../packages/security
       '@allaya/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -160,6 +169,18 @@ importers:
         specifier: ^7.3.6
         version: 7.3.6(@types/node@24.19.0)(jiti@2.7.0)(lightningcss@1.33.0)(tsx@4.23.15)
 
+  packages/agent:
+    dependencies:
+      '@allaya/ai':
+        specifier: workspace:*
+        version: link:../ai
+      '@allaya/shared':
+        specifier: workspace:*
+        version: link:../shared
+      '@allaya/types':
+        specifier: workspace:*
+        version: link:../types
+
   packages/ai:
     dependencies:
       '@allaya/shared':
@@ -190,6 +211,15 @@ importers:
 
   packages/localization:
     dependencies:
+      '@allaya/types':
+        specifier: workspace:*
+        version: link:../types
+
+  packages/security:
+    dependencies:
+      '@allaya/shared':
+        specifier: workspace:*
+        version: link:../shared
       '@allaya/types':
         specifier: workspace:*
         version: link:../types

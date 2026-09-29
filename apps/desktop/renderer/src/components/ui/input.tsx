@@ -109,7 +109,10 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function 
     if (!el || !autoGrow) return;
     el.style.height = 'auto';
     const line = parseFloat(getComputedStyle(el).lineHeight) || 22;
-    el.style.height = `${Math.min(el.scrollHeight, line * maxRows + 16)}px`;
+    const max = line * maxRows + 16;
+    el.style.height = `${Math.min(el.scrollHeight, max)}px`;
+    // No scrollbar until the field actually reaches its maximum height.
+    el.style.overflowY = el.scrollHeight > max ? 'auto' : 'hidden';
   };
   useLayoutEffect(resize, [value, autoGrow, maxRows]);
   useEffect(() => {

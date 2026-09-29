@@ -25,21 +25,70 @@ export function isChatModel(providerId: ProviderId, modelId: string): boolean {
   }
 }
 
+/**
+ * Splits a model id into its alphanumeric tokens: `gemini-2.5-flash-lite` → {gemini, 2, 5, flash, lite}.
+ * All name heuristics match whole tokens, never substrings — "gemini" contains "mini" and "gpt-4o-mini"
+ * must not be confused with "gpt-4o".
+ */
+function tokens(modelId: string): Set<string> {
+  return new Set(
+    modelId
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter(Boolean),
+  );
+}
+
+const FAST_TOKENS = [
+  'haiku',
+  'mini',
+  'nano',
+  'flash',
+  'lite',
+  'small',
+  'instant',
+  'tiny',
+  '8b',
+  '7b',
+  '3b',
+  '1b',
+];
+const FRONTIER_TOKENS = [
+  'opus',
+  'fable',
+  'ultra',
+  'pro',
+  'max',
+  'frontier',
+  'o1',
+  'o3',
+  'o4',
+  'r1',
+];
+
 export function inferTier(modelId: string): ModelTier {
-  const id = modelId.toLowerCase();
-  if (/(haiku|mini|nano|flash|lite|small|instant|8b|7b|3b|1b)/.test(id)) return 'fast';
-  if (/(opus|fable|ultra|\bpro\b|-pro|max|frontier|o1|o3|o4|gpt-5(?!.*(mini|nano)))/.test(id))
-    return 'frontier';
+  const t = tokens(modelId);
+  // Small variants win: "o3-mini" and "gpt-5-mini" are fast even though "o3"/"gpt-5" are frontier.
+  if (FAST_TOKENS.some((token) => t.has(token))) return 'fast';
+  if (FRONTIER_TOKENS.some((token) => t.has(token)) || /^gpt-5/i.test(modelId)) return 'frontier';
   return 'balanced';
 }
 
 function inferVision(providerId: ProviderId, modelId: string): boolean {
   const id = modelId.toLowerCase();
-  if (providerId === 'anthropic') return /^claude/.test(id);
-  if (providerId === 'google') return /^gemini/.test(id);
-  if (providerId === 'openai')
-    return /(gpt-4o|gpt-4\.1|gpt-4-turbo|gpt-5|o1|o3|o4|vision)/.test(id);
-  return /(vision|vl|4o|claude|gemini|gpt-4|gpt-5|llava|pixtral)/.test(id);
+  const t = tokens(id);
+  if (providerId === 'anthropic') return id.startsWith('claude');
+  if (providerId === 'google') return id.startsWith('gemini');
+  if (providerId === 'openai') {
+    return (
+      ['gpt-4o', 'chatgpt-4o', 'gpt-4.1', 'gpt-4-turbo', 'gpt-5', 'o1', 'o3', 'o4'].some((prefix) =>
+        id.startsWith(prefix),
+      ) || t.has('vision')
+    );
+  }
+  return ['vision', 'vl', '4o', 'claude', 'gemini', 'llava', 'pixtral'].some((token) =>
+    t.has(token),
+  );
 }
 
 const CONSERVATIVE_CONTEXT: Record<ProviderId, number> = {
@@ -49,12 +98,21 @@ const CONSERVATIVE_CONTEXT: Record<ProviderId, number> = {
   openrouter: 32_000,
 };
 
+function inferReasoning(modelId: string): boolean {
+  const t = tokens(modelId);
+  return (
+    ['opus', 'fable', 'o1', 'o3', 'o4', 'thinking', 'reasoning', 'reasoner', 'r1', 'pro'].some(
+      (token) => t.has(token),
+    ) || /^gpt-5/i.test(modelId)
+  );
+}
+
 export function inferCapabilities(providerId: ProviderId, modelId: string): ModelCapabilities {
   return {
     vision: inferVision(providerId, modelId),
     tools: true,
     streaming: true,
-    reasoning: /(opus|fable|o1|o3|o4|gpt-5|thinking|reason|r1|pro\b)/i.test(modelId),
+    reasoning: inferReasoning(modelId),
     contextWindow: CONSERVATIVE_CONTEXT[providerId],
   };
 }

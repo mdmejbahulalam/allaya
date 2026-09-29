@@ -91,8 +91,10 @@ export function AIStatus({
     return (
       <div role="status" aria-live="polite" className={cn('flex items-center gap-2.5', className)}>
         {badge(28, 15)}
-        <span className="text-small font-medium text-fg">{title}</span>
-        <span className="text-small text-muted">{description}</span>
+        <span className="flex min-w-0 flex-col">
+          <span className="text-small leading-tight font-medium text-fg">{title}</span>
+          <span className="text-caption text-muted">{description}</span>
+        </span>
       </div>
     );
   }

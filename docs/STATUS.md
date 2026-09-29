@@ -35,15 +35,32 @@ All checks below run in CI-equivalent form in this environment: `pnpm typecheck`
 | Screens Chat, Tasks, Automations, Computer, Apps, Browser, Files, Memory, Models, Activity, Permissions | empty states only — built in their phases  |
 | Native window-caption overlay colours follow the theme                                                  | 🪟 (code written; only visible on Windows) |
 
-## Phase 2 — Core chat 🚧
+## Phase 2 — Core chat ✅ (with caveats below)
 
-| Item                                                                         | State                                                                     |
-| ---------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| Provider-neutral request/response/stream types                               | 🚧                                                                        |
-| SSE parser (chunk-boundary, CRLF, split UTF-8 safe)                          | 🚧                                                                        |
-| Anthropic / OpenAI / Google / OpenRouter adapters (streaming, tools, images) | 🚧 not yet tested against wire fixtures; **never run against a live API** |
-| Model router (hard constraints → pin → assignment → scored auto)             | 🚧                                                                        |
-| Credential vault, provider service, model routing UI, chat persistence + UI  | ⬜                                                                        |
+| Item                                                                                                                                                       | State                                             |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| Provider-neutral request/response/stream types; one SSE parser correct at every byte boundary (incl. split Bengali UTF-8)                                  | ✅ (unit)                                         |
+| Anthropic / OpenAI / Google / OpenRouter adapters: streaming, tool calls, images, model discovery, retry/backoff, cancellation                             | 🧩 verified against **wire-format fixtures** only |
+| Model router: hard constraints → pin → per-purpose assignment → scored auto; deterministic; explains its choice                                            | ✅ (unit)                                         |
+| Credential vault: encrypted at rest, masked hint only, **refuses to store if OS encryption is unavailable** (no plaintext fallback)                        | ✅ (unit + integration + E2E)                     |
+| Key never appears in DB, IPC results, events, logs, renderer DOM/storage, error messages                                                                   | ✅ (integration + E2E)                            |
+| Provider service: verify-then-keep, rejected keys discarded, offline keeps key with `error` status, routing persistence                                    | ✅ (integration + E2E)                            |
+| Chat: persisted conversations/messages, streaming (coalesced deltas), history windowing (Bengali-aware token estimate), auto-title on code points          | ✅ (integration + E2E)                            |
+| Cancellation: run registry, per-conversation cancel, global **emergency stop** (`agent:stop`), header STOP always visible while working, partial text kept | ✅ (integration + E2E)                            |
+| Crash recovery: messages left mid-stream are marked interrupted on next start                                                                              | ✅ (integration)                                  |
+| Safe Markdown renderer (no HTML injection; only http(s) links)                                                                                             | ✅                                                |
+| Models screen (providers, add/test/remove key, routing) and Chat screen (list, streaming, model picker, retry, copy, a11y announcements)                   | ✅ (E2E)                                          |
+| No-API-key mode: app fully usable, actionable errors, provider notice                                                                                      | ✅ (E2E)                                          |
+
+**Caveats — read these**
+
+- **No adapter has been run against a real provider API.** They are verified against fixtures shaped like each vendor's
+  documented protocol, and against a local fake server end-to-end. Real-world differences (new fields, rate-limit
+  shapes, model ids) can only be found by running with real keys.
+- **Windows credential encryption (DPAPI via Electron `safeStorage`) is not exercised here.** The vault is tested with a
+  fake cipher and E2E uses a build-time-gated insecure test cipher that is compiled out of production bundles.
+- The system prompt tells the model it has **no tools yet**, so it cannot claim to have controlled the computer. This
+  changes when the tool engine lands (Phase 5).
 
 ## Not started
 

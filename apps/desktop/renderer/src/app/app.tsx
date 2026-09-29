@@ -8,6 +8,7 @@ import { useSettingsStore } from '@renderer/stores/settings';
 import { Toaster } from '@renderer/components/ui/toast';
 import { TooltipProvider } from '@renderer/components/ui/tooltip';
 import { AppShell } from './app-shell';
+import { useBackendSync } from './use-backend-sync';
 import { useMotionPreference, useThemeEffects } from './use-theme-effects';
 
 const queryClient = new QueryClient({
@@ -41,6 +42,7 @@ function useBootstrap(): boolean {
 
 function Themed() {
   useThemeEffects();
+  useBackendSync();
   const reducedMotion = useMotionPreference();
   return (
     <MotionConfig reducedMotion={reducedMotion}>

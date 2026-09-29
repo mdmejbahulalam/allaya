@@ -10,10 +10,15 @@
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
-    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json"
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
+    "build:e2e": "electron-vite build --mode e2e"
   },
   "devDependencies": {
+    "@allaya/agent": "workspace:*",
+    "@allaya/ai": "workspace:*",
     "@allaya/database": "workspace:*",
+    "@allaya/localization": "workspace:*",
+    "@allaya/security": "workspace:*",
     "@allaya/shared": "workspace:*",
     "@allaya/types": "workspace:*",
     "@allaya/validation": "workspace:*",
@@ -25,8 +30,7 @@
     "electron-builder": "^26.15.3",
     "electron-vite": "^5.0.0",
     "tailwindcss": "^4.3.3",
-    "vite": "^7.3.6",
-    "@allaya/localization": "workspace:*"
+    "vite": "^7.3.6"
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.3.0",

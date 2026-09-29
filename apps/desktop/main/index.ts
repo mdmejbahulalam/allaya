@@ -5,6 +5,8 @@ import { createContainer, type Container } from './container';
 import { IpcDispatcher } from './ipc/dispatcher';
 import type { EventSink } from './ipc/events';
 import { createLogger } from './logging';
+import { E2E, InsecureTestCipher, e2eBaseUrls } from './security/e2e-hooks';
+import { SafeStorageCipher } from './security/safe-storage-cipher';
 import { resolveAppPaths } from './paths';
 import { APP_INDEX_URL, installAppProtocol, registerAppScheme } from './security/app-protocol';
 import { isTrustedRendererUrl, senderFromEvent } from './security/window-security';
@@ -62,6 +64,8 @@ function bootstrapBackend(): Container {
     logger: logger.child('core'),
     getAppInfo,
     strict: environment !== 'production',
+    cipher: E2E ? new InsecureTestCipher() : new SafeStorageCipher(),
+    ...(E2E ? { providerOptions: { baseUrls: e2eBaseUrls(), maxRetries: 0, backoffMs: 0 } } : {}),
   });
   c.registry.assertComplete();
 
@@ -100,7 +104,7 @@ function openMainWindow(): void {
     security,
     logger,
     backgroundColor: '#0B0D12',
-    showImmediately: process.env['ALLAYA_E2E'] === '1',
+    showImmediately: E2E,
   });
   if (devServerUrl) void mainWindow.loadURL(devServerUrl);
   else void mainWindow.loadURL(APP_INDEX_URL);

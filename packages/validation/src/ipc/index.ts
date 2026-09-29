@@ -1,9 +1,15 @@
 import type { z } from 'zod';
+import { agentContract } from './agent';
 import { appContract } from './app';
+import { chatContract } from './chat';
+import { providersContract } from './providers';
 import type { ChannelSpec, IpcResult } from './common';
 
 export * from './common';
 export * from './app';
+export * from './agent';
+export * from './providers';
+export * from './chat';
 
 /**
  * The complete IPC surface between renderer and main. Each domain contributes
@@ -13,10 +19,16 @@ export * from './app';
  */
 export const ipcInvokeContract = {
   ...appContract.invoke,
+  ...agentContract.invoke,
+  ...providersContract.invoke,
+  ...chatContract.invoke,
 } as const satisfies Record<string, ChannelSpec>;
 
 export const ipcEventContract = {
   ...appContract.events,
+  ...agentContract.events,
+  ...providersContract.events,
+  ...chatContract.events,
 } as const satisfies Record<string, z.ZodType>;
 
 export type InvokeChannel = keyof typeof ipcInvokeContract;

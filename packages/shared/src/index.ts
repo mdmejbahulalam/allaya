@@ -7,3 +7,4 @@ export * from './cancellation';
 export * from './async';
 export * from './redaction';
 export * from './logger';
+export * from './run-registry';

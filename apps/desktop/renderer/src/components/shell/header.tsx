@@ -1,11 +1,10 @@
 import { PanelRight, Search, Settings, Sparkles, OctagonX } from 'lucide-react';
 import { useT } from '@renderer/lib/i18n';
+import type { ConnectionState } from '@renderer/stores/providers';
 import { cn } from '@renderer/lib/cn';
 import { Button } from '@renderer/components/ui/button';
 import { IconButton } from '@renderer/components/ui/icon-button';
 import { Kbd } from '@renderer/components/ui/kbd';
-
-export type ConnectionState = 'online' | 'ai_offline' | 'not_configured';
 
 export function StatusPill({ state }: { state: ConnectionState }) {
   const t = useT();

@@ -13,6 +13,7 @@ import {
 import { useRef, useState } from 'react';
 import { useGreeting, useT } from '@renderer/lib/i18n';
 import { useUiStore } from '@renderer/stores/ui';
+import { selectHasConnected, useProvidersStore } from '@renderer/stores/providers';
 import { useSettingsStore } from '@renderer/stores/settings';
 import { useAgentStore } from '@renderer/stores/agent';
 import { AIStatus } from '@renderer/components/domain/ai-status';
@@ -77,7 +78,7 @@ export function HomeScreen() {
               submit();
             }
           }}
-          className="border-transparent bg-transparent px-0 text-h3 focus:ring-0"
+          className="border-transparent bg-transparent px-0 text-h3 hover:border-transparent focus:border-transparent focus:ring-0"
         />
         <div className="mt-3 flex items-center justify-between">
           <div className="flex items-center gap-1">
@@ -186,9 +187,11 @@ export function HomeScreen() {
 /** No-API-key mode (§102): Allaya launches fine without a provider; local features still work. */
 function NoProviderNotice() {
   const t = useT();
+  const hasConnected = useProvidersStore(selectHasConnected);
+  const loaded = useProvidersStore((s) => s.loaded);
   const navigate = useUiStore((s) => s.navigate);
   const [dismissed, setDismissed] = useState(false);
-  if (dismissed) return null;
+  if (dismissed || hasConnected || !loaded) return null;
   return (
     <Card className="flex flex-wrap items-center justify-between gap-4 border-warning/30 bg-warning/5">
       <div className="flex items-start gap-3">

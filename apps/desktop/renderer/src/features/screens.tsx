@@ -7,11 +7,9 @@ import {
   AppWindow,
   Bot,
   Brain,
-  Cpu,
   FolderOpen,
   Globe,
   ListChecks,
-  MessageSquare,
   MonitorCog,
   ShieldCheck,
 } from 'lucide-react';
@@ -27,14 +25,7 @@ export const SCREENS: Record<RouteId, ComponentType> = {
   settings: lazyNamed(() => import('./settings/settings-screen'), 'SettingsScreen'),
   help: lazyNamed(() => import('./help/help-screen'), 'HelpScreen'),
   gallery: lazyNamed(() => import('./gallery/gallery-screen'), 'GalleryScreen'),
-  chat: () => (
-    <EmptyScreen
-      icon={MessageSquare}
-      titleKey="chat.title"
-      emptyTitleKey="chat.emptyTitle"
-      emptyBodyKey="chat.emptyBody"
-    />
-  ),
+  chat: lazyNamed(() => import('./chat/chat-screen'), 'ChatScreen'),
   tasks: () => (
     <EmptyScreen
       icon={ListChecks}
@@ -91,14 +82,7 @@ export const SCREENS: Record<RouteId, ComponentType> = {
       emptyBodyKey="memory.emptyBody"
     />
   ),
-  models: () => (
-    <EmptyScreen
-      icon={Cpu}
-      titleKey="models.title"
-      emptyTitleKey="models.emptyTitle"
-      emptyBodyKey="models.emptyBody"
-    />
-  ),
+  models: lazyNamed(() => import('./models/models-screen'), 'ModelsScreen'),
   activity: () => (
     <EmptyScreen
       icon={Activity}
