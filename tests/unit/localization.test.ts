@@ -44,6 +44,7 @@ describe('catalog integrity (no hard-coded or missing UI strings)', () => {
       'memory.categories.tasks',
       'models.apiKey',
       'help.tip3',
+      'chat.autonym.en',
     ]);
     for (const [key, value] of Object.entries(bn)) {
       if (allowLatinOnly.has(key) || key.startsWith('taskState.') || /^\{/.test(value)) continue;

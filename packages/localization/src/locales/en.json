@@ -227,7 +227,12 @@
     "viaModel": "via {model}",
     "generatingLabel": "Allaya is replying",
     "messageList": "Conversation",
-    "interrupted": "Interrupted when Allaya closed"
+    "interrupted": "Interrupted when Allaya closed",
+    "replyLanguage": "Reply language",
+    "autonym": {
+      "bn": "বাংলা",
+      "en": "English"
+    }
   },
   "tasks": {
     "title": "Tasks",

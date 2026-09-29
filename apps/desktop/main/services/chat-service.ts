@@ -7,6 +7,17 @@ import {
   type ModelInfo,
 } from '@allaya/ai';
 import { buildSystemPrompt } from '@allaya/agent';
+import {
+  MIN_DETECTION_CONFIDENCE,
+  LanguageSession,
+  detectLanguage,
+  interpret,
+  reply as localReply,
+  type LanguageAnalysis,
+  type ParsedIntent,
+  type ResolvedResponseLanguage,
+} from '@allaya/language';
+import { resolveUiLocale } from '@allaya/localization';
 import type { ConversationRepository, ConversationRow, MessageRow } from '@allaya/database';
 import {
   AllayaError,
@@ -37,8 +48,18 @@ const assistantMetadataSchema = z.object({
   usage: z.object({ inputTokens: z.number(), outputTokens: z.number() }).optional(),
   finishReason: z.string().optional(),
   error: serializedErrorSchema.optional(),
+  /** Set when Allaya answered on its own (no model call): a language switch or a stop/cancel command. */
+  local: z.enum(['language', 'stop', 'cancel']).optional(),
 });
 type AssistantMetadata = z.infer<typeof assistantMetadataSchema>;
+
+/** Persisted in `messages.metadata_json` for user messages: what language detection made of the text. */
+const userMetadataSchema = z.object({
+  detected: z.object({ primary: z.enum(['bn', 'en']), confidence: z.number() }).optional(),
+});
+
+/** Control commands are short; longer text is never treated as one, however it parses. */
+const CONTROL_MAX_CHARS = 80;
 
 const TITLE_MAX = 60;
 const DELTA_FLUSH_MS = 30;
@@ -61,6 +82,14 @@ export interface ChatServiceDeps {
   runs: RunRegistry;
   logger: Logger;
   now?: () => Date;
+  /** The OS locale, used to pick a reply language when nothing else is known ("auto" UI language). */
+  osLocale?: () => string;
+}
+
+interface SendResult {
+  conversation: ConversationView;
+  userMessage: MessageView;
+  assistantMessage: MessageView;
 }
 
 export class ChatService {
@@ -104,17 +133,22 @@ export class ChatService {
     conversationId?: string | undefined;
     text: string;
     model?: ModelRefView | undefined;
-  }): {
-    conversation: ConversationView;
-    userMessage: MessageView;
-    assistantMessage: MessageView;
-  } {
-    const { conversations } = this.deps;
+  }): SendResult {
+    const { conversations, runs } = this.deps;
     const conversation = input.conversationId
       ? this.requireConversation(input.conversationId)
       : conversations.create(newId('conv'), titleFromText(input.text));
 
-    if (this.deps.runs.isActive(runId(conversation.id))) {
+    const analysis = detectLanguage(input.text);
+    const session = this.sessionFor(conversation);
+    const control = this.controlIntent(input.text);
+    const active = runs.isActive(runId(conversation.id));
+
+    // "stop" must work while Allaya is busy, so it is checked before the busy-conversation guard.
+    if (control && (control.type !== 'SWITCH_LANGUAGE' || !active)) {
+      return this.answerLocally(conversation, input.text, analysis, session, control);
+    }
+    if (active) {
       throw new AllayaError('Allaya is still replying in this conversation', { code: 'CONFLICT' });
     }
 
@@ -123,6 +157,8 @@ export class ChatService {
       conversationId: conversation.id,
       kind: 'user',
       content: input.text,
+      language: analysis.language,
+      metadata: userMetadata(analysis),
     });
     const assistantRow = conversations.addMessage({
       id: newId('msg'),
@@ -133,14 +169,126 @@ export class ChatService {
     });
     this.deps.events.publish('chat:conversationsChanged', {});
 
+    const replyLanguage = session.resolve(
+      this.deps.settings.get('language.response'),
+      analysis,
+      this.uiLanguage(),
+    );
+
     // Fire and forget: every failure path inside `generate` is turned into a persisted, published error state.
-    void this.generate(conversation.id, assistantRow.id, input.model);
+    void this.generate(conversation.id, assistantRow.id, input.model, replyLanguage);
 
     return {
       conversation: toConversationView(this.requireConversation(conversation.id)),
       userMessage: toMessageView(userRow),
       assistantMessage: toMessageView(assistantRow),
     };
+  }
+
+  /** Changes (or clears, with `auto`) the reply language for one conversation. */
+  setLanguage(conversationId: string, language: 'auto' | 'bn' | 'en'): ConversationView {
+    this.requireConversation(conversationId);
+    this.deps.conversations.setLanguage(conversationId, language === 'auto' ? null : language);
+    this.deps.events.publish('chat:conversationsChanged', {});
+    return toConversationView(this.requireConversation(conversationId));
+  }
+
+  // ── deterministic control commands ────────────────────────────────────────
+  /**
+   * A message that is *entirely* a stop / cancel / language-switch command. Anything longer, ambiguous or with
+   * extra content falls through to the model — a control word buried in a sentence never triggers an action.
+   */
+  private controlIntent(text: string): ParsedIntent | undefined {
+    if (text.length > CONTROL_MAX_CHARS) return undefined;
+    const now = (this.deps.now ?? (() => new Date()))();
+    const today = { year: now.getFullYear(), month: now.getMonth() + 1, day: now.getDate() };
+    const result = interpret(text, {}, { today });
+    const [clause] = result.clauses;
+    if (result.needsPlanner || result.clauses.length !== 1 || !clause) return undefined;
+    return clause.type === 'STOP' || clause.type === 'CANCEL' || clause.type === 'SWITCH_LANGUAGE'
+      ? clause
+      : undefined;
+  }
+
+  private answerLocally(
+    conversation: ConversationRow,
+    text: string,
+    analysis: LanguageAnalysis,
+    session: LanguageSession,
+    intent: ParsedIntent,
+  ): SendResult {
+    const { conversations, runs, settings, events } = this.deps;
+    const userRow = conversations.addMessage({
+      id: newId('msg'),
+      conversationId: conversation.id,
+      kind: 'user',
+      content: text,
+      language: analysis.language,
+      metadata: userMetadata(analysis),
+    });
+
+    let content: string;
+    let local: NonNullable<AssistantMetadata['local']>;
+    if (intent.type === 'SWITCH_LANGUAGE') {
+      const target = intent.params.language ?? 'en';
+      conversations.setLanguage(conversation.id, target);
+      content = localReply(target === 'bn' ? 'languageSwitchedBn' : 'languageSwitchedEn', target);
+      local = 'language';
+    } else {
+      const resolved = session.resolve(
+        settings.get('language.response'),
+        analysis,
+        this.uiLanguage(),
+      );
+      const language = resolved.language === 'en' ? 'en' : 'bn';
+      if (intent.type === 'STOP') {
+        // A typed "stop" means stop everything, exactly like the emergency stop.
+        const stopped = runs.cancelAll('stop command');
+        content = localReply(stopped > 0 ? 'stopped' : 'nothingRunning', language, stopped);
+        local = 'stop';
+      } else {
+        const cancelled = runs.cancel(runId(conversation.id), 'cancelled by user');
+        content = localReply(cancelled ? 'cancelled' : 'nothingToCancel', language);
+        local = 'cancel';
+      }
+    }
+
+    const assistantRow = conversations.addMessage({
+      id: newId('msg'),
+      conversationId: conversation.id,
+      kind: 'assistant',
+      content,
+      metadata: { status: 'complete', local } satisfies AssistantMetadata,
+    });
+    conversations.touch(conversation.id);
+    events.publish('chat:conversationsChanged', {});
+    return {
+      conversation: toConversationView(this.requireConversation(conversation.id)),
+      userMessage: toMessageView(userRow),
+      assistantMessage: toMessageView(assistantRow),
+    };
+  }
+
+  /** Rebuilds the conversation's language memory from what was persisted. */
+  private sessionFor(conversation: ConversationRow): LanguageSession {
+    const explicit =
+      conversation.language === 'bn' || conversation.language === 'en'
+        ? conversation.language
+        : null;
+    let last: 'bn' | 'en' | null = null;
+    const rows = this.deps.conversations.listMessages(conversation.id);
+    for (let i = rows.length - 1; i >= 0 && last === null; i -= 1) {
+      const row = rows[i]!;
+      if (row.kind !== 'user') continue;
+      const detected = parseUserMetadata(row.metadataJson)?.detected;
+      if (detected && detected.confidence >= MIN_DETECTION_CONFIDENCE) last = detected.primary;
+    }
+    return LanguageSession.restore({ explicit, last });
+  }
+
+  private uiLanguage(): 'bn' | 'en' {
+    const preference = this.deps.settings.get('language.ui');
+    return resolveUiLocale(preference, this.deps.osLocale?.()) === 'bn' ? 'bn' : 'en';
   }
 
   /** Startup housekeeping: a crash mid-stream leaves messages 'streaming' forever — mark them interrupted. */
@@ -170,6 +318,7 @@ export class ChatService {
     conversationId: string,
     assistantId: string,
     pinned: ModelRefView | undefined,
+    replyLanguage: ResolvedResponseLanguage,
   ): Promise<void> {
     const { conversations, providers, runs, events, logger } = this.deps;
     const source = runs.start(runId(conversationId), 'chat');
@@ -220,7 +369,7 @@ export class ChatService {
       };
       conversations.updateMessage(assistantId, { metadata });
 
-      const request = this.buildRequest(model, history);
+      const request = this.buildRequest(model, history, replyLanguage);
       this.publishStatus('working', model.displayName);
       let finishReason: FinishReason = 'stop';
 
@@ -285,10 +434,15 @@ export class ChatService {
       }));
   }
 
-  private buildRequest(model: ModelInfo, history: AIMessage[]): AIRequest {
+  private buildRequest(
+    model: ModelInfo,
+    history: AIMessage[],
+    replyLanguage: ResolvedResponseLanguage,
+  ): AIRequest {
     const { settings, now } = this.deps;
     const system = buildSystemPrompt({
       responseLanguage: settings.get('language.response'),
+      reply: replyLanguage,
       userName: settings.get('profile.displayName'),
       toolsAvailable: false,
       now: (now ?? (() => new Date()))(),
@@ -335,11 +489,28 @@ function parseAssistantMetadata(json: string | null): AssistantMetadata | undefi
   }
 }
 
+function userMetadata(analysis: LanguageAnalysis) {
+  return {
+    detected: { primary: analysis.primary, confidence: analysis.confidence },
+  } satisfies z.infer<typeof userMetadataSchema>;
+}
+
+function parseUserMetadata(json: string | null): z.infer<typeof userMetadataSchema> | undefined {
+  if (!json) return undefined;
+  try {
+    const parsed = userMetadataSchema.safeParse(JSON.parse(json));
+    return parsed.success ? parsed.data : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export function toConversationView(row: ConversationRow): ConversationView {
   return {
     id: row.id,
     title: row.title,
     pinned: row.pinned,
+    language: row.language === 'bn' || row.language === 'en' ? row.language : null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };

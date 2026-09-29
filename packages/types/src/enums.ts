@@ -221,6 +221,7 @@ export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
 // ── Intents (language-independent; §132) ───────────────────────────────────
 export const INTENT_TYPES = [
   'OPEN_FOLDER',
+  'OPEN_FILE',
   'OPEN_APP',
   'CLOSE_APP',
   'FOCUS_APP',
@@ -236,6 +237,7 @@ export const INTENT_TYPES = [
   'WEB_SEARCH',
   'OPEN_URL',
   'DOWNLOAD_FILE',
+  'UPLOAD_FILE',
   'OPEN_SETTINGS',
   'LOCK_COMPUTER',
   'STOP',

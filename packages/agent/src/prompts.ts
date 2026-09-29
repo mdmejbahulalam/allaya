@@ -5,6 +5,14 @@ export interface SystemPromptOptions {
   responseLanguage: ResponseLanguagePolicy;
   /** Display name for natural address; omitted if empty. */
   userName?: string;
+  /**
+   * The language decision for *this* reply, made by the language engine from the conversation (an explicit
+   * request, the latest message, or the running history). When present it replaces the generic policy text.
+   */
+  reply?: {
+    language: 'bn' | 'en' | 'mixed';
+    reason: 'policy' | 'explicit' | 'detected' | 'history' | 'ui';
+  };
   /** Whether tool calling is wired up for this request. Controls what the model may claim it can do. */
   toolsAvailable: boolean;
   /** Local time, so relative dates ("today", "গতকাল") resolve correctly. */
@@ -26,6 +34,28 @@ const PRESERVE_RULE =
   'Keep file names, folder names, URLs, application and product names, code, and technical terms exactly as written — ' +
   'never transliterate or translate them.';
 
+const REPLY_BY_LANGUAGE = {
+  bn: 'natural Bengali (Bengali script), the way a fluent speaker would write it',
+  en: 'clear, natural English',
+  mixed: 'a natural mix of Bengali and English, using Bengali script for the Bengali parts',
+} as const;
+
+function languageRule(options: SystemPromptOptions): string {
+  const { reply } = options;
+  if (!reply || reply.reason === 'policy') return LANGUAGE_RULES[options.responseLanguage];
+  const target = REPLY_BY_LANGUAGE[reply.language];
+  switch (reply.reason) {
+    case 'explicit':
+      return `The user asked you to speak this language, so reply in ${target} until they ask for a different one.`;
+    case 'detected':
+      return `The user's latest message is in ${reply.language === 'bn' ? 'Bengali (possibly romanized "Banglish" or mixed with English)' : 'English'}; reply in ${target}. Never translate literally.`;
+    case 'history':
+      return `The latest message is too short to tell its language, so continue in the language of the conversation so far: ${target}.`;
+    case 'ui':
+      return `Reply in ${target} (the app's language) unless the user clearly writes in another language.`;
+  }
+}
+
 /**
  * Builds Allaya's system prompt. The capability paragraph is deliberately explicit: without tools the model
  * must never claim to have performed an action on the computer (§131: no completion claims without verification).
@@ -34,7 +64,7 @@ export function buildSystemPrompt(options: SystemPromptOptions): string {
   const lines: string[] = [
     "You are Allaya, a personal AI assistant that lives on the user's Windows computer.",
     'Be concise, calm, and action-oriented. After a simple action, answer in one short sentence.',
-    `Language: ${LANGUAGE_RULES[options.responseLanguage]}`,
+    `Language: ${languageRule(options)}`,
     PRESERVE_RULE,
   ];
 

@@ -62,9 +62,40 @@ All checks below run in CI-equivalent form in this environment: `pnpm typecheck`
 - The system prompt tells the model it has **no tools yet**, so it cannot claim to have controlled the computer. This
   changes when the tool engine lands (Phase 5).
 
+## Phase 3 — Bengali / multilingual language engine ✅ (with caveats below)
+
+`packages/language` — pure TypeScript, no I/O, no Electron. Bengali is a first-class input language, not a translation layer.
+
+| Item                                                                                                                                                                                       | State                                     |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------- |
+| Unicode handling: NFC, ZWJ/ZWNJ stripping, Bengali/Latin script counting, Bengali digits ↔ ASCII, punctuation (danda)                                                                      | ✅ (unit)                                 |
+| Number words (Bengali + Banglish, 1–100 table) and digits                                                                                                                                  | ✅ (unit)                                 |
+| Language detection: Bengali / English / Banglish (romanised) / mixed; `bn-BD` / `en-US` / `en-GB`; confidence so that one-word replies fall back to history                                | ✅ (unit)                                 |
+| Conversation language memory: explicit "বাংলায় কথা বলো" / "Speak English" sticks (beats the app-wide policy), history for short replies, UI fallback                                      | ✅ (unit + integration + E2E)             |
+| Date/time parsing: কাল/পরশু (genuinely ambiguous → reported as such, never guessed), weekdays, ranges, "৩টা" count vs clock, period-of-day rules, Saturday-start weeks                     | ✅ (unit)                                 |
+| Normaliser: protected literals (quotes, URLs, paths, file names) lifted out first; longest-phrase matching; Bengali suffix splitting; Bengali (verb-final) vs English argument order       | ✅ (unit)                                 |
+| Intent parser: open/close/find/search/show/create/copy/move/rename/delete/screenshot/lock/stop/cancel/switch-language → language-independent intents with params, `missing`, `destructive` | ✅ (unit, ~100 phrasings)                 |
+| Same request in Bengali, Banglish, English or mixed produces **identical params**; output never contains Bengali (the execution core is language-independent)                              | ✅ (unit)                                 |
+| Uncertainty → `needsPlanner`; unknown words are reported as `leftovers`, never silently dropped                                                                                            | ✅ (unit)                                 |
+| Safety: delete never takes its target from context or from a bare noun / known folder; "stop" only counts when it is the whole message                                                     | ✅ (unit + integration; mutation-checked) |
+| Context: "এই folder এর মধ্যে…", "close it"; corrections ("না, Edge খুলে দাও"); strict yes/no parsing for confirmations (ambiguous never confirms)                                          | ✅ (unit)                                 |
+| Chat integration: language detected + persisted per message, reply language decided per turn and given to the model, typed stop/cancel/switch handled **without** a model call             | ✅ (integration + E2E)                    |
+| UI: reply-language selector (Auto / বাংলা / English) per conversation, `lang` attribute on bubbles (font + screen-reader voice)                                                            | ✅ (unit + E2E)                           |
+
+**Caveats — read these**
+
+- **The lexicon is hand-written and finite.** It covers the verbs, apps, folders, file types and phrasings in the tests; real
+  users will say things it does not know. That is by design: anything not fully understood goes to the AI planner
+  (`needsPlanner`) instead of being guessed. Coverage will need to grow from real usage.
+- **Detection of short Banglish is heuristic** (a romanised-word lexicon). Very short or ambiguous input scores low and
+  inherits the conversation's language.
+- The parsed intents are **not yet executed** — there are no tools until Phase 5. Only `stop`, `cancel` and
+  language switching have an effect today (they are handled locally in chat).
+- Bengali quality of _model_ replies depends on the provider; only the instruction to the model is verified here.
+
 ## Not started
 
-Phases 3–15 (Bengali engine, voice, tool engine, computer control, files, browser, task engine, automation,
+Phases 4–15 (voice, tool engine, computer control, files, browser, task engine, automation,
 memory, security hardening, Windows polish, release). Anything that needs Windows UI Automation, the tray,
 global hotkeys, the installer, or auto-update **cannot be verified in this Linux environment** and will be marked 🪟
 until run on Windows.

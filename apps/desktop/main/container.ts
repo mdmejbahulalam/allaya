@@ -85,6 +85,7 @@ export function createContainer(options: ContainerOptions): Container {
     events,
     runs,
     logger: options.logger.child('chat'),
+    osLocale: () => options.getAppInfo().osLocale,
   });
   chat.recoverInterrupted();
 

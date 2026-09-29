@@ -227,7 +227,12 @@
     "viaModel": "{model} দিয়ে",
     "generatingLabel": "Allaya উত্তর দিচ্ছে",
     "messageList": "কথোপকথন",
-    "interrupted": "Allaya বন্ধ হয়ে যাওয়ায় থেমে গিয়েছিল"
+    "interrupted": "Allaya বন্ধ হয়ে যাওয়ায় থেমে গিয়েছিল",
+    "replyLanguage": "উত্তরের ভাষা",
+    "autonym": {
+      "bn": "বাংলা",
+      "en": "English"
+    }
   },
   "tasks": {
     "title": "Tasks",

@@ -126,6 +126,9 @@ importers:
       '@allaya/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@allaya/language':
+        specifier: workspace:*
+        version: link:../../packages/language
       '@allaya/localization':
         specifier: workspace:*
         version: link:../../packages/localization
@@ -208,6 +211,12 @@ importers:
       '@types/better-sqlite3':
         specifier: ^9.6.0
         version: 9.6.0
+
+  packages/language:
+    dependencies:
+      '@allaya/types':
+        specifier: workspace:*
+        version: link:../types
 
   packages/localization:
     dependencies:

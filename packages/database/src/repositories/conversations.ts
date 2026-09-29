@@ -74,6 +74,11 @@ export class ConversationRepository {
       .run();
   }
 
+  /** The reply language the user explicitly asked for in this conversation; `null` means "detect automatically". */
+  setLanguage(id: string, language: 'bn' | 'en' | null): void {
+    this.db.update(conversations).set({ language }).where(eq(conversations.id, id)).run();
+  }
+
   setPinned(id: string, pinned: boolean): void {
     this.db.update(conversations).set({ pinned }).where(eq(conversations.id, id)).run();
   }

@@ -13,6 +13,7 @@ interface ChatState {
   select: (id: string | null) => Promise<void>;
   send: (text: string, model?: ModelRefView) => Promise<void>;
   cancel: () => Promise<void>;
+  setLanguage: (id: string, language: 'auto' | 'bn' | 'en') => Promise<void>;
   remove: (id: string) => Promise<void>;
   rename: (id: string, title: string) => Promise<void>;
   applyDelta: (messageId: string, text: string) => void;
@@ -84,6 +85,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
   async cancel() {
     const { activeId } = get();
     if (activeId) await invoke('chat:cancel', { conversationId: activeId });
+  },
+
+  async setLanguage(id, language) {
+    const updated = await invoke('chat:setLanguage', { conversationId: id, language });
+    set((s) => ({ conversations: s.conversations.map((c) => (c.id === id ? updated : c)) }));
   },
 
   async remove(id) {

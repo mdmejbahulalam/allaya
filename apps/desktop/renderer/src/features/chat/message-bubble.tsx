@@ -1,17 +1,22 @@
 import { Check, Copy, RotateCcw, Sparkles, KeyRound } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { MessageView } from '@allaya/validation';
 import { useT } from '@renderer/lib/i18n';
 import { Markdown } from '@renderer/lib/markdown';
+import { textLang } from '@renderer/lib/text-lang';
 import { cn } from '@renderer/lib/cn';
 import { Badge } from '@renderer/components/ui/badge';
 import { Button } from '@renderer/components/ui/button';
 import { IconButton } from '@renderer/components/ui/icon-button';
 
 export function UserBubble({ message }: { message: MessageView }) {
+  const lang = useMemo(() => textLang(message.content), [message.content]);
   return (
     <div className="flex justify-end">
-      <div className="max-w-[80%] rounded-2xl rounded-ee-md bg-accent-solid px-4 py-2.5 text-body break-words whitespace-pre-wrap text-accent-fg">
+      <div
+        lang={lang}
+        className="max-w-[80%] rounded-2xl rounded-ee-md bg-accent-solid px-4 py-2.5 text-body break-words whitespace-pre-wrap text-accent-fg"
+      >
         {message.content}
       </div>
     </div>
@@ -52,6 +57,7 @@ export function AssistantBubble({
   const streaming = message.status === 'streaming';
   const text = streaming ? (liveText ?? message.content) : message.content;
   const failed = message.status === 'error';
+  const lang = useMemo(() => textLang(text), [text]);
 
   const copy = async () => {
     try {
@@ -76,7 +82,7 @@ export function AssistantBubble({
           <TypingDots label={t.t('chat.generatingLabel')} />
         ) : (
           text && (
-            <div className="text-body text-fg">
+            <div lang={lang} className="text-body text-fg">
               <Markdown text={text} />
               {streaming && (
                 <span

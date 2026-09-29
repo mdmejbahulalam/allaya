@@ -26,14 +26,30 @@ Operating system
 
 ## Packages
 
-| Package              | Responsibility                                                               |
-| -------------------- | ---------------------------------------------------------------------------- |
-| `@allaya/shared`     | Result/errors, ids, clock, typed event bus, cancellation, redaction, logging |
-| `@allaya/types`      | Domain vocabulary (risk levels, task states, intents, …) as const tuples     |
-| `@allaya/validation` | Zod schemas: IPC contract, settings registry, tool argument schemas          |
-| `@allaya/database`   | Drizzle schema, migrations, SQLite connection, repositories                  |
+| Package              | Responsibility                                                                |
+| -------------------- | ----------------------------------------------------------------------------- |
+| `@allaya/shared`     | Result/errors, ids, clock, typed event bus, cancellation, redaction, logging  |
+| `@allaya/types`      | Domain vocabulary (risk levels, task states, intents, …) as const tuples      |
+| `@allaya/validation` | Zod schemas: IPC contract, settings registry, tool argument schemas           |
+| `@allaya/database`   | Drizzle schema, migrations, SQLite connection, repositories                   |
+| `@allaya/ai`         | Provider adapters, SSE, retry/cancel, model router, token estimates           |
+| `@allaya/security`   | Credential vault (OS-encrypted, no plaintext fallback)                        |
+| `@allaya/agent`      | System prompt policy (language rules, "no tools" honesty)                     |
+| `@allaya/language`   | Bengali/Banglish/English detection, normaliser, intent parser, dates, replies |
 
 More packages arrive with their phases (see STATUS.md).
+
+## Language engine (Bengali-first)
+
+`@allaya/language` is pure and side-effect free. Pipeline: canonicalise (NFC, ZWJ) → lift out **protected literals**
+(quotes, URLs, paths, file names) → lift out date/time expressions → tokenise with Bengali suffix splitting →
+longest-phrase lexical matching (Bengali, Banglish and English map to the same canonical tokens) → role assignment
+(Bengali postpositions attach backwards, English prepositions forwards) → intent parser.
+
+The parser output is **language-independent**: the same request in any language yields identical params, and nothing
+downstream ever sees Bengali. It is a _fast path_ that is deliberately conservative — a clause that is not fully
+understood, or that is missing a parameter, is reported (`resolved:false`, `missing`, `leftovers`) and goes to the AI
+planner rather than being guessed. Destructive intents are flagged and never take their target from context.
 
 ## Data
 

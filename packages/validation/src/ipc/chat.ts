@@ -6,6 +6,8 @@ export const conversationViewSchema = z.object({
   id: z.string(),
   title: z.string(),
   pinned: z.boolean(),
+  /** The reply language the user asked for in this conversation; `null` follows the language they write in. */
+  language: z.enum(['bn', 'en']).nullable(),
   createdAt: z.number(),
   updatedAt: z.number(),
 });
@@ -46,6 +48,10 @@ export const chatContract = {
         userMessage: messageViewSchema,
         assistantMessage: messageViewSchema,
       }),
+    ),
+    'chat:setLanguage': spec(
+      z.object({ conversationId: idSchema, language: z.enum(['auto', 'bn', 'en']) }),
+      conversationViewSchema,
     ),
     'chat:cancel': spec(
       z.object({ conversationId: idSchema }),

@@ -123,7 +123,9 @@ export function ChatScreen() {
   );
 
   const showInlineList = tier === 'xl' || tier === 'lg';
-  const languageLabel = t.t(`chat.lang.${responseLanguage}`);
+  const activeConversation = chat.conversations.find((c) => c.id === chat.activeId);
+  // A conversation-level choice ("Speak English") is more specific than the app-wide reply policy.
+  const languageLabel = t.t(`chat.lang.${activeConversation?.language ?? responseLanguage}`);
   const retryFor = (index: number) => {
     const previousUser = [...messages.slice(0, index)].reverse().find((m) => m.kind === 'user');
     return previousUser && !generating ? () => void send(previousUser.content) : undefined;
@@ -159,22 +161,44 @@ export function ChatScreen() {
               </span>
             </p>
           </div>
-          <div className="ms-auto flex items-center gap-2">
-            <span className="text-small text-muted">{t.t('chat.modelLabel')}</span>
-            <Dropdown
-              label={t.t('chat.modelLabel')}
-              value={pinnedRef ? pinned : AUTO}
-              onValueChange={setPinned}
-              disabled={models.length === 0}
-              className="min-w-48"
-              options={[
-                { value: AUTO, label: t.t('chat.modelAuto') },
-                ...models.map((m) => ({
-                  value: `${m.providerId}::${m.modelId}`,
-                  label: m.displayName,
-                })),
-              ]}
-            />
+          <div className="ms-auto flex flex-wrap items-center gap-x-4 gap-y-2">
+            {activeConversation && (
+              <div className="flex items-center gap-2">
+                <span className="text-small text-muted">{t.t('chat.replyLanguage')}</span>
+                <Dropdown
+                  label={t.t('chat.replyLanguage')}
+                  value={activeConversation.language ?? 'auto'}
+                  onValueChange={(value) =>
+                    void chat
+                      .setLanguage(activeConversation.id, value as 'auto' | 'bn' | 'en')
+                      .catch(() => toast.error(t.t('errors.ipc.UNKNOWN')))
+                  }
+                  className="min-w-36"
+                  options={[
+                    { value: 'auto', label: t.t('chat.lang.auto') },
+                    { value: 'bn', label: t.t('chat.autonym.bn') },
+                    { value: 'en', label: t.t('chat.autonym.en') },
+                  ]}
+                />
+              </div>
+            )}
+            <div className="flex items-center gap-2">
+              <span className="text-small text-muted">{t.t('chat.modelLabel')}</span>
+              <Dropdown
+                label={t.t('chat.modelLabel')}
+                value={pinnedRef ? pinned : AUTO}
+                onValueChange={setPinned}
+                disabled={models.length === 0}
+                className="min-w-48"
+                options={[
+                  { value: AUTO, label: t.t('chat.modelAuto') },
+                  ...models.map((m) => ({
+                    value: `${m.providerId}::${m.modelId}`,
+                    label: m.displayName,
+                  })),
+                ]}
+              />
+            </div>
           </div>
         </header>
 
