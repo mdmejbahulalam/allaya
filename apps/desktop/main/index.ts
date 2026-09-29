@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, nativeTheme, type IpcMainInvokeEvent } from 'electron';
+import { app, BrowserWindow, ipcMain, type IpcMainInvokeEvent } from 'electron';
 import { release } from 'node:os';
 import type { AppInfo } from '@allaya/validation';
 import { createContainer, type Container } from './container';
@@ -6,8 +6,10 @@ import { IpcDispatcher } from './ipc/dispatcher';
 import type { EventSink } from './ipc/events';
 import { createLogger } from './logging';
 import { resolveAppPaths } from './paths';
+import { APP_INDEX_URL, installAppProtocol, registerAppScheme } from './security/app-protocol';
 import { isTrustedRendererUrl, senderFromEvent } from './security/window-security';
 import { createMainWindow } from './windows/main-window';
+import { bindTheme } from './windows/theme';
 
 const INVOKE_CHANNEL = 'allaya:invoke';
 const EVENT_CHANNEL = 'allaya:event';
@@ -34,7 +36,6 @@ let mainWindow: BrowserWindow | undefined;
 
 const security = {
   ...(devServerUrl ? { devServerUrl } : {}),
-  rendererIndexPath: paths.rendererIndex,
   logger: logger.child('security'),
 };
 
@@ -102,8 +103,11 @@ function openMainWindow(): void {
     showImmediately: process.env['ALLAYA_E2E'] === '1',
   });
   if (devServerUrl) void mainWindow.loadURL(devServerUrl);
-  else void mainWindow.loadFile(paths.rendererIndex);
+  else void mainWindow.loadURL(APP_INDEX_URL);
 }
+
+// Must be registered before the app is ready.
+registerAppScheme();
 
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
@@ -112,9 +116,10 @@ if (!gotLock) {
   app.on('second-instance', () => openMainWindow());
 
   void app.whenReady().then(() => {
-    nativeTheme.themeSource = 'dark';
     logger.info('Allaya starting', { version: app.getVersion(), environment });
+    installAppProtocol({ rendererRoot: paths.rendererRoot, logger: logger.child('protocol') });
     container = bootstrapBackend();
+    bindTheme(container.settings, () => BrowserWindow.getAllWindows());
 
     openMainWindow();
 

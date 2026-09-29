@@ -1,30 +1,24 @@
-import { pathToFileURL } from 'node:url';
 import { shell, session, type BrowserWindow, type Session, type WebContents } from 'electron';
 import type { Logger } from '@allaya/shared';
 import type { SenderInfo } from '../ipc/dispatcher';
 import { buildCsp } from './csp';
+import { APP_ORIGIN } from './app-protocol-core';
 
 export interface SecurityConfig {
   /** Dev-server origin (electron-vite) or undefined in packaged/production mode. */
   devServerUrl?: string;
-  rendererIndexPath: string;
   logger: Logger;
 }
 
 export function isTrustedRendererUrl(
   url: string,
-  config: Pick<SecurityConfig, 'devServerUrl' | 'rendererIndexPath'>,
+  config: Pick<SecurityConfig, 'devServerUrl'>,
 ): boolean {
   try {
     const parsed = new URL(url);
-    if (config.devServerUrl) {
-      const dev = new URL(config.devServerUrl);
-      if (parsed.origin === dev.origin) return true;
-    }
-    if (parsed.protocol === 'file:') {
-      const expected = pathToFileURL(config.rendererIndexPath);
-      return parsed.pathname === expected.pathname;
-    }
+    // Node's WHATWG URL gives custom schemes an opaque "null" origin, so compare scheme + host explicitly.
+    if (`${parsed.protocol}//${parsed.host}` === APP_ORIGIN) return true;
+    if (config.devServerUrl && parsed.origin === new URL(config.devServerUrl).origin) return true;
   } catch {
     /* fall through */
   }
@@ -44,15 +38,17 @@ export function isSafeExternalUrl(url: string): boolean {
 
 /** Session-level hardening applied once at startup. */
 export function hardenSession(target: Session, config: SecurityConfig): void {
-  const csp = buildCsp(config.devServerUrl);
-  target.webRequest.onHeadersReceived((details, callback) => {
-    const headers = { ...details.responseHeaders };
-    // Only inject on our own documents; leave third-party responses alone.
-    if (isTrustedRendererUrl(details.url, config) || details.url.startsWith('file:')) {
-      headers['Content-Security-Policy'] = [csp];
-    }
-    callback({ responseHeaders: headers });
-  });
+  // Packaged builds get their CSP header (with a per-response nonce) from the app protocol handler.
+  // Only the dev server needs it added here.
+  if (config.devServerUrl) {
+    const csp = buildCsp({ devServerUrl: config.devServerUrl });
+    const devOrigin = new URL(config.devServerUrl).origin;
+    target.webRequest.onHeadersReceived((details, callback) => {
+      const headers = { ...details.responseHeaders };
+      if (new URL(details.url).origin === devOrigin) headers['Content-Security-Policy'] = [csp];
+      callback({ responseHeaders: headers });
+    });
+  }
 
   // Deny every web-platform permission by default. Microphone is enabled explicitly by the
   // voice feature (through the permission center) for our own origin only.

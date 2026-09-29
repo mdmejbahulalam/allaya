@@ -29,7 +29,11 @@ export interface TestBackend {
   events: MemoryEventSink;
   logs: MemorySink;
   logger: Logger;
-  call(channel: string, payload?: unknown, sender?: SenderInfo): ReturnType<IpcDispatcher['dispatch']>;
+  call(
+    channel: string,
+    payload?: unknown,
+    sender?: SenderInfo,
+  ): ReturnType<IpcDispatcher['dispatch']>;
   dispose(): void;
 }
 
@@ -59,7 +63,8 @@ export function createTestBackend(): TestBackend {
     events,
     logs,
     logger,
-    call: (channel, payload, sender = trustedSender) => dispatcher.dispatch({ channel, payload }, sender),
+    call: (channel, payload, sender = trustedSender) =>
+      dispatcher.dispatch({ channel, payload }, sender),
     dispose: () => container.dispose(),
   };
 }

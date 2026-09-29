@@ -6,7 +6,7 @@ export interface AppPaths {
   database: string;
   logs: string;
   migrations: string;
-  rendererIndex: string;
+  rendererRoot: string;
   preload: string;
 }
 
@@ -29,7 +29,7 @@ export function resolveAppPaths(): AppPaths {
     migrations: app.isPackaged
       ? join(process.resourcesPath, 'migrations')
       : join(outDir, '../../../../packages/database/migrations'),
-    rendererIndex: join(outDir, '../renderer/index.html'),
+    rendererRoot: join(outDir, '../renderer'),
     preload: join(outDir, '../preload/index.js'),
   };
 }

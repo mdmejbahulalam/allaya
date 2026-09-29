@@ -271,3 +271,19 @@ export const AUTOMATION_RUN_STATUSES = [
   'cancelled',
 ] as const;
 export type AutomationRunStatus = (typeof AUTOMATION_RUN_STATUSES)[number];
+
+// ── Agent status shown by the AI status card / header (§37) ─────────────────
+export const AGENT_STATUSES = [
+  'ready',
+  'listening',
+  'thinking',
+  'working',
+  'verifying',
+  'completed',
+  'failed',
+  'paused',
+] as const;
+export type AgentStatus = (typeof AGENT_STATUSES)[number];
+
+export const TIMELINE_STEP_STATES = ['done', 'running', 'pending', 'failed', 'skipped'] as const;
+export type TimelineStepState = (typeof TIMELINE_STEP_STATES)[number];

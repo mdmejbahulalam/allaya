@@ -1,6 +1,7 @@
 import { BrowserWindow } from 'electron';
 import type { Logger } from '@allaya/shared';
 import { applySecurity, type SecurityConfig } from '../security/window-security';
+import { titleBarColors } from './theme';
 import { WindowStateStore } from './window-state';
 
 export interface MainWindowOptions {
@@ -28,7 +29,7 @@ export function createMainWindow(options: MainWindowOptions): BrowserWindow {
     backgroundColor: options.backgroundColor,
     // Our own header renders in the title-bar area; native controls overlay it on Windows.
     titleBarStyle: 'hidden',
-    titleBarOverlay: { color: options.backgroundColor, symbolColor: '#9AA3B2', height: 48 },
+    titleBarOverlay: { ...titleBarColors('dark'), height: 48 },
     autoHideMenuBar: true,
     webPreferences: {
       preload: options.preloadPath,

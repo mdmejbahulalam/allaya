@@ -1,13 +1,231 @@
 @import 'tailwindcss';
+@import '@fontsource-variable/inter/wght.css';
+@import '@fontsource/noto-sans-bengali/bengali-400.css';
+@import '@fontsource/noto-sans-bengali/bengali-500.css';
+@import '@fontsource/noto-sans-bengali/bengali-600.css';
+@import '@fontsource/noto-sans-bengali/bengali-700.css';
 
-html,
-body,
-#root {
-  height: 100%;
+/* ── Design tokens ─────────────────────────────────────────────────────────
+   Semantic CSS variables switch with the theme; Tailwind utilities read them
+   through `@theme inline`, so `bg-card` etc. follow Dark / Light / System live. */
+:root {
+  --bg: #0b0d12;
+  --bg-2: #11141b;
+  --card: #171b23;
+  --elevated: #1d222c;
+  --fg: #f5f7fa;
+  --fg-muted: #9aa3b2;
+  --line: #272d38;
+  --line-strong: #363e4d;
+  --accent: #7c5cff; /* brand accent: borders, rings, gradients, large shapes */
+  --accent-2: #00c2ff;
+  --accent-solid: #6a48f5; /* filled backgrounds that carry white text (AA) */
+  --accent-text: #a58bff; /* accent-coloured text on dark surfaces (AA) */
+  --accent-fg: #ffffff;
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --danger-solid: #dc2626;
+  --danger-text: #f87171;
+  --overlay: rgb(4 5 8 / 0.62);
+  --shadow-elevated: 0 12px 32px rgb(0 0 0 / 0.45);
+  --card-pad: 1.5rem;
+  --row-pad-y: 0.75rem;
+  --lh-scale: 1;
+  color-scheme: dark;
 }
-body {
-  margin: 0;
-  background: #0b0d12;
-  color: #f5f7fa;
-  font-family: system-ui, sans-serif;
+
+:root[data-theme='light'] {
+  --bg: #f4f5f9;
+  --bg-2: #ffffff;
+  --card: #ffffff;
+  --elevated: #eef0f5;
+  --fg: #12151c;
+  --fg-muted: #576072;
+  --line: #e0e3ea;
+  --line-strong: #c9ceda;
+  --accent-solid: #6a48f5;
+  --accent-text: #5b3de0;
+  --accent-fg: #ffffff;
+  --success: #166534;
+  --warning: #92400e;
+  --danger: #dc2626;
+  --danger-solid: #dc2626;
+  --danger-text: #b91c1c;
+  --overlay: rgb(20 24 34 / 0.35);
+  --shadow-elevated: 0 12px 32px rgb(20 24 34 / 0.14);
+  color-scheme: light;
+}
+
+:root[data-density='compact'] {
+  --card-pad: 1.25rem;
+  --row-pad-y: 0.5rem;
+}
+
+/* Bengali script needs more vertical room than Latin. */
+:root[lang='bn'] {
+  --lh-scale: 1.14;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-2: var(--bg-2);
+  --color-card: var(--card);
+  --color-elevated: var(--elevated);
+  --color-fg: var(--fg);
+  --color-muted: var(--fg-muted);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-accent: var(--accent);
+  --color-accent-2: var(--accent-2);
+  --color-accent-solid: var(--accent-solid);
+  --color-accent-text: var(--accent-text);
+  --color-accent-fg: var(--accent-fg);
+  --color-danger-solid: var(--danger-solid);
+  --color-danger-text: var(--danger-text);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-overlay: var(--overlay);
+
+  --font-sans:
+    'Inter Variable', 'Noto Sans Bengali', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: ui-monospace, 'Cascadia Code', Consolas, monospace;
+
+  /* Type scale: Display / H1 / H2 / H3 / Body / Small / Caption */
+  --text-display: 2rem;
+  --text-display--line-height: calc(2.5rem * var(--lh-scale));
+  --text-h1: 1.5rem;
+  --text-h1--line-height: calc(2rem * var(--lh-scale));
+  --text-h2: 1.25rem;
+  --text-h2--line-height: calc(1.75rem * var(--lh-scale));
+  --text-h3: 1rem;
+  --text-h3--line-height: calc(1.5rem * var(--lh-scale));
+  --text-body: 0.875rem;
+  --text-body--line-height: calc(1.375rem * var(--lh-scale));
+  --text-small: 0.8125rem;
+  --text-small--line-height: calc(1.25rem * var(--lh-scale));
+  --text-caption: 0.75rem;
+  --text-caption--line-height: calc(1rem * var(--lh-scale));
+
+  /* Radius system */
+  --radius-control: 0.625rem;
+  --radius-card: 1rem;
+  --radius-pill: 999px;
+
+  --shadow-elevated: var(--shadow-elevated);
+
+  /* Motion: hover 150–200ms, panel 200–300ms, modal 300–500ms */
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --animate-pulse-soft: pulse-soft 1.8s ease-in-out infinite;
+  --animate-spin-slow: spin 1.2s linear infinite;
+  --animate-shimmer: shimmer 1.6s linear infinite;
+  --animate-wave: wave 1.1s ease-in-out infinite;
+
+  @keyframes pulse-soft {
+    0%,
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.55;
+      transform: scale(0.92);
+    }
+  }
+  @keyframes shimmer {
+    from {
+      background-position: 200% 0;
+    }
+    to {
+      background-position: -200% 0;
+    }
+  }
+  @keyframes wave {
+    0%,
+    100% {
+      transform: scaleY(0.25);
+    }
+    50% {
+      transform: scaleY(1);
+    }
+  }
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-sans);
+    font-size: 0.875rem;
+    line-height: calc(1.375rem * var(--lh-scale));
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overflow: hidden;
+  }
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
+    color: inherit;
+  }
+  ::selection {
+    background: color-mix(in oklab, var(--accent) 40%, transparent);
+  }
+  /* Visible, consistent focus indicator for keyboard users. */
+  :focus-visible {
+    outline: 2px solid var(--accent-2);
+    outline-offset: 2px;
+  }
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-strong) transparent;
+  }
+}
+
+/* The title-bar area doubles as the window drag handle. */
+.app-drag {
+  -webkit-app-region: drag;
+}
+.app-no-drag {
+  -webkit-app-region: no-drag;
+}
+
+/* Glass is opt-in via settings and used sparingly (header, palette, floating surfaces). */
+[data-glass='on'] .glass {
+  background: color-mix(in oklab, var(--bg-2) 78%, transparent);
+  backdrop-filter: blur(16px) saturate(140%);
+}
+[data-glass='off'] .glass {
+  background: var(--bg-2);
+}
+
+/* Motion preferences are resolved in JS (setting + OS preference) onto this attribute. */
+[data-motion='reduced'] *,
+[data-motion='reduced'] *::before,
+[data-motion='reduced'] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+@utility gradient-accent {
+  background-image: linear-gradient(135deg, var(--accent), var(--accent-2));
+}
+@utility text-gradient {
+  background-image: linear-gradient(135deg, var(--accent), var(--accent-2));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }

@@ -1,0 +1,118 @@
+import { lazy } from 'react';
+import type { ComponentType } from 'react';
+import type { RouteId } from '@renderer/app/routes';
+import { EmptyScreen } from './placeholder';
+import {
+  Activity,
+  AppWindow,
+  Bot,
+  Brain,
+  Cpu,
+  FolderOpen,
+  Globe,
+  ListChecks,
+  MessageSquare,
+  MonitorCog,
+  ShieldCheck,
+} from 'lucide-react';
+
+const lazyNamed = <T extends Record<string, ComponentType>>(
+  loader: () => Promise<T>,
+  name: keyof T,
+) => lazy(async () => ({ default: (await loader())[name] as ComponentType }));
+
+/** Screens are code-split so startup only pays for the first screen. */
+export const SCREENS: Record<RouteId, ComponentType> = {
+  home: lazyNamed(() => import('./home/home-screen'), 'HomeScreen'),
+  settings: lazyNamed(() => import('./settings/settings-screen'), 'SettingsScreen'),
+  help: lazyNamed(() => import('./help/help-screen'), 'HelpScreen'),
+  gallery: lazyNamed(() => import('./gallery/gallery-screen'), 'GalleryScreen'),
+  chat: () => (
+    <EmptyScreen
+      icon={MessageSquare}
+      titleKey="chat.title"
+      emptyTitleKey="chat.emptyTitle"
+      emptyBodyKey="chat.emptyBody"
+    />
+  ),
+  tasks: () => (
+    <EmptyScreen
+      icon={ListChecks}
+      titleKey="tasks.title"
+      emptyTitleKey="tasks.emptyTitle"
+      emptyBodyKey="tasks.emptyBody"
+    />
+  ),
+  automations: () => (
+    <EmptyScreen
+      icon={Bot}
+      titleKey="automations.title"
+      emptyTitleKey="automations.emptyTitle"
+      emptyBodyKey="automations.emptyBody"
+    />
+  ),
+  computer: () => (
+    <EmptyScreen
+      icon={MonitorCog}
+      titleKey="computer.title"
+      emptyTitleKey="computer.emptyTitle"
+      emptyBodyKey="computer.emptyBody"
+    />
+  ),
+  apps: () => (
+    <EmptyScreen
+      icon={AppWindow}
+      titleKey="apps.title"
+      emptyTitleKey="apps.emptyTitle"
+      emptyBodyKey="apps.emptyBody"
+    />
+  ),
+  browser: () => (
+    <EmptyScreen
+      icon={Globe}
+      titleKey="browser.title"
+      emptyTitleKey="browser.emptyTitle"
+      emptyBodyKey="browser.emptyBody"
+    />
+  ),
+  files: () => (
+    <EmptyScreen
+      icon={FolderOpen}
+      titleKey="files.title"
+      emptyTitleKey="files.emptyTitle"
+      emptyBodyKey="files.emptyBody"
+    />
+  ),
+  memory: () => (
+    <EmptyScreen
+      icon={Brain}
+      titleKey="memory.title"
+      emptyTitleKey="memory.emptyTitle"
+      emptyBodyKey="memory.emptyBody"
+    />
+  ),
+  models: () => (
+    <EmptyScreen
+      icon={Cpu}
+      titleKey="models.title"
+      emptyTitleKey="models.emptyTitle"
+      emptyBodyKey="models.emptyBody"
+    />
+  ),
+  activity: () => (
+    <EmptyScreen
+      icon={Activity}
+      titleKey="activity.title"
+      emptyTitleKey="activity.emptyTitle"
+      emptyBodyKey="activity.emptyBody"
+    />
+  ),
+  permissions: () => (
+    <EmptyScreen
+      icon={ShieldCheck}
+      titleKey="permissions.title"
+      emptyTitleKey="settings.comingSoonTitle"
+      emptyBodyKey="settings.comingSoonBody"
+    />
+  ),
+};

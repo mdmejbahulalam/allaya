@@ -29,26 +29,44 @@ describe('IPC dispatcher: trust boundary', () => {
     });
   });
 
-  it.each([null, undefined, 42, 'x', [], {}, { channel: 1 }, { channel: '' }, { channel: 'x'.repeat(500) }])(
-    'rejects malformed envelope %j',
-    async (raw) => {
-      backend = createTestBackend();
-      const result = await backend.dispatcher.dispatch(raw, trustedSender);
-      expect(result.ok).toBe(false);
-    },
-  );
+  it.each([
+    null,
+    undefined,
+    42,
+    'x',
+    [],
+    {},
+    { channel: 1 },
+    { channel: '' },
+    { channel: 'x'.repeat(500) },
+  ])('rejects malformed envelope %j', async (raw) => {
+    backend = createTestBackend();
+    const result = await backend.dispatcher.dispatch(raw, trustedSender);
+    expect(result.ok).toBe(false);
+  });
 
-  it.each(['__proto__', 'constructor', 'toString', 'hasOwnProperty', 'fs:readFile', 'shell:exec', 'app:getInfo '])(
-    'treats %j as an unknown channel (no prototype-chain lookups)',
-    async (channel) => {
-      backend = createTestBackend();
-      expect(await backend.call(channel)).toMatchObject({ ok: false, error: { code: 'UNKNOWN_CHANNEL' } });
-    },
-  );
+  it.each([
+    '__proto__',
+    'constructor',
+    'toString',
+    'hasOwnProperty',
+    'fs:readFile',
+    'shell:exec',
+    'app:getInfo ',
+  ])('treats %j as an unknown channel (no prototype-chain lookups)', async (channel) => {
+    backend = createTestBackend();
+    expect(await backend.call(channel)).toMatchObject({
+      ok: false,
+      error: { code: 'UNKNOWN_CHANNEL' },
+    });
+  });
 
   it('validates payloads per channel and does not echo offending values', async () => {
     backend = createTestBackend();
-    const result = await backend.call('settings:set', { key: 'appearance.theme', value: 'sk-ant-api03-leakyleakyleaky' });
+    const result = await backend.call('settings:set', {
+      key: 'appearance.theme',
+      value: 'sk-ant-api03-leakyleakyleaky',
+    });
     expect(result).toMatchObject({ ok: false, error: { code: 'INVALID_IPC_PAYLOAD' } });
     expect(JSON.stringify(result)).not.toContain('leakyleaky');
   });
@@ -67,9 +85,16 @@ describe('IPC dispatcher: trust boundary', () => {
     registry.register('app:getInfo', () => {
       throw new Error('ENOENT: C:\\Users\\babul\\secrets.txt sk-ant-api03-abcdefghijklmnop');
     });
-    const dispatcher = new IpcDispatcher({ registry, isTrustedSender: () => true, validateResponses: true });
+    const dispatcher = new IpcDispatcher({
+      registry,
+      isTrustedSender: () => true,
+      validateResponses: true,
+    });
     const result = await dispatcher.dispatch({ channel: 'app:getInfo' }, trustedSender);
-    expect(result).toEqual({ ok: false, error: { code: 'INTERNAL', message: 'Something went wrong', retryable: false } });
+    expect(result).toEqual({
+      ok: false,
+      error: { code: 'INTERNAL', message: 'Something went wrong', retryable: false },
+    });
   });
 
   it('passes typed AllayaErrors through with their code', async () => {
@@ -87,7 +112,11 @@ describe('IPC dispatcher: trust boundary', () => {
   it('rejects a handler response that violates the contract when strict', async () => {
     const registry = new HandlerRegistry();
     registry.register('app:getInfo', () => ({ name: 1 }) as never);
-    const dispatcher = new IpcDispatcher({ registry, isTrustedSender: () => true, validateResponses: true });
+    const dispatcher = new IpcDispatcher({
+      registry,
+      isTrustedSender: () => true,
+      validateResponses: true,
+    });
     expect(await dispatcher.dispatch({ channel: 'app:getInfo' }, trustedSender)).toMatchObject({
       ok: false,
       error: { code: 'INTERNAL' },
@@ -108,7 +137,10 @@ describe('settings over IPC', () => {
     expect(result).toMatchObject({ ok: true, data: { 'appearance.theme': 'light' } });
 
     const all = await backend.call('settings:getAll');
-    expect(all).toMatchObject({ ok: true, data: { 'appearance.theme': 'light', 'appearance.accent': '#7C5CFF' } });
+    expect(all).toMatchObject({
+      ok: true,
+      data: { 'appearance.theme': 'light', 'appearance.accent': '#7C5CFF' },
+    });
     expect(backend.events.events.map((e) => e.channel)).toContain('settings:changed');
 
     const reset = await backend.call('settings:reset', { key: 'appearance.theme' });
