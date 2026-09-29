@@ -33,13 +33,22 @@ activity, settings, files are theirs).
   migrations, icons and `app-update.yml` are present; the page renders from the archive through the app protocol; a write goes
   into the database and comes back (so the native driver and migrations work); the renderer has no Node access; the bridge
   has two functions; an unknown channel is refused; the update service is wired to the real feed. It passes.
-- For Windows, the build downloads the Windows Electron, packs the app and builds the installer's compressed payload
-  (123 MB). It then stops: assembling the installer needs Wine (to make the uninstaller), which is not installed here.
+- On this Linux machine the Windows build stops before the installer is assembled: that needs Wine (to make the uninstaller),
+  which is not installed here. The Windows runner above does it natively.
+
+## What was verified on Windows (GitHub Actions, `windows-2022`)
+
+`.github/workflows/windows-installer.yml` runs the steps above on a real Windows runner, on each push to the working
+branch. Run 3 (commit `428bd18`) passed every step: install, `pnpm --filter @allaya/desktop dist`, uploading the
+installer as the `allaya-windows-installer` artifact (the step fails if no file was produced), and the packaged smoke test
+(`tests/packaged/smoke.spec.ts`) against `win-unpacked\allaya.exe`. `windows-latest` (Visual Studio 2026) failed first:
+node-gyp could not build the native database driver there, so the workflow pins `windows-2022`.
 
 ## What was NOT verified
 
-- **No Windows installer was ever produced or run.** Nothing about installing, the Start-menu entry, uninstalling,
-  upgrading over an older install, or how Windows treats the app (SmartScreen, Defender) has been tried.
+- **The installer has not been run by a person.** The build and the packaged program's smoke test passed in CI, but nothing
+  about installing, the Start-menu entry, uninstalling, upgrading over an older install, or how Windows treats the app
+  (SmartScreen, Defender) has been tried. Download the artifact from the run and try it on a real PC.
 - **The installer is unsigned.** Windows will show "unknown publisher" and SmartScreen will warn. Signing needs a
   certificate this repository does not have: set `CSC_LINK` and `CSC_KEY_PASSWORD` for the release build and add
   `publisherName` to `win:` in `electron-builder.yml`. Signing is also what lets the updater check who built an update.
