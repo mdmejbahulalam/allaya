@@ -1,0 +1,19 @@
+{
+  "name": "@allaya/voice",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Main-process speech providers: cloud speech-to-text and text-to-speech behind provider-neutral interfaces.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@allaya/ai": "workspace:*",
+    "@allaya/shared": "workspace:*",
+    "@allaya/speech": "workspace:*",
+    "@allaya/types": "workspace:*"
+  }
+}

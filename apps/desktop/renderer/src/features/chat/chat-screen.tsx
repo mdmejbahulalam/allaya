@@ -23,6 +23,8 @@ import { IconButton } from '@renderer/components/ui/icon-button';
 import { Textarea } from '@renderer/components/ui/input';
 import { AssistantBubble, UserBubble } from './message-bubble';
 import { ConversationList } from './conversation-list';
+import { VoiceButton } from '../voice/voice-button';
+import { VoicePanel } from '../voice/voice-panel';
 
 const AUTO = '__auto__';
 const NO_MESSAGES: MessageView[] = [];
@@ -255,6 +257,7 @@ export function ChatScreen() {
                 </Button>
               </div>
             )}
+            <VoicePanel />
             <div className="flex items-end gap-2 rounded-card border border-line bg-card p-2 focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/30">
               <Textarea
                 autoGrow
@@ -276,6 +279,7 @@ export function ChatScreen() {
                 }}
                 className="border-transparent bg-transparent hover:border-transparent focus:border-transparent focus:ring-0"
               />
+              <VoiceButton />
               {generating || isWorking ? (
                 <Button
                   variant="danger"

@@ -93,9 +93,41 @@ All checks below run in CI-equivalent form in this environment: `pnpm typecheck`
   language switching have an effect today (they are handled locally in chat).
 - Bengali quality of _model_ replies depends on the provider; only the instruction to the model is verified here.
 
+## Phase 4 — Voice ✅ (with important caveats below)
+
+`@allaya/speech` (pure, renderer-safe) and `@allaya/voice` (main-process providers).
+
+| Item                                                                                                                                                                                             | State                                    |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------- |
+| Voice state machine IDLE/LISTENING/PROCESSING/SPEAKING/ERROR: no talking over the user, barge-in, interrupt always → IDLE, **epoch-guarded so late results from cancelled requests are dropped** | ✅ (unit; mutation-checked)              |
+| Voice-activity detection: hysteresis, adaptive noise floor (learned from quiet frames only), click rejection, end-of-utterance, no-speech timeout, max length                                    | ✅ (unit, synthetic signals)             |
+| Transcript hygiene: confidence from Whisper log-probs (unknown ⇒ `null`, never "high"), silence-hallucination filter                                                                             | ✅ (unit + integration)                  |
+| **Low-confidence safety gate**: destructive ⇒ always review (whatever the policy/confidence); unknown/low confidence ⇒ review; "stop" ⇒ send immediately                                         | ✅ (unit + integration + E2E)            |
+| Speech-to-text adapter (OpenAI-compatible `/audio/transcriptions`, multipart, retry/cancel/redaction)                                                                                            | 🧩 verified against wire-format fixtures |
+| Text-to-speech: cleaned/chunked spoken text (Markdown/URLs/code/emoji removed, Bengali danda), cloud voice adapter, system-voice picker (never a wrong-language voice)                           | ✅ prep logic · 🧩 adapters              |
+| Microphone permission policy: audio only, own origin, only after consent, revoked when voice is turned off; camera never                                                                         | ✅ (unit + **real Electron E2E**)        |
+| Consent dialog, mic button, live level meter, review card (editable, confidence badge, reasons), notices, Settings → Voice, in-app shortcut (Ctrl+Shift+V outside text fields)                   | ✅ (unit + E2E)                          |
+| Emergency STOP silences the microphone, speech and tasks; STOP visible whenever voice is active                                                                                                  | ✅ (E2E)                                 |
+| Audio never persisted or logged; transcripts not logged                                                                                                                                          | ✅ (integration)                         |
+
+**Caveats — read these**
+
+- **No real speech has ever been through this pipeline.** E2E uses Chromium's _synthetic_ microphone (a periodic beep) and a
+  fake speech server that returns a scripted transcript. Actual microphone capture quality, VAD thresholds in real rooms,
+  and — most importantly — **Bengali recognition accuracy** are unverified and must be tested with real voices.
+- **The OpenAI transcription/speech endpoints have never been called live.** Whisper's per-segment log-probabilities are what
+  drive the confidence gate; other models (e.g. `gpt-4o-transcribe`) return no confidence, so every transcript from them is
+  held for review under the default policy.
+- **Bengali text-to-speech** through `speechSynthesis` depends on a Bengali voice being installed in Windows (unverified here — this
+  environment has no voices; the "no voice installed" path is what E2E exercises). The cloud voice's Bengali quality is unverified.
+- Only **one** speech provider (OpenAI) exists. Google/Gemini STT and local/offline recognition are not implemented.
+- **Not implemented:** wake word ("Hey Allaya"), hold-to-talk key, system-wide voice hotkey (Windows integration phase),
+  microphone level calibration UI, voice activity while the window is hidden.
+- VAD defaults (threshold, 1.1 s end-of-speech silence) were chosen by reasoning about Bengali speech pauses, not measured.
+
 ## Not started
 
-Phases 4–15 (voice, tool engine, computer control, files, browser, task engine, automation,
+Phases 5–15 (tool engine, computer control, files, browser, task engine, automation,
 memory, security hardening, Windows polish, release). Anything that needs Windows UI Automation, the tray,
 global hotkeys, the installer, or auto-update **cannot be verified in this Linux environment** and will be marked 🪟
 until run on Windows.

@@ -6,6 +6,37 @@ export interface FakeRequest {
   url: string;
   headers: Record<string, string | string[] | undefined>;
   body: unknown;
+  /** Size in bytes of a multipart upload (speech-to-text). */
+  uploadBytes?: number;
+  /** Text fields of a multipart upload. */
+  fields?: Record<string, string>;
+}
+
+/** A minimal, valid, silent MP3 (a run of MPEG-1 Layer III frames) for the text-to-speech endpoint. */
+const SILENT_MP3 = Buffer.concat(
+  Array.from({ length: 12 }, () =>
+    Buffer.concat([Buffer.from([0xff, 0xfb, 0x90, 0x64]), Buffer.alloc(413)]),
+  ),
+);
+
+/** Pulls plain-text form fields and the upload size out of a multipart body (enough for assertions). */
+function parseMultipart(
+  buffer: Buffer,
+  contentType: string,
+): { fields: Record<string, string>; uploadBytes: number } {
+  const boundary = /boundary=(.+)$/.exec(contentType)?.[1];
+  const fields: Record<string, string> = {};
+  let uploadBytes = 0;
+  if (!boundary) return { fields, uploadBytes };
+  for (const part of buffer.toString('latin1').split(`--${boundary}`)) {
+    const head = /Content-Disposition: form-data; name="([^"]+)"(; filename="[^"]*")?/.exec(part);
+    if (!head) continue;
+    const bodyStart = part.indexOf('\r\n\r\n') + 4;
+    const value = part.slice(bodyStart, part.length - 2);
+    if (head[2]) uploadBytes = value.length;
+    else fields[head[1]!] = Buffer.from(value, 'latin1').toString('utf8');
+  }
+  return { fields, uploadBytes };
 }
 
 /**
@@ -14,12 +45,15 @@ export interface FakeRequest {
  */
 export class FakeAi {
   static readonly VALID_KEY = 'sk-ant-api03-E2EVALIDKEYE2EVALIDKEY0123';
+  static readonly OPENAI_KEY = 'sk-proj-E2EVALIDOPENAIKEY0123456789';
   readonly requests: FakeRequest[] = [];
   /** Produces the streamed pieces for a given last user message. */
   reply: (userText: string) => string[] = (text) => ['Echo: ', text];
   chunkDelayMs = 0;
   /** When true the stream sends its first piece then stalls until the client disconnects. */
   stall = false;
+  /** What the speech-to-text endpoint hears. */
+  transcript = { text: 'Chrome খুলে দাও', avgLogprob: -0.08, noSpeechProb: 0.01 };
   private server!: Server;
 
   static async start(): Promise<FakeAi> {
@@ -41,14 +75,63 @@ export class FakeAi {
   private async handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
     const chunks: Buffer[] = [];
     for await (const chunk of req) chunks.push(chunk as Buffer);
-    const raw = Buffer.concat(chunks).toString('utf8');
+    const buffer = Buffer.concat(chunks);
+    const contentType = String(req.headers['content-type'] ?? '');
+    const multipart = contentType.startsWith('multipart/form-data');
+    const raw = multipart ? '' : buffer.toString('utf8');
     const body = raw ? (JSON.parse(raw) as unknown) : undefined;
+    const upload = multipart ? parseMultipart(buffer, contentType) : undefined;
     this.requests.push({
       method: req.method ?? 'GET',
       url: req.url ?? '',
       headers: req.headers,
       body,
+      ...(upload ? { uploadBytes: upload.uploadBytes, fields: upload.fields } : {}),
     });
+
+    // OpenAI-style endpoints (speech) authenticate with a bearer token.
+    if (req.headers['authorization'] !== undefined) {
+      if (req.headers['authorization'] !== `Bearer ${FakeAi.OPENAI_KEY}`) {
+        res.writeHead(401, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ error: { message: 'Incorrect API key provided' } }));
+        return;
+      }
+      if (req.method === 'GET' && req.url?.startsWith('/v1/models')) {
+        // No chat models on purpose: chat keeps routing to Anthropic in these tests.
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ data: [] }));
+        return;
+      }
+      if (req.method === 'POST' && req.url === '/v1/audio/transcriptions') {
+        const { text, avgLogprob, noSpeechProb } = this.transcript;
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(
+          JSON.stringify({
+            text,
+            language: 'bengali',
+            duration: 2.1,
+            segments: [
+              {
+                text,
+                start: 0,
+                end: 2.1,
+                avg_logprob: avgLogprob,
+                no_speech_prob: noSpeechProb,
+                compression_ratio: 1.1,
+              },
+            ],
+          }),
+        );
+        return;
+      }
+      if (req.method === 'POST' && req.url === '/v1/audio/speech') {
+        res.writeHead(200, { 'content-type': 'audio/mpeg' });
+        res.end(SILENT_MP3);
+        return;
+      }
+      res.writeHead(404).end();
+      return;
+    }
 
     if (req.headers['x-api-key'] !== FakeAi.VALID_KEY) {
       res.writeHead(401, { 'content-type': 'application/json' });

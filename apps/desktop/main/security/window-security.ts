@@ -50,23 +50,59 @@ export function hardenSession(target: Session, config: SecurityConfig): void {
     });
   }
 
-  // Deny every web-platform permission by default. Microphone is enabled explicitly by the
-  // voice feature (through the permission center) for our own origin only.
+  // Deny every web-platform permission by default. The microphone (audio only — never the camera) is allowed
+  // for our own origin, and only once the user has turned voice on.
   target.setPermissionRequestHandler((wc, permission, callback, details) => {
-    const allowed = permission === 'media' && isTrustedRendererUrl(details.requestingUrl, config);
+    const allowed = isPermissionAllowed(
+      {
+        permission,
+        url: details.requestingUrl,
+        mediaTypes: 'mediaTypes' in details ? details.mediaTypes : undefined,
+        microphoneEnabled: microphoneAllowed.value,
+      },
+      config,
+    );
     if (!allowed) config.logger.warn('Denied web permission request', { permission });
-    callback(allowed && microphoneAllowed.value);
+    callback(allowed);
   });
-  target.setPermissionCheckHandler((wc, permission, requestingOrigin) => {
-    return (
-      permission === 'media' &&
-      microphoneAllowed.value &&
-      isTrustedRendererUrl(requestingOrigin, config)
+  target.setPermissionCheckHandler((wc, permission, requestingOrigin, details) => {
+    return isPermissionAllowed(
+      {
+        permission,
+        url: requestingOrigin,
+        // Checks report a single `mediaType`; an "unknown" type is treated as not-audio.
+        mediaTypes: 'mediaType' in details && details.mediaType === 'audio' ? ['audio'] : undefined,
+        microphoneEnabled: microphoneAllowed.value,
+      },
+      config,
     );
   });
 }
 
-/** Toggled by the permissions center; the renderer cannot flip this itself. */
+export interface PermissionQuery {
+  permission: string;
+  url: string;
+  /** For `media`: which devices are requested. Camera requests are never granted. */
+  mediaTypes: ReadonlyArray<'video' | 'audio' | 'unknown'> | undefined;
+  microphoneEnabled: boolean;
+}
+
+/** The whole permission policy: microphone-only `media` for our own origin, after consent; nothing else. */
+export function isPermissionAllowed(
+  query: PermissionQuery,
+  config: Pick<SecurityConfig, 'devServerUrl'>,
+): boolean {
+  if (query.permission !== 'media') return false;
+  if (!query.microphoneEnabled) return false;
+  if (!isTrustedRendererUrl(query.url, config)) return false;
+  const types = query.mediaTypes;
+  return Array.isArray(types) && types.length > 0 && types.every((type) => type === 'audio');
+}
+
+/**
+ * Mirrors the `voice.enabled` setting (the user's explicit consent). Only the main process reads and writes it;
+ * it is synchronised from the validated setting at startup and whenever the setting changes.
+ */
 export const microphoneAllowed = { value: false };
 
 /** Per-webContents hardening: no popups, no navigation away, no webviews. */

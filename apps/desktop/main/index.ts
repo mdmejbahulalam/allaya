@@ -9,7 +9,11 @@ import { E2E, InsecureTestCipher, e2eBaseUrls } from './security/e2e-hooks';
 import { SafeStorageCipher } from './security/safe-storage-cipher';
 import { resolveAppPaths } from './paths';
 import { APP_INDEX_URL, installAppProtocol, registerAppScheme } from './security/app-protocol';
-import { isTrustedRendererUrl, senderFromEvent } from './security/window-security';
+import {
+  isTrustedRendererUrl,
+  microphoneAllowed,
+  senderFromEvent,
+} from './security/window-security';
 import { createMainWindow } from './windows/main-window';
 import { bindTheme } from './windows/theme';
 
@@ -68,6 +72,12 @@ function bootstrapBackend(): Container {
     ...(E2E ? { providerOptions: { baseUrls: e2eBaseUrls(), maxRetries: 0, backoffMs: 0 } } : {}),
   });
   c.registry.assertComplete();
+
+  // The microphone permission follows the user's consent setting, and nothing else.
+  microphoneAllowed.value = c.settings.get('voice.enabled');
+  c.settings.events.on('changed', (snapshot) => {
+    microphoneAllowed.value = snapshot['voice.enabled'];
+  });
 
   const dispatcher = new IpcDispatcher({
     registry: c.registry,

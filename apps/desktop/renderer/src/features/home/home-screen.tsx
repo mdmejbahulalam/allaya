@@ -5,7 +5,6 @@ import {
   Camera,
   AppWindow,
   Zap,
-  Mic,
   Paperclip,
   SendHorizontal,
   KeyRound,
@@ -23,6 +22,8 @@ import { IconButton } from '@renderer/components/ui/icon-button';
 import { Textarea } from '@renderer/components/ui/input';
 import { Tooltip } from '@renderer/components/ui/tooltip';
 import { ListChecks } from 'lucide-react';
+import { VoiceButton } from '../voice/voice-button';
+import { VoicePanel } from '../voice/voice-panel';
 
 const QUICK_ICONS = {
   open_folder: FolderOpen,
@@ -58,6 +59,7 @@ export function HomeScreen() {
         <p className="mt-1 text-h2 text-muted">{t.t('home.headline')}</p>
       </header>
 
+      <VoicePanel />
       <Card variant="elevated" className="p-5">
         <label htmlFor="home-ask" className="mb-2 block text-small font-medium text-muted">
           {t.t('home.commandCardTitle')}
@@ -94,16 +96,7 @@ export function HomeScreen() {
             </Tooltip>
           </div>
           <div className="flex items-center gap-2">
-            <Tooltip label={t.t('home.voiceSoon')}>
-              <span>
-                <IconButton
-                  label={t.t('home.voice')}
-                  icon={<Mic size={18} />}
-                  disabled
-                  hideTooltip
-                />
-              </span>
-            </Tooltip>
+            <VoiceButton />
             <Button
               variant="gradient"
               size="md"

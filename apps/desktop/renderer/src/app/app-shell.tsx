@@ -10,6 +10,7 @@ import { useAgentStore } from '@renderer/stores/agent';
 import { selectConnection, useProvidersStore } from '@renderer/stores/providers';
 import { useSettingsStore } from '@renderer/stores/settings';
 import { useUiStore } from '@renderer/stores/ui';
+import { isVoiceActive, useVoiceStore } from '@renderer/stores/voice';
 import { CommandPalette, type PaletteItem } from '@renderer/components/shell/command-palette';
 import { ContextPanel } from '@renderer/components/shell/context-panel';
 import { ErrorBoundary } from '@renderer/components/shell/error-boundary';
@@ -18,6 +19,7 @@ import { Sidebar } from '@renderer/components/shell/sidebar';
 import { Drawer } from '@renderer/components/ui/drawer';
 import { Skeleton } from '@renderer/components/ui/skeleton';
 import { SCREENS } from '@renderer/features/screens';
+import { VoiceBridge } from '@renderer/features/voice/voice-bridge';
 import { NAV_GROUPS, ROUTES, type RouteId } from './routes';
 
 // Keywords are gathered from BOTH languages so English / Banglish typing finds items in a Bengali UI.
@@ -50,7 +52,10 @@ export function AppShell() {
     sidebarHover,
     setSidebarHover,
   } = useUiStore();
-  const isWorking = useAgentStore((s) => s.isWorking);
+  const agentWorking = useAgentStore((s) => s.isWorking);
+  const voiceState = useVoiceStore((s) => s.state);
+  // Listening and speaking count as "working": the emergency stop must be reachable whenever Allaya is active.
+  const isWorking = agentWorking || isVoiceActive(voiceState);
   const connection = useProvidersStore(selectConnection);
 
   // ── Sidebar: pinned honours the user's setting; unpinned is a rail that expands on hover.
@@ -91,6 +96,11 @@ export function AppShell() {
       } else if (matchesShortcut(event, settings['shortcuts.newTask'])) {
         event.preventDefault();
         newTask();
+      } else if (matchesShortcut(event, settings['shortcuts.voice']) && !isEditable(event.target)) {
+        // Ctrl+Shift+V is also "paste as plain text" inside text fields, so it only toggles voice elsewhere.
+        // (A system-wide shortcut arrives with the Windows integration phase.)
+        event.preventDefault();
+        void useVoiceStore.getState().toggle();
       }
     };
     window.addEventListener('keydown', onKeyDown);
@@ -174,7 +184,11 @@ export function AppShell() {
         onOpenPalette={() => setPaletteOpen(true)}
         onToggleContext={() => setContextOpen(!contextVisible)}
         onOpenSettings={() => navigate('settings')}
-        onStop={() => void invoke('agent:stop').catch(() => undefined)}
+        onStop={() => {
+          // One STOP silences everything: the microphone, speech, and every running task.
+          useVoiceStore.getState().interrupt();
+          void invoke('agent:stop').catch(() => undefined);
+        }}
       />
 
       <div className="flex min-h-0 flex-1">
@@ -243,7 +257,18 @@ export function AppShell() {
         </Drawer>
       )}
 
+      <VoiceBridge />
       <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} items={items} onAsk={ask} />
     </div>
+  );
+}
+
+/** True for text-entry elements, where keystrokes belong to the field. */
+function isEditable(target: EventTarget | null): boolean {
+  return (
+    target instanceof HTMLElement &&
+    (target.isContentEditable ||
+      target instanceof HTMLInputElement ||
+      target instanceof HTMLTextAreaElement)
   );
 }

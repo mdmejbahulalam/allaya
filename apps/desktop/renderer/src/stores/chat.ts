@@ -9,6 +9,8 @@ interface ChatState {
   messages: Record<string, MessageView[]>;
   /** Text streamed so far for messages still being generated, by message id. */
   streaming: Record<string, string>;
+  /** The most recent assistant reply that finished successfully (read aloud when voice replies are on). */
+  lastCompleted: MessageView | null;
   loadConversations: () => Promise<void>;
   select: (id: string | null) => Promise<void>;
   send: (text: string, model?: ModelRefView) => Promise<void>;
@@ -41,6 +43,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   activeId: null,
   messages: {},
   streaming: {},
+  lastCompleted: null,
 
   setConversations: (conversations) => set({ conversations }),
 
@@ -65,8 +68,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
     });
     set((s) => {
       const id = result.conversation.id;
+      // Replies Allaya wrote itself (e.g. "Stopped.") arrive already complete, without a finished event.
+      const localReply =
+        result.assistantMessage.status === 'complete' ? result.assistantMessage : s.lastCompleted;
       const known = s.conversations.some((c) => c.id === id);
       return {
+        lastCompleted: localReply,
         activeId: id,
         conversations: known
           ? s.conversations.map((c) => (c.id === id ? result.conversation : c))
@@ -115,6 +122,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const { [message.id]: _dropped, ...streaming } = s.streaming;
       return {
         streaming,
+        lastCompleted:
+          message.kind === 'assistant' && message.status === 'complete' ? message : s.lastCompleted,
         messages: {
           ...s.messages,
           [message.conversationId]: upsertMessage(

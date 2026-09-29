@@ -19,7 +19,10 @@ export interface RequestSpec {
   url: string;
   method?: 'GET' | 'POST';
   headers: Record<string, string>;
+  /** JSON-serialised request body. */
   body?: unknown;
+  /** A pre-built body (e.g. `FormData` for multipart uploads). Its content type is set by fetch; do not add one. */
+  rawBody?: NonNullable<RequestInit['body']>;
   signal?: AbortSignal | undefined;
 }
 
@@ -86,7 +89,11 @@ export async function send(
       const response = await doFetch(spec.url, {
         method: spec.method ?? 'POST',
         headers: spec.headers,
-        ...(spec.body === undefined ? {} : { body: JSON.stringify(spec.body) }),
+        ...(spec.rawBody !== undefined
+          ? { body: spec.rawBody }
+          : spec.body === undefined
+            ? {}
+            : { body: JSON.stringify(spec.body) }),
         signal,
       });
       if (response.ok) return { response, dispose };

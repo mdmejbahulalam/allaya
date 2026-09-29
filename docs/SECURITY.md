@@ -21,8 +21,8 @@ Enforced by:
 - Navigation is locked to our own origin; `window.open` is denied; external `http(s)`/`mailto` links open
   in the system browser only after URL validation; `<webview>` attachment is blocked
   (`main/security/window-security.ts`).
-- Every web-platform permission request is denied by default (microphone is opt-in via the Permissions
-  Center, for our own origin only).
+- Every web-platform permission request is denied by default. The microphone — audio only, never the camera — is
+  granted to our own origin, and only after the user has turned voice on (see §5).
 - ESLint `no-restricted-imports` **fails the build** if renderer code imports Node built-ins, Electron, or any
   system-level `@allaya/*` package, or if a domain package imports Electron/React/apps.
 
@@ -88,10 +88,30 @@ the command palette, and toasts.
 
 Tests: `tests/unit/shared/redaction.test.ts`.
 
-## 5. Not yet covered (honest status)
+## 5. Microphone and voice
+
+| Guarantee                                                                                                   | Enforced by                                                               |
+| ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| The microphone is unavailable until the user turns voice on; turning it off revokes it immediately          | `isPermissionAllowed` (`window-security.ts`), synced from `voice.enabled` |
+| The camera (video) is never granted — alone or combined with audio                                          | same policy function                                                      |
+| Consent dialog explains that speech goes to the user's own OpenAI account and that recordings are not saved | `voice-setup-modal.tsx`                                                   |
+| Audio exists only in memory: never written to disk, never logged, never sent over events                    | `VoiceService` (integration test greps logs/events)                       |
+| Transcripts are not logged (they may contain anything the user said)                                        | `VoiceService`                                                            |
+| Speech-to-text keys stay in the main process; the renderer only ever sends audio and receives text          | vault + `AudioEndpoint`                                                   |
+| A low-confidence, uncertain or **destructive** transcript is never acted on: it is shown for review first   | `decideSubmission` (`@allaya/speech`), evaluated in main                  |
+| Silence hallucinations ("Thanks for watching!") are discarded, not sent                                     | `isLikelyHallucination`                                                   |
+| "Stop" spoken or typed as the whole message is handled immediately; a stop word inside a sentence never is  | intent parser `standalone` rule + chat integration                        |
+| One STOP silences microphone, speech and running tasks; late results from cancelled requests are ignored    | `VoiceStateMachine` epochs + header STOP                                  |
+| Allaya never talks over the user                                                                            | state machine refuses `start_speaking` while listening/processing         |
+
+Tests: `tests/security/permissions.test.ts`, `tests/integration/voice.test.ts`, `tests/unit/speech/*`,
+`tests/unit/renderer/voice-store.test.ts`, and `tests/e2e/voice.spec.ts` (real Electron: mic and camera denied before
+consent, mic granted after, revoked when voice is switched off).
+
+## 6. Not yet covered (honest status)
 
 See `docs/STATUS.md` for the per-requirement state. Security items that are designed but not yet built or not yet
 verifiable in this environment are tracked there, notably: the tool permission/risk engine and confirmation flow,
-emergency-stop, the credential vault, and Windows-specific hardening (UI Automation scope, installer signing,
+the global (system-wide) emergency-stop shortcut, and Windows-specific hardening (UI Automation scope, installer signing,
 auto-update signature verification). Those require the corresponding phases and, for the Windows-specific items,
 a real Windows machine.

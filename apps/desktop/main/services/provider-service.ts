@@ -9,6 +9,7 @@ import {
   type RoutingConfig,
 } from '@allaya/ai';
 import type { ProviderRepository, StoredModel } from '@allaya/database';
+import type { AudioEndpoint } from '@allaya/voice';
 import { type CredentialVault } from '@allaya/security';
 import { AllayaError, toSerializedError, TypedEventBus, type Logger } from '@allaya/shared';
 import {
@@ -105,6 +106,28 @@ export class ProviderService {
 
   provider(id: ProviderId): AIProvider {
     return this.registry.get(id);
+  }
+
+  /** Whether an API key is stored for the provider (regardless of its last verification result). */
+  hasKey(id: ProviderId): boolean {
+    return this.deps.vault.has(id);
+  }
+
+  /**
+   * Connection details for provider endpoints that are not chat (speech). The key is resolved per call by the
+   * vault and never leaves the main process.
+   */
+  audioEndpoint(id: ProviderId): AudioEndpoint {
+    const options = this.deps.providerOptions;
+    const baseUrl = options?.baseUrls?.[id];
+    return {
+      getApiKey: async () => this.deps.vault.get(id),
+      ...(baseUrl ? { baseUrl } : {}),
+      ...(options?.fetch ? { fetch: options.fetch } : {}),
+      ...(options?.timeoutMs !== undefined ? { timeoutMs: options.timeoutMs } : {}),
+      ...(options?.maxRetries !== undefined ? { maxRetries: options.maxRetries } : {}),
+      ...(options?.backoffMs !== undefined ? { backoffMs: options.backoffMs } : {}),
+    };
   }
 
   // ── views ─────────────────────────────────────────────────────────────────

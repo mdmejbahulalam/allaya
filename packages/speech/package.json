@@ -1,0 +1,17 @@
+{
+  "name": "@allaya/speech",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Pure, renderer-safe speech logic: voice state machine, voice-activity detection, transcript hygiene, submission safety, text-to-speech preparation.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@allaya/language": "workspace:*",
+    "@allaya/types": "workspace:*"
+  }
+}

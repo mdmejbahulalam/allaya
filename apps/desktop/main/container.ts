@@ -16,9 +16,11 @@ import { registerAgentHandlers } from './ipc/handlers/agent';
 import { registerAppHandlers } from './ipc/handlers/app';
 import { registerChatHandlers } from './ipc/handlers/chat';
 import { registerProviderHandlers } from './ipc/handlers/providers';
+import { registerVoiceHandlers } from './ipc/handlers/voice';
 import { ChatService } from './services/chat-service';
 import { ProviderService } from './services/provider-service';
 import { SettingsService } from './services/settings-service';
+import { VoiceService } from './services/voice-service';
 
 export interface ContainerOptions {
   databasePath: string;
@@ -42,6 +44,7 @@ export interface Container {
   settings: SettingsService;
   providers: ProviderService;
   chat: ChatService;
+  voice: VoiceService;
   runs: RunRegistry;
   events: EventPublisher;
   registry: HandlerRegistry;
@@ -88,6 +91,12 @@ export function createContainer(options: ContainerOptions): Container {
     osLocale: () => options.getAppInfo().osLocale,
   });
   chat.recoverInterrupted();
+  const voice = new VoiceService({
+    providers,
+    settings,
+    runs,
+    logger: options.logger.child('voice'),
+  });
 
   settings.events.on('changed', (snapshot) => events.publish('settings:changed', snapshot));
   providers.events.on('changed', (list) => events.publish('providers:changed', list));
@@ -96,6 +105,7 @@ export function createContainer(options: ContainerOptions): Container {
   registerAppHandlers(registry, { settings, getAppInfo: options.getAppInfo });
   registerProviderHandlers(registry, providers);
   registerChatHandlers(registry, chat);
+  registerVoiceHandlers(registry, voice);
   registerAgentHandlers(registry, runs);
 
   return {
@@ -103,6 +113,7 @@ export function createContainer(options: ContainerOptions): Container {
     settings,
     providers,
     chat,
+    voice,
     runs,
     events,
     registry,

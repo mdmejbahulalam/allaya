@@ -502,7 +502,29 @@
     "saved": "Saved",
     "displayName": "Your name",
     "displayNameHint": "Used in the greeting on Home.",
-    "uiScaleHint": "Scales text and controls across the app."
+    "uiScaleHint": "Scales text and controls across the app.",
+    "voice": {
+      "note": "Speech recognition sends your audio to OpenAI while you talk. Allaya does not store recordings.",
+      "enabled": "Voice input",
+      "enabledHint": "Lets Allaya listen through your microphone when you press the mic button.",
+      "device": "Microphone",
+      "deviceDefault": "System default",
+      "inputLanguage": "Speech language",
+      "inputLanguageHint": "Pick Bengali or English if automatic detection gets it wrong.",
+      "autoSend": "Sending voice messages",
+      "autoSendNever": "Always let me review first",
+      "autoSendConfident": "Send automatically when I'm sure",
+      "autoSendAlways": "Send everything except risky commands",
+      "threshold": "Confidence needed to send automatically",
+      "speakReplies": "Read replies aloud",
+      "engine": "Voice",
+      "engineSystem": "Voices installed on this PC",
+      "engineCloud": "Cloud voice (OpenAI)",
+      "systemVoice": "PC voice",
+      "systemVoiceAuto": "Automatic (by language)",
+      "cloudVoice": "Cloud voice",
+      "rate": "Speaking speed"
+    }
   },
   "palette": {
     "placeholder": "Type a command or ask Allaya…",
@@ -568,7 +590,48 @@
     "ERROR": "Voice error",
     "start": "Start voice mode",
     "stopListening": "Stop listening",
-    "lowConfidence": "I didn't understand that clearly. Could you repeat it?"
+    "lowConfidence": "I didn't understand that clearly. Could you repeat it?",
+    "stopSpeaking": "Stop speaking",
+    "processingLabel": "Transcribing…",
+    "panelLabel": "Voice",
+    "listeningHint": "Listening — speak now, then pause.",
+    "speakingHint": "Speaking…",
+    "reviewTitle": "Did I hear you right?",
+    "reviewHint": "Check the text, fix it if needed, then send.",
+    "reviewLabel": "What I heard",
+    "confidence": "Confidence: {percent}%",
+    "confidenceUnknown": "Confidence unknown",
+    "speakAgain": "Speak again",
+    "sendReviewed": "Send",
+    "reason": {
+      "destructive": "This sounds like a delete request, so please confirm it.",
+      "policy": "You asked to review voice messages before they are sent.",
+      "low_confidence": "I'm not sure I heard that correctly.",
+      "very_low_confidence": "I could barely make that out.",
+      "unknown_confidence": "I can't tell how well I heard that."
+    },
+    "notice": {
+      "no_speech": "I didn't hear anything. Try again.",
+      "mic_permission_denied": "Microphone access was denied. Check the microphone privacy settings in Windows.",
+      "mic_no_microphone": "No microphone was found.",
+      "mic_unsupported": "Audio recording isn't available here.",
+      "mic_failed": "The microphone couldn't start.",
+      "no_voice_bn": "No Bengali voice is installed on this PC, so replies stay as text. Add one in Windows settings, or use the cloud voice in Settings → Voice.",
+      "no_voice_en": "No English voice is installed on this PC, so replies stay as text.",
+      "speech_failed": "I couldn't speak that reply.",
+      "generic": "Voice isn't working right now."
+    },
+    "setup": {
+      "title": "Turn on voice?",
+      "body": "Voice lets you talk to Allaya in Bengali or English. Here is how it works:",
+      "point1": "The microphone is used only while you see “Listening”.",
+      "point2": "Your speech is sent to OpenAI to be turned into text, using your own OpenAI API key.",
+      "point3": "Allaya does not save recordings. Only the text you send stays in the conversation.",
+      "point4": "Risky commands, like deleting files, always ask you to confirm first.",
+      "noKey": "Voice needs an OpenAI API key. Add one in AI Models first.",
+      "addKey": "Add key",
+      "enable": "Turn on voice"
+    }
   },
   "onboarding": {
     "welcomeTitle": "Welcome to Allaya",
