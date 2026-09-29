@@ -1,5 +1,6 @@
 import type { z } from 'zod';
 import { agentContract } from './agent';
+import { automationsContract } from './automations';
 import { appContract } from './app';
 import { browserContract } from './browser';
 import { chatContract } from './chat';
@@ -22,6 +23,7 @@ export * from './computer';
 export * from './files';
 export * from './browser';
 export * from './tasks';
+export * from './automations';
 
 /**
  * The complete IPC surface between renderer and main. Each domain contributes
@@ -40,6 +42,7 @@ export const ipcInvokeContract = {
   ...filesContract.invoke,
   ...browserContract.invoke,
   ...tasksContract.invoke,
+  ...automationsContract.invoke,
 } as const satisfies Record<string, ChannelSpec>;
 
 export const ipcEventContract = {
@@ -53,6 +56,7 @@ export const ipcEventContract = {
   ...filesContract.events,
   ...browserContract.events,
   ...tasksContract.events,
+  ...automationsContract.events,
 } as const satisfies Record<string, z.ZodType>;
 
 export type InvokeChannel = keyof typeof ipcInvokeContract;

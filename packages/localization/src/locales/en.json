@@ -369,7 +369,130 @@
     "title": "Automations",
     "emptyTitle": "No automations yet.",
     "emptyBody": "Create a workflow and let Allaya handle it on a schedule.",
-    "create": "Create Automation"
+    "create": "Create Automation",
+    "new": "New automation",
+    "edit": "Edit automation",
+    "limit": "You can have up to {count} automations.",
+    "paused": {
+      "title": "Automations are paused",
+      "body": "You pressed STOP, so nothing scheduled will start until you turn automations back on.",
+      "resume": "Turn automations back on"
+    },
+    "list": "Automations",
+    "toggle": "Run “{name}” automatically",
+    "nextRun": "Next run: {when}",
+    "noNextRun": "No next run",
+    "lastRun": "Last run",
+    "neverRan": "Has not run yet",
+    "runNow": "Run now",
+    "started": "Started “{name}”",
+    "history": "History",
+    "historyEmpty": "Nothing has run yet.",
+    "delete": "Delete automation",
+    "deleteBody": "“{name}” will stop running and its history will be removed. Tasks it already ran stay in Tasks.",
+    "deleted": "Deleted “{name}”",
+    "status": {
+      "running": "Running",
+      "waiting_for_approval": "Needs you",
+      "completed": "Done",
+      "failed": "Failed",
+      "cancelled": "Stopped",
+      "skipped": "Skipped"
+    },
+    "note": {
+      "missed": "Allaya was closed at that time",
+      "still_running": "The previous run was still going",
+      "failed_to_start": "It could not start",
+      "partial": "Only partly done",
+      "needs_you": "Waiting for you",
+      "paused": "Paused"
+    },
+    "by": {
+      "schedule": "On schedule",
+      "manual": "By you",
+      "event": "A new file appeared"
+    },
+    "problem": {
+      "cannot_watch": "Allaya can't read this folder right now. Check that file access is switched on.",
+      "too_many_failures": "It was switched off after 3 runs failed in a row. Switch it on to try again."
+    },
+    "form": {
+      "name": "Name",
+      "namePlaceholder": "Morning Downloads check",
+      "instruction": "What should Allaya do?",
+      "instructionPlaceholder": "List what is new in my Downloads folder and tell me",
+      "instructionHint": "Write it as you would tell Allaya. It runs as a task with your permissions — anything risky still asks you.",
+      "when": "When should it run?",
+      "kind": {
+        "manual": "Only when I run it",
+        "once": "Once, at a set time",
+        "interval": "Every so often",
+        "daily": "Every day, or on chosen days",
+        "monthly": "Once a month",
+        "new_file": "When a new file appears in a folder"
+      },
+      "at": "Date and time",
+      "every": "Every",
+      "unit": {
+        "minutes": "minutes",
+        "hours": "hours",
+        "days": "days"
+      },
+      "time": "Time",
+      "days": "On these days",
+      "day": "Day of the month",
+      "folder": "Folder",
+      "folderHint": "Only folders Allaya may use, such as Downloads or Documents.",
+      "missed": {
+        "label": "If Allaya was closed when it should have run",
+        "skip": "Skip it (recommended)",
+        "run_once": "Run it once when Allaya opens"
+      },
+      "planFirst": "Show me the plan of each run before it starts",
+      "past": "That time has already passed.",
+      "needName": "Give it a name.",
+      "needInstruction": "Say what Allaya should do.",
+      "needFolder": "Choose a folder.",
+      "needDays": "Choose at least one day.",
+      "tooOften": "At least 5 minutes apart.",
+      "badTime": "Enter a time like 09:00.",
+      "badDay": "Choose a day from 1 to 28."
+    },
+    "day": {
+      "short": {
+        "0": "Sun",
+        "1": "Mon",
+        "2": "Tue",
+        "3": "Wed",
+        "4": "Thu",
+        "5": "Fri",
+        "6": "Sat"
+      },
+      "long": {
+        "0": "Sunday",
+        "1": "Monday",
+        "2": "Tuesday",
+        "3": "Wednesday",
+        "4": "Thursday",
+        "5": "Friday",
+        "6": "Saturday"
+      }
+    },
+    "when": {
+      "manual": "Only when you run it",
+      "once": "Once, on {when}",
+      "everyMinutes": "Every {count} minutes",
+      "everyHours_one": "Every hour",
+      "everyHours_other": "Every {count} hours",
+      "everyDays_one": "Every day",
+      "everyDays_other": "Every {count} days",
+      "daily": "Every day at {time}",
+      "weekdays": "Weekdays at {time}",
+      "weekend": "Weekends at {time}",
+      "someDays": "Every {days} at {time}",
+      "monthly": "On day {day} of every month at {time}",
+      "newFile": "When a new file appears in “{folder}”"
+    }
   },
   "computer": {
     "title": "Computer",

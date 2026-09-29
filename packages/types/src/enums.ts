@@ -287,6 +287,8 @@ export const AUTOMATION_RUN_STATUSES = [
   'completed',
   'failed',
   'cancelled',
+  /** Nothing was started: a run was still active, or the moment passed while Allaya was closed. */
+  'skipped',
 ] as const;
 export type AutomationRunStatus = (typeof AUTOMATION_RUN_STATUSES)[number];
 

@@ -1,0 +1,20 @@
+{
+  "name": "@allaya/automation",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Automations: schedules, folder triggers, the scheduler and the tools the model may use to create them. Electron-free; every run is an ordinary task with the person's permissions.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@allaya/shared": "workspace:*",
+    "@allaya/tools": "workspace:*",
+    "@allaya/types": "workspace:*",
+    "@allaya/validation": "workspace:*",
+    "zod": "^4.6.5"
+  }
+}

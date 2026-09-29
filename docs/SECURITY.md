@@ -247,9 +247,51 @@ case, the emergency stop with a question open, what is recorded), `tests/unit/re
 **Unverified:** behaviour with real AI providers (a real model may plan badly or resist the step/finish protocol), and everything
 Windows-specific the tools depend on.
 
-## 11. Not yet covered (honest status)
+## 11. Automations (things that run by themselves)
+
+An automation is the most persistent thing Allaya can be asked to do, because it acts again and again while nobody is watching.
+The rules below exist so that "nobody is watching" never means "more allowed".
+
+- **An automation run is an ordinary task.** The scheduler only starts a task from a saved instruction; every action still goes
+  through the one `ToolService.execute` road (validation, risk, the person's permission settings, confirmation, audit). An
+  unattended run whose plan deletes something, or that needs a permission that is set to "ask", **waits for the person**
+  (shown as "Needs you") and does nothing by itself; an unanswered question expires as a "no".
+- **Creating one needs an on-screen click.** `create_automation` is CRITICAL: the confirmation broker refuses a typed or spoken
+  "yes" and shows the name, the schedule and the whole instruction (the model's instruction is capped at 600 characters so it
+  can be read in full). Creating one on the Automations screen is the person's own action.
+- **Nothing that runs by itself can create more things that run by themselves.** `create_automation` is denied _at execution
+  time_ (`ExecuteOptions.deniedTools`) to tasks and unattended runs, not merely left out of the tool list — so a hallucinated or
+  injected call is refused too. It is audited as a refused call.
+- **The emergency stop is sticky.** STOP (or a typed "stop") cancels the running task and pauses every schedule, and the pause
+  is saved: a restart does not lift it, only the person's "Turn automations back on" does. Closing the app is deliberately not a
+  stop. "Run now" still works while paused, because it is the person asking, on the screen.
+- **No surprise late runs.** If Allaya was closed at the scheduled time the run is skipped (and recorded as missed) unless the
+  person chose "run once when Allaya opens". A moment that arrives while the last run is still going, waiting, or paused is
+  skipped, never queued. Three failed runs in a row switch the automation off.
+- **File names are data.** A watched-folder run hands the model the names of the new files, cleaned (control characters and line
+  breaks become spaces, angle brackets removed, 200-character cap), at most 20, and labelled as data not instructions. The first
+  look at a folder never triggers anything, and a burst of files is one run, not one per file. Reading the folder goes through the
+  file service, so the same scope and permission rules as any file read apply; a folder Allaya may not read is reported, not
+  bypassed. A hostile name cannot grant anything, but a model can still be steered by text — the pipeline, not the wording, is
+  the defence.
+- **The screen's commands are validated like every IPC call** (strict schemas, sender checks, bounded sizes, 20 automations, an
+  interval of at least 5 minutes, no times in the past); the hostile-request tests show nothing is created, run or paused by a
+  refused request.
+- **Privacy.** The instruction and the run history are stored locally as written, like chat messages. Deleting an automation removes
+  its history and keeps the tasks it ran (whose audit rows are kept, as for any task).
+
+Tests: `tests/security/automations.test.ts` (hostile requests to the channels, from a foreign page and with bad payloads; an
+unattended run cannot exceed a chat message — a deletion waits, a CRITICAL action needs a click, a compromised model cannot
+reach outside, read secrets or schedule more work; a flood of files is one bounded run; the pause survives a restart),
+`tests/integration/automations.test.ts` and `automation-store.test.ts`, `tests/unit/automation/*`, `tests/unit/tools/executor.test.ts`
+(`deniedTools`), `tests/e2e/automations.spec.ts`. Thirteen rules are mutation-checked (see `docs/STATUS.md`).
+**Unverified:** what a real model does with an unattended instruction (a model could still plan something unwanted — it would
+meet the same refusals and questions, but nobody may be there to answer), running for days unattended, and everything
+Windows-specific.
+
+## 12. Not yet covered (honest status)
 
 See `docs/STATUS.md` for the per-requirement state. Security items that are designed but not yet built or not yet
-verifiable in this environment are tracked there, notably: NTFS-specific file behaviour, Edge/Chrome on Windows, the Windows input adapter's behaviour on a real desktop, the global (system-wide) emergency-stop shortcut, the Permissions screen, and Windows-specific hardening (UI Automation scope, installer signing,
+verifiable in this environment are tracked there, notably: NTFS-specific file behaviour, Edge/Chrome on Windows, the Windows input adapter's behaviour on a real desktop, the global (system-wide) emergency-stop shortcut, the Permissions screen, the Activity (audit) viewer, and Windows-specific hardening (UI Automation scope, installer signing,
 auto-update signature verification). Those require the corresponding phases and, for the Windows-specific items,
 a real Windows machine.

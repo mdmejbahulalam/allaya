@@ -55,6 +55,10 @@ export interface TaskServiceDeps {
 
 export interface CreateTaskInput {
   request: string;
+  /** A title of its own (an automation's name); otherwise it comes from the request. */
+  title?: string | undefined;
+  /** The automation run that starts this task. */
+  automationRunId?: string | undefined;
   planFirst?: boolean | undefined;
   source?: TaskSource | undefined;
   conversationId?: string | undefined;
@@ -125,6 +129,7 @@ export class TaskService {
   private readonly changedIds = new Set<string>();
   private flushScheduled = false;
   private readonly lastStatus = new Map<string, string>();
+  private readonly listeners = new Set<(task: TaskRecord) => void>();
 
   constructor(private readonly deps: TaskServiceDeps) {
     this.store = new DbTaskStore(deps.repo);
@@ -194,7 +199,8 @@ export class TaskService {
   create(input: CreateTaskInput): TaskSummary {
     const language = input.language ?? this.languageFor(input.request);
     const task = this.orchestrator.create({
-      title: titleFromText(input.request, 80),
+      title: input.title ? titleFromText(input.title, 80) : titleFromText(input.request, 80),
+      ...(input.automationRunId ? { automationRunId: input.automationRunId } : {}),
       request: input.request,
       language,
       source: input.source ?? 'chat',
@@ -265,6 +271,17 @@ export class TaskService {
   /** Quitting: running tasks are paused as interrupted (so they can be resumed), not cancelled. */
   shutdown(): void {
     this.orchestrator.shutdown();
+  }
+
+  /** Called (after each burst of changes) with every task that changed. Returns how to stop listening. */
+  subscribe(listener: (task: TaskRecord) => void): () => void {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  }
+
+  /** Where a task stands, or `undefined` if it no longer exists. */
+  snapshot(id: string): TaskRecord | undefined {
+    return this.store.get(id);
   }
 
   // ── conversation hooks ────────────────────────────────────────────────────
@@ -409,6 +426,13 @@ export class TaskService {
       if (!task) return;
       this.deps.events.publish('tasks:changed', this.summary(task, this.store.steps(taskId)));
       this.publishStatus(task);
+      for (const listener of this.listeners) {
+        try {
+          listener(task);
+        } catch (error) {
+          this.deps.logger.warn('A task listener failed', { error: String(error) });
+        }
+      }
     } catch (error) {
       // Quitting: the database may already be closed.
       this.deps.logger.warn('Could not publish a task change', { error: String(error) });

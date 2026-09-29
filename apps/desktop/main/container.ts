@@ -8,6 +8,7 @@ import {
   ProviderRepository,
   SettingsRepository,
   TaskRepository,
+  AutomationRepository,
   type DatabaseHandle,
 } from '@allaya/database';
 import { CredentialVault, type Cipher, type CredentialStore } from '@allaya/security';
@@ -47,6 +48,10 @@ import { FileService } from './services/file-service';
 import { registerFileHandlers } from './ipc/handlers/files';
 import { registerBrowserHandlers } from './ipc/handlers/browser';
 import { registerTaskHandlers } from './ipc/handlers/tasks';
+import { registerAutomationHandlers } from './ipc/handlers/automations';
+import { AutomationService } from './services/automation-service';
+import { DbAutomationStore } from './automation/db-store';
+import { createAutomationTools } from '@allaya/automation';
 import { TaskService, type TaskServiceDeps } from './services/task-service';
 import { BrowserService, type BrowserLaunchState } from './services/browser-service';
 import { EventPublisher } from './ipc/events';
@@ -123,6 +128,8 @@ export interface ContainerOptions {
   confirmationTimeoutMs?: number;
   /** Test seam for the task engine: tighter limits, no waiting between retries. */
   tasks?: Pick<TaskServiceDeps, 'limits' | 'backoffMs'>;
+  /** Test seam: the scheduler's clock and whether it starts its own timer (tests drive `tick()` themselves). */
+  automations?: { now?: () => number; autoStart?: boolean };
 }
 
 /**
@@ -140,6 +147,7 @@ export interface Container {
   files: FileService;
   browser: BrowserService;
   tasks: TaskService;
+  automations: AutomationService;
   permissions: PermissionService;
   runs: RunRegistry;
   events: EventPublisher;
@@ -281,12 +289,32 @@ export function createContainer(options: ContainerOptions): Container {
     logger: options.logger.child('browser'),
   });
   browserEngine.onChange(() => events.publish('browser:changed', {}));
+  // The automation tools are registered with the other tools, but the service they call is built later (it needs the
+  // task engine, which needs the tools): they reach it through this reference.
+  const automationRef: { current?: AutomationService } = {};
+  const automationService = () => {
+    if (!automationRef.current) {
+      throw new AllayaError('Automations are not ready yet', { code: 'INTERNAL' });
+    }
+    return automationRef.current;
+  };
+  const automationTools = createAutomationTools({
+    create: (input) => automationService().createForTool(input),
+    get: (id) => automationService().summary(id),
+    list: () => automationService().summaries(),
+  });
   const tools = new ToolService({
     permissions,
     audit: new ToolAuditRepository(database.db),
     events,
     logger: options.logger.child('tools'),
-    tools: [...computerTools, ...fileTools, ...browserTools, ...(options.extraTools ?? [])],
+    tools: [
+      ...computerTools,
+      ...fileTools,
+      ...browserTools,
+      ...automationTools,
+      ...(options.extraTools ?? []),
+    ],
     ...(options.confirmationTimeoutMs !== undefined
       ? { confirmationTimeoutMs: options.confirmationTimeoutMs }
       : {}),
@@ -323,6 +351,18 @@ export function createContainer(options: ContainerOptions): Container {
     ...(options.tasks?.backoffMs ? { backoffMs: options.tasks.backoffMs } : {}),
   });
   tasks.recover();
+  const automations = new AutomationService({
+    store: new DbAutomationStore(new AutomationRepository(database.db)),
+    tasks,
+    files: fileService,
+    settings,
+    events,
+    runs,
+    logger: options.logger.child('automations'),
+    ...(options.automations?.now ? { now: options.automations.now } : {}),
+  });
+  automationRef.current = automations;
+  if (options.automations?.autoStart !== false) automations.start();
   const chat = new ChatService({
     conversations,
     providers,
@@ -355,6 +395,7 @@ export function createContainer(options: ContainerOptions): Container {
   registerFileHandlers(registry, fileService);
   registerBrowserHandlers(registry, browser);
   registerTaskHandlers(registry, tasks);
+  registerAutomationHandlers(registry, automations);
   registerAgentHandlers(registry, runs);
 
   return {
@@ -368,6 +409,7 @@ export function createContainer(options: ContainerOptions): Container {
     files: fileService,
     browser,
     tasks,
+    automations,
     permissions,
     runs,
     events,
@@ -375,6 +417,7 @@ export function createContainer(options: ContainerOptions): Container {
     logger: options.logger,
     dispose: () => {
       // Tasks first: they are paused as interrupted (resumable), not cancelled by the general stop below.
+      automations.stop();
       tasks.shutdown();
       runs.cancelAll('shutdown');
       void browserEngine.close().finally(() => proxy.stop());

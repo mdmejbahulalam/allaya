@@ -117,6 +117,31 @@ describe('lookup and validation', () => {
     expect(r.audit.finished).toHaveLength(1);
   });
 
+  it('a tool the caller may not use is refused like one that does not exist, and never runs, but is still audited', async () => {
+    const r = rig();
+    const { def, execute } = fakeTool();
+    r.registry.register(def);
+    const result = await r.executor.execute(
+      { id: 'call_1', name: 'fake_tool', arguments: { path: 'a' } },
+      {
+        signal: new AbortController().signal,
+        language: 'en',
+        deniedTools: new Set(['fake_tool']),
+      },
+    );
+    expect(result).toMatchObject({
+      status: 'unknown_tool',
+      ok: false,
+      error: { code: 'TOOL_NOT_FOUND' },
+    });
+    expect(execute).not.toHaveBeenCalled();
+    expect(r.audit.begun).toHaveLength(1);
+    expect(r.audit.finished).toHaveLength(1);
+    // Another caller, same registry: the tool works.
+    r.modes.file_access = 'always_allow';
+    expect(await run(r, 'fake_tool', { path: 'a' })).toMatchObject({ status: 'success' });
+  });
+
   it('a tool that exists only on another platform is unsupported here', async () => {
     const r = rig({ platform: 'linux' });
     const { def, execute } = fakeTool({ platforms: ['win32'] });

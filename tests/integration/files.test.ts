@@ -128,7 +128,12 @@ describe('file tools through the agent loop', () => {
     );
     backend!.dispose();
     backend = createTestBackend({ fetch: mockFetch(() => modelsResponse()) });
-    expect(backend.container.tools.modelTools().map((t) => t.name)).toEqual(['get_datetime']);
+    expect(
+      backend.container.tools
+        .modelTools()
+        .map((t) => t.name)
+        .sort(),
+    ).toEqual(['create_automation', 'get_datetime', 'list_automations']);
   });
 
   it('"Documents e todo.txt banao": write_file asks, creates the file, reads it back and is verified', async () => {

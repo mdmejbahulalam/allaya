@@ -42,6 +42,7 @@ Operating system
 | `@allaya/computer`   | Computer control engine: adapters (Windows/host/memory), app catalog, input-safety rules, tools |
 | `@allaya/filesystem` | Scoped file operations: path policy, guarded ops, trash, undo journal, file tools               |
 | `@allaya/browser`    | Browser automation: URL policy, filtering proxy, page model, engine, Playwright session, tools  |
+| `@allaya/automation` | Schedule maths (local time, DST), the scheduler (Electron-free), `create_automation` tools      |
 
 More packages arrive with their phases (see STATUS.md).
 
@@ -82,6 +83,25 @@ EXECUTING → ERROR → RECOVERY → RETRY → EXECUTING          any working st
 The main process adds `TaskService` (IPC, events, conversation posts, status pill), `DbTaskStore` (tasks, steps and a
 timeline in SQLite; engine bookkeeping in `runtime_json` / `data_json`, validated on read), `ProviderModel` (routes planning
 to the strongest tool-capable model, steps by task size) and `ToolServicePort`. Chat gets the `start_task` tool.
+
+## Automations
+
+`@allaya/automation` decides _when_; the task engine still decides _how_. An automation is an instruction plus a trigger
+(`manual`, `once`, `interval`, `daily`, `monthly`, `new_file`). The `AutomationScheduler` depends on three ports —
+`AutomationStore`, `RunLauncher` (start a task, read a task's state) and `FolderLister` — and a clock, so it runs in plain Node
+with a fake clock and an in-memory store, and in the app with `DbAutomationStore` (SQLite, migration `0003`), the `TaskService`
+and the `FileService`.
+
+- **Tick** (every 30 s while the app runs): reconcile runs with their tasks → stop if automations are paused → fire what is
+  due (skip what was missed while closed, skip what overlaps a run still going or waiting) → look at watched folders.
+- **A run** is a row in `automation_runs` linked to an ordinary task (`source: 'automation'`). `taskChanged` keeps the run true to
+  the task: completed / failed / cancelled / waiting for the person / paused (which still counts as going).
+- **Stop** — the `RunRegistry`'s `stopped` event (emergency stop or typed "stop", not shutdown) sets the persisted setting
+  `automations.paused`; the scheduler does nothing while it is set, except a manual "Run now".
+- **The model's tools** — `create_automation` (CRITICAL) and `list_automations` are chat-only: `ToolServicePort` passes
+  `deniedTools` so a task cannot call the first even if asked to.
+- **Not built:** a node-graph workflow editor (the `automation_steps` table is unused), triggers from Windows events, running
+  while Allaya is closed (tray/background arrives with Windows polish).
 
 ## Data
 

@@ -1,11 +1,16 @@
 import { RESERVED_TOOL_NAMES, type ToolFacts, type ToolPort } from '@allaya/agent';
+import { CHAT_ONLY_AUTOMATION_TOOLS } from '@allaya/automation';
 import type { ModelToolSpec } from '@allaya/tools';
 import type { PermissionMode, PermissionSubject } from '@allaya/types';
 import type { PermissionService } from '../services/permission-service';
 import type { ToolService } from '../services/tool-service';
 
-/** Names the model must not be offered inside a task: the tool that starts a task. */
-const CHAT_ONLY_TOOLS: ReadonlySet<string> = new Set(['start_task']);
+/**
+ * Names the model must not be offered inside a task: the tool that starts a task and the tools that create
+ * automations. Nothing that runs by itself (a task, an unattended automation run) may create more things that run
+ * by themselves.
+ */
+const CHAT_ONLY_TOOLS: ReadonlySet<string> = new Set(['start_task', ...CHAT_ONLY_AUTOMATION_TOOLS]);
 
 /**
  * The tool pipeline, as the orchestrator sees it. There is exactly one way to act on the computer — the same
@@ -48,6 +53,8 @@ export class ToolServicePort implements ToolPort {
       signal: options.signal,
       language: options.language,
       taskId: options.taskId,
+      // Not offering a tool is not enough: a compromised model can name any tool, so the refusal is enforced here too.
+      deniedTools: CHAT_ONLY_TOOLS,
       ...(this.conversationOf(options.taskId)
         ? { conversationId: this.conversationOf(options.taskId)! }
         : {}),

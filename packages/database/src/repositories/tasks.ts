@@ -17,6 +17,7 @@ export interface TaskRow {
   resultSummary: string | null;
   errorJson: string | null;
   runtimeJson: string | null;
+  automationRunId: string | null;
   filesChanged: number;
   actionCount: number;
   startedAt: number | null;
@@ -51,7 +52,7 @@ export type NewTaskRow = Pick<
   TaskRow,
   'id' | 'conversationId' | 'title' | 'request' | 'language' | 'source' | 'complexity'
 > &
-  Partial<Pick<TaskRow, 'runtimeJson'>>;
+  Partial<Pick<TaskRow, 'runtimeJson' | 'automationRunId'>>;
 
 const taskColumns = {
   id: tasks.id,
@@ -68,6 +69,7 @@ const taskColumns = {
   resultSummary: tasks.resultSummary,
   errorJson: tasks.errorJson,
   runtimeJson: tasks.runtimeJson,
+  automationRunId: tasks.automationRunId,
   filesChanged: tasks.filesChanged,
   actionCount: tasks.actionCount,
   startedAt: tasks.startedAt,

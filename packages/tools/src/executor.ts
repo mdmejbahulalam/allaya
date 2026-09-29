@@ -52,6 +52,11 @@ export interface ExecuteOptions {
   language: ToolLanguage;
   taskId?: string | undefined;
   conversationId?: string | undefined;
+  /**
+   * Tools this caller may not use even though they are registered (a task may not create automations). They are
+   * treated exactly like tools that do not exist — refused, and still recorded in the audit trail.
+   */
+  deniedTools?: ReadonlySet<string> | undefined;
   onProgress?: (progress: ExecutionProgress) => void;
 }
 
@@ -165,7 +170,9 @@ export class ToolExecutor {
         }),
       );
 
-    const tool = this.deps.registry.get(call.name);
+    const tool = options.deniedTools?.has(call.name)
+      ? undefined
+      : this.deps.registry.get(call.name);
     if (!tool || (tool.platforms && !tool.platforms.includes(this.platform))) {
       // Unknown tools are still audited: a model inventing tools is worth seeing.
       const ok = record({

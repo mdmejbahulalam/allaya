@@ -332,11 +332,66 @@ state machine, every budget is enforced here, and a step counts as done only if 
   changed by the time it resumes; the step is told to look before repeating anything.
 - Tool calls are audited under the task but not under the individual **step** (the audit schema has a `step_id` column that is
   not filled in); the timeline carries the step id in its own events.
-- Not built here: scheduled/recurring tasks (Phase 10), sub-tasks, plan editing by the person, vision-based steps.
+- Not built here: sub-tasks, plan editing by the person, vision-based steps. (Scheduled/recurring tasks arrived in Phase 10.)
+
+## Phase 10 — Automation 🧩 (verified against a scripted model and a fake clock; Allaya was never left running for days, and Windows was not used)
+
+`@allaya/automation` (Electron-free: schedule maths, the scheduler, the model's tools) + `AutomationService` / `DbAutomationStore`
+in the main process + the Automations screen. An **automation** is a saved _instruction_ plus a _trigger_. When the trigger
+fires, the scheduler starts an **ordinary task** from that instruction (source `automation`) through the same task engine, tool
+pipeline, permissions and confirmations as everything else. It is not a second way to reach the computer.
+
+| Item                                                                                                                                                                                                                                                                                                                                         | State                                                      |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| Triggers: manual, once, every N minutes (5 minutes to 7 days), daily on chosen weekdays, monthly (day 1–28), and **a new file in a folder** (polling; see caveats). One strict schema shared by the scheduler, the model's tool, the database and the screen                                                                                 | ✅ (unit + integration)                                    |
+| Local-time schedule maths, including **daylight-saving** changes (spring-forward, fall-back, a half-hour shift in the southern hemisphere, a zone with no daylight saving), month lengths and leap years                                                                                                                                     | ✅ (unit; zones switched with `TZ`)                        |
+| A run is an ordinary task: same tools, same permission defaults, same confirmations. An unattended run that needs a click **waits for the person** (shown as "Needs you"); it never gets extra rights because nobody is watching                                                                                                             | ✅ (integration + security + E2E)                          |
+| **Missed runs**: if Allaya was closed at the time, the default is to **skip** (recorded as "Allaya was closed at that time"); "run once when Allaya opens" is opt-in. A 2-minute grace stops a late timer tick from counting as missed                                                                                                       | ✅ (unit + integration)                                    |
+| **No overlap**: a moment that arrives while the previous run is still going (or waiting for the person, or paused) is recorded as skipped ("the previous run was still going"), never queued up                                                                                                                                              | ✅ (unit + integration)                                    |
+| **Circuit breaker**: 3 runs in a row that fail switch the automation off, and the screen says why. A run the person stopped, or that is waiting for them, is not a failure; a run that completes (even partly) resets the count                                                                                                              | ✅ (unit + integration)                                    |
+| **Watched folder**: the first look only records what is already there (nothing runs for old files); later new names start **one** run for the batch (not one per file), with at most 20 names in the request, cleaned and marked as data. A folder Allaya may not read shows a warning, not a crash                                          | ✅ (unit + integration + security)                         |
+| **Emergency stop** (the STOP button, or a typed "stop") cancels the running task **and pauses every schedule** until the person turns automations back on. The pause is saved, so it survives a restart. Closing the app is not a stop and pauses nothing. (Only when something is scheduled: a manual-only automation has nothing to pause) | ✅ (integration + security + E2E incl. a real relaunch)    |
+| "Run now" always works, even while paused (the person is asking, on the screen)                                                                                                                                                                                                                                                              | ✅ (unit + integration)                                    |
+| `create_automation` (chat only): **CRITICAL**, so it always needs an on-screen click on a question that shows the name, the schedule and the whole instruction. It is **denied at execution time** to tasks and unattended runs, so nothing that runs by itself can create more things that run by themselves                                | ✅ (unit + security + E2E; two rules mutation-checked)     |
+| Persistence and recovery: automations, run history and the watched-folder memory are in SQLite (migration `0003`). On start each run is reconciled with its task: finished while closed → recorded; interrupted (task paused) → "Needs you — paused", still counted as going; task removed → stopped. A deleted automation keeps its tasks   | ✅ (integration incl. restart; E2E relaunch for the pause) |
+| Limits: 20 automations, 2000-character instructions (600 when the model writes one), run history trimmed to 100 per automation                                                                                                                                                                                                               | ✅ (unit + integration)                                    |
+| Automations screen: list with the schedule in words, next run, last result, on/off switch, run now, history (with the note for skipped/missed runs and a link to the task), create/edit form with inline checks, delete with a question, the paused banner; Bengali; Tasks has a "Scheduled" tab                                             | ✅ (renderer tests + E2E)                                  |
+
+**How it was tested:** `tests/unit/automation/*` (schedule, DST, scheduler, tools), `tests/integration/automations.test.ts` and
+`automation-store.test.ts` (real pipeline, real SQLite and files, a scripted model), `tests/security/automations.test.ts`,
+`tests/unit/renderer/automations-screen.test.tsx`, `tests/e2e/automations.spec.ts` (4 tests, real Electron, including a
+relaunch). Thirteen rules were **mutation-checked** (each was broken on purpose and a test failed): missed-run skip, overlap,
+circuit breaker, pause, name cleaning, first-snapshot, folder events not lost while busy, advance-after-fire, CRITICAL risk,
+creation denied inside tasks, STOP pauses, closing does not pause, no schedules in the past.
+
+**Caveats — read these**
+
+- **Allaya must be running for anything to happen.** Schedules are checked by a timer inside the app (every 30 seconds). There
+  is no system service and no wake-from-sleep. Until the tray/background behaviour of Phase 13, closing the window ends the
+  schedule; a run missed that way is skipped (or run once on opening, if chosen). A long soak test was **not** done.
+- **Only scripted models were used**, as in Phase 9. What a real model does with an unattended instruction — including how it
+  behaves when a step needs a click and nobody is there — is unverified beyond "the task waits".
+- **Instruction-based, not a workflow builder.** An automation is one written instruction, run by the task engine. There is no
+  node-graph editor, no branching, no chaining of automations; the `automation_steps` table exists in the schema and is
+  **unused**. Each run's actions are audited under its task, not per step.
+- **A paused or waiting run blocks the automation** until the person resumes, answers or stops that task (skipped moments are
+  recorded as "still going"). That is deliberate — it prevents two copies and any unattended repeat — but it means one
+  forgotten paused run stops a schedule until someone looks. The Automations and Tasks screens both show it.
+- **Event triggers are only "a new file in a folder"**, found by listing the folder every 30 seconds (through the file service,
+  so scoped and permission-checked like any read). It sees new _names_: a file replaced under the same name, or one that
+  appears and vanishes between two looks, is missed. There is no trigger for a Windows app opening, a USB device, battery or
+  a system event — those need Windows APIs (Phase 13) and are **not built**. The memory of seen names is capped at 2000.
+- **Daylight-saving edge cases:** a time that does not exist that day (02:30 on a spring-forward day) runs once, an hour later; a
+  time that happens twice runs once. Tested with fake clocks in New York, London, Lord Howe and Dhaka — not on a real machine
+  that crossed a change, and not in every zone (a zone that skips a whole calendar day is untested).
+- A folder trigger's file names are **untrusted text** that reach the model (line breaks and other control characters become
+  spaces, `<` and `>` are removed, length is capped at 200, and the names are marked as data). A hostile file name cannot add
+  permissions, but a model could still be _steered_ by it; the permission pipeline is the defence, not the wording.
+- The global (system-wide) emergency-stop shortcut is Phase 12/13; today STOP works from the app's window and by typing "stop".
+- Windows-only behaviour (sleep/resume ordering, what happens across a real logoff) is **unverified**; Phase 10 ran on Linux only.
 
 ## Not started
 
-Phases 10–15 (automation,
-memory, security hardening, Windows polish, release). Anything that needs Windows UI Automation, the tray,
+Phases 11–15 (memory, security hardening, Windows polish, release). Anything that needs Windows UI Automation, the tray,
 global hotkeys, the installer, or auto-update **cannot be verified in this Linux environment** and will be marked 🪟
 until run on Windows.

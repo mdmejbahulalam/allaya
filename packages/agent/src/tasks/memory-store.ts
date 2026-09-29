@@ -23,6 +23,7 @@ export class MemoryTaskStore implements TaskStore {
       source: input.source,
       complexity: input.complexity,
       planFirst: input.planFirst,
+      automationRunId: input.automationRunId,
       riskLevel: 'LOW',
       filesChanged: 0,
       actionCount: 0,

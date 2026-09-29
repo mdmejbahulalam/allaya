@@ -41,7 +41,15 @@ describe('the tools a task may use', () => {
       { signal: controller.signal, language: 'en', taskId: 'other', stepId: undefined },
     );
     expect(executed).toMatchObject([
-      { options: { taskId: 't1', conversationId: 'conv_1', language: 'bn' } },
+      {
+        options: {
+          taskId: 't1',
+          conversationId: 'conv_1',
+          language: 'bn',
+          // The chat-only tools are refused at execution too, not only left out of the offer.
+          deniedTools: new Set(['start_task', 'create_automation']),
+        },
+      },
       { options: { taskId: 'other', language: 'en' } },
     ]);
     expect((executed[1] as { options: Record<string, unknown> }).options).not.toHaveProperty(

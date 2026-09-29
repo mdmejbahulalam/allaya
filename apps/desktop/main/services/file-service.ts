@@ -105,6 +105,13 @@ export class FileService {
     return this.manager().list(path, { showHidden, limit: 500 });
   }
 
+  /** The names of the files (not folders) in a folder, for watching it. Same access rules as everything else. */
+  async names(path: string, limit = 2000): Promise<string[]> {
+    this.assertAccess();
+    const listing = await this.manager().list(path, { showHidden: false, limit });
+    return listing.entries.filter((entry) => entry.kind === 'file').map((entry) => entry.name);
+  }
+
   async search(query: string, folder?: string): Promise<FileSearchResult> {
     this.assertAccess();
     return this.manager().search({ query, folder, maxResults: 100 });

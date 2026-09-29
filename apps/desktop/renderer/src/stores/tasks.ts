@@ -67,7 +67,15 @@ export const needsAttention = (task: TaskSummary): boolean => task.state === 'WA
 export const isActive = (task: TaskSummary): boolean =>
   !isFinished(task) && task.state !== 'PAUSED' && task.state !== 'WAITING_FOR_USER';
 
-export const TASK_TABS = ['all', 'running', 'waiting', 'paused', 'completed', 'failed'] as const;
+export const TASK_TABS = [
+  'all',
+  'running',
+  'waiting',
+  'scheduled',
+  'paused',
+  'completed',
+  'failed',
+] as const;
 export type TaskTab = (typeof TASK_TABS)[number];
 
 export function matchesTab(task: TaskSummary, tab: TaskTab): boolean {
@@ -78,6 +86,8 @@ export function matchesTab(task: TaskSummary, tab: TaskTab): boolean {
       return isActive(task);
     case 'waiting':
       return needsAttention(task);
+    case 'scheduled':
+      return task.source === 'automation';
     case 'paused':
       return task.state === 'PAUSED';
     case 'completed':

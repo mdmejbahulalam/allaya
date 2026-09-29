@@ -56,6 +56,8 @@ export const settingsSchemas = {
   'browser.trustedDomains': z.array(domain).max(200),
   'browser.blockedDomains': z.array(domain).max(200),
   'browser.headless': z.boolean(),
+  // Automations. Set by the emergency stop: nothing scheduled starts until the person switches it back on.
+  'automations.paused': z.boolean(),
   // Shortcuts
   'shortcuts.commandPalette': z.string().max(64),
   'shortcuts.newTask': z.string().max(64),
@@ -114,6 +116,7 @@ export const settingsDefaults: SettingsSnapshot = {
   'browser.trustedDomains': [],
   'browser.blockedDomains': [],
   'browser.headless': false,
+  'automations.paused': false,
   'shortcuts.commandPalette': 'Ctrl+K',
   'shortcuts.newTask': 'Ctrl+N',
   'shortcuts.voice': 'Ctrl+Shift+V',

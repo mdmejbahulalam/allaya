@@ -6,3 +6,4 @@ export * from './tool-audit';
 export * from './file-operations';
 export * from './file-bookmarks';
 export * from './tasks';
+export * from './automations';

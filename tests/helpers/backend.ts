@@ -39,6 +39,7 @@ export interface TestBackendOptions {
   browser?: ContainerOptions['browser'];
   confirmationTimeoutMs?: number;
   tasks?: ContainerOptions['tasks'];
+  automations?: ContainerOptions['automations'];
 }
 
 export interface TestBackend {
@@ -78,6 +79,8 @@ export function createTestBackend(options: TestBackendOptions = {}): TestBackend
       ? { confirmationTimeoutMs: options.confirmationTimeoutMs }
       : {}),
     tasks: { backoffMs: () => 0, ...(options.tasks ?? {}) },
+    // Tests drive the scheduler themselves (`tick()`), on a clock of their own.
+    automations: { autoStart: false, ...(options.automations ?? {}) },
     providerOptions: {
       ...(options.fetch ? { fetch: options.fetch } : {}),
       maxRetries: 0,

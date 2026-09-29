@@ -142,7 +142,12 @@ const call = (name: string, input: unknown, id = `t-${name}`) => ({ id, name, in
 describe('browser tools through the agent loop', () => {
   it('offers the browser tools only when a browser is configured', async () => {
     await rig(['text'], { withBrowser: false });
-    expect(backend!.container.tools.modelTools().map((t) => t.name)).toEqual(['get_datetime']);
+    expect(
+      backend!.container.tools
+        .modelTools()
+        .map((t) => t.name)
+        .sort(),
+    ).toEqual(['create_automation', 'get_datetime', 'list_automations']);
     backend!.dispose();
     await rig();
     const names = backend!.container.tools.modelTools().map((t) => t.name);

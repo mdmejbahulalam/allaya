@@ -112,6 +112,7 @@ export function rowToTask(row: TaskRow): TaskRecord {
     source: oneOf(TASK_SOURCES, row.source, 'chat'),
     complexity,
     planFirst: runtime.planFirst,
+    automationRunId: row.automationRunId ?? undefined,
     riskLevel: oneOf(RISK_LEVELS, row.riskLevel, 'LOW'),
     plan,
     resultSummary: row.resultSummary ?? undefined,
@@ -144,6 +145,7 @@ function taskToRowPatch(
     source: task.source,
     complexity: task.complexity ?? null,
     modelId: task.modelLabel ?? null,
+    automationRunId: task.automationRunId ?? null,
     riskLevel: task.riskLevel,
     planJson: task.plan ? JSON.stringify(task.plan) : null,
     resultSummary: task.resultSummary ?? null,
@@ -250,6 +252,7 @@ export class DbTaskStore implements TaskStore {
       language: input.language,
       source: input.source,
       complexity: input.complexity ?? null,
+      automationRunId: input.automationRunId ?? null,
       runtimeJson: JSON.stringify({ planFirst: input.planFirst }),
     });
     return this.require(input.id);

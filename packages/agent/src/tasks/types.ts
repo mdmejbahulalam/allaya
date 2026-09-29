@@ -49,6 +49,7 @@ export interface TaskRecord {
   complexity?: TaskComplexity | undefined;
   /** Show the plan and wait for a yes before doing anything. */
   planFirst: boolean;
+  automationRunId?: string | undefined;
   riskLevel: RiskLevel;
   plan?: Plan | undefined;
   resultSummary?: string | undefined;
@@ -117,6 +118,8 @@ export interface NewTask {
   language: 'bn' | 'en';
   source: TaskSource;
   planFirst: boolean;
+  /** The automation run that started this task, when one did. */
+  automationRunId?: string | undefined;
   /** A floor for the complexity (a request the chat model already judged multi-step is never run as one step). */
   complexity?: TaskComplexity | undefined;
 }

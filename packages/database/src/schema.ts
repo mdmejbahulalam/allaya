@@ -329,6 +329,12 @@ export const automations = sqliteTable(
     /** `manual` | `schedule` | `event` */
     triggerType: text('trigger_type').notNull().default('manual'),
     triggerJson: text('trigger_json').notNull().default('{}'),
+    /** What to do each time, in the person's own words (a run is a task with this as its request). */
+    instruction: text('instruction').notNull().default(''),
+    /** `{ missed, planFirst }`. */
+    optionsJson: text('options_json').notNull().default('{}'),
+    /** Bookkeeping that is not queried on: names seen in a watched folder, a problem, failures in a row. */
+    stateJson: text('state_json').notNull().default('{}'),
     nextRunAt: integer('next_run_at', { mode: 'number' }),
     lastRunAt: integer('last_run_at', { mode: 'number' }),
     createdAt: createdAt(),
@@ -369,6 +375,8 @@ export const automationRuns = sqliteTable(
     status: text('status').notNull().default('running'),
     /** `schedule` | `manual` | `event` */
     triggeredBy: text('triggered_by').notNull(),
+    /** Why nothing started, or a remark on how it ended (a code the screen turns into words). */
+    note: text('note'),
     taskId: text('task_id').references(() => tasks.id, { onDelete: 'set null' }),
     logJson: text('log_json').notNull().default('[]'),
     error: text('error'),

@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { invoke, subscribe } from '@renderer/lib/api';
 import { useT } from '@renderer/lib/i18n';
 import { toast } from '@renderer/stores/toasts';
+import { useAutomationsStore } from '@renderer/stores/automations';
 import { useTasksStore } from '@renderer/stores/tasks';
 import { useUiStore } from '@renderer/stores/ui';
 import { useAgentStore } from '@renderer/stores/agent';
@@ -69,6 +70,14 @@ export function useBackendSync(): void {
         }
       }),
       subscribe('tasks:removed', ({ ids }) => useTasksStore.getState().removeMany(ids)),
+      subscribe(
+        'automations:changed',
+        () =>
+          void useAutomationsStore
+            .getState()
+            .load()
+            .catch(() => undefined),
+      ),
     ];
     void Promise.all([
       useProvidersStore.getState().load(),
