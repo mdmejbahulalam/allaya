@@ -1,5 +1,6 @@
 import type { ToolAuditRepository } from '@allaya/database';
-import { redact, type Logger } from '@allaya/shared';
+import { RESERVED_TOOL_NAMES } from '@allaya/agent';
+import { AllayaError, redact, type Logger } from '@allaya/shared';
 import {
   ConfirmationBroker,
   ToolExecutor,
@@ -67,7 +68,16 @@ export class ToolService {
 
   constructor(private readonly deps: ToolServiceDeps) {
     this.registry.register(getDatetime);
-    for (const tool of deps.tools ?? []) this.registry.register(tool);
+    for (const tool of deps.tools ?? []) {
+      // These names belong to the agent itself (planning, finishing a step, asking the user, starting a task):
+      // a real tool sharing one would be answered by the orchestrator instead of running.
+      if (RESERVED_TOOL_NAMES.has(tool.name) || tool.name === 'start_task') {
+        throw new AllayaError(`"${tool.name}" is reserved for the agent`, {
+          code: 'INVALID_INPUT',
+        });
+      }
+      this.registry.register(tool);
+    }
 
     this.broker = new ConfirmationBroker({
       ...(deps.confirmationTimeoutMs !== undefined

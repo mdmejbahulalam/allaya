@@ -30,6 +30,8 @@ export const messageViewSchema = z.object({
   error: serializedErrorSchema.optional(),
   /** What Allaya did on the computer while producing this reply, in order. */
   actions: z.array(actionRecordSchema).optional(),
+  /** The task this message reports on, when it does (opens the Tasks screen). */
+  taskId: z.string().optional(),
 });
 export type MessageView = z.infer<typeof messageViewSchema>;
 

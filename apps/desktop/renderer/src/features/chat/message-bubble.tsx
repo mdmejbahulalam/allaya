@@ -1,4 +1,4 @@
-import { Check, Copy, RotateCcw, Sparkles, KeyRound } from 'lucide-react';
+import { Check, Copy, ListChecks, RotateCcw, Sparkles, KeyRound } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { MessageView } from '@allaya/validation';
 import { useT } from '@renderer/lib/i18n';
@@ -8,7 +8,9 @@ import { cn } from '@renderer/lib/cn';
 import { Badge } from '@renderer/components/ui/badge';
 import { Button } from '@renderer/components/ui/button';
 import { IconButton } from '@renderer/components/ui/icon-button';
+import { useTasksStore } from '@renderer/stores/tasks';
 import { useToolsStore } from '@renderer/stores/tools';
+import { useUiStore } from '@renderer/stores/ui';
 import { ActionTimeline } from '../tools/action-timeline';
 
 export function UserBubble({ message }: { message: MessageView }) {
@@ -102,6 +104,21 @@ export function AssistantBubble({
         )}
 
         {actions && <ActionTimeline actions={actions} />}
+
+        {message.taskId && !streaming && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="mt-2"
+            leftIcon={<ListChecks size={14} />}
+            onClick={() => {
+              useTasksStore.getState().select(message.taskId ?? null);
+              useUiStore.getState().navigate('tasks');
+            }}
+          >
+            {t.t('tasks.openTask')}
+          </Button>
+        )}
 
         {failed && message.error && (
           <div role="alert" className="mt-2 rounded-xl border border-danger/30 bg-danger/8 p-3">

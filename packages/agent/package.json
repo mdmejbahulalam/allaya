@@ -10,8 +10,11 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@allaya/ai": "workspace:*",
+    "@allaya/language": "workspace:*",
     "@allaya/shared": "workspace:*",
+    "@allaya/tools": "workspace:*",
     "@allaya/types": "workspace:*",
-    "@allaya/ai": "workspace:*"
+    "zod": "^4.6.5"
   }
 }

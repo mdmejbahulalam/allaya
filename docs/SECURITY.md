@@ -213,7 +213,41 @@ settings), `tests/e2e/browser.spec.ts` (real Electron + Chromium). Eight safety 
 **Unverified:** Edge/Chrome on Windows, the Chromium sandbox and the visible window, proxy-requiring networks (unsupported), and
 that `playwright-core` ships correctly in an installer.
 
-## 10. Not yet covered (honest status)
+## 10. Tasks (the task engine)
+
+- **A task has no more power than a chat message.** Its model calls tools through the one `ToolService.execute` road:
+  same argument validation, risk and permission policy, confirmation, timeouts, verification and audit. There is no second
+  path to the computer, so a compromised plan or a hostile file/page cannot do what a chat message could not (a task that
+  reads a file telling it to delete things, or a compromised planner that plans a deletion, meets the same refusals).
+- **A plan is a proposal, never a permission.** Approving a plan lets the task _try_; each risky action still asks on its own,
+  CRITICAL ones need an on-screen click (a typed or spoken "yes" is refused by the confirmation broker), and "always allow"
+  cannot weaken sensitive actions. The plan preview is an estimate that only knows the tools the plan names.
+- **The model cannot certify its own work.** A step is done only if something ran and the last change worked; unconfirmed
+  changes are marked and mentioned in the answer; the final verdict can only be made stricter than the model's by the record.
+- **"No" stays no.** When the person declines (or does not answer in time) the step stops immediately; the model is not given a
+  chance to retry or route around it. Refusals that will not change (protected locations, secrets, a permission switched off)
+  are never retried.
+- **Reserved names.** `submit_plan`, `finish_step`, `ask_user`, `finish_task` and `start_task` belong to the agent; a real tool
+  may not use them (startup fails), and the tool that starts a task is never offered inside a task (no tasks starting tasks).
+- **Bounded.** Steps, rounds, attempts, actions, running time and questions are all capped by the orchestrator, not the model.
+  One task runs at a time.
+- **Stoppable.** The emergency stop and a typed "stop" cancel running and queued tasks and any open question; STOP on a task
+  aborts its model call and its running action. Closing the app pauses tasks as _interrupted_; nothing resumes without the person.
+- **Privacy.** The timeline and audit trail keep tool names, verified/unverified, risk and privacy-safe summaries — not typed
+  text, file contents or clipboard text. The task text and the model's step summaries and answers are stored as written.
+  Removing a task removes its history but keeps its audit rows (detached from the task).
+- **Chat answers are careful.** A message typed while a task waits is taken as the answer only if it is not a clear command of
+  its own; "yes"/"no" approve a plan or continue after a decline; a spoken "yes" cannot approve a CRITICAL action.
+
+Tests: `tests/unit/agent/tasks/*` (state machine, plan validation, complexity, and 65 orchestrator scenarios — fourteen safety
+rules mutation-checked; eight more in the integration/security tests), `tests/integration/tasks.test.ts` and `task-store.test.ts` (real pipeline and files, chat, restart and
+crash recovery), `tests/security/tasks.test.ts` (reserved names, hostile payloads, untrusted senders, the CRITICAL-by-voice
+case, the emergency stop with a question open, what is recorded), `tests/unit/renderer/tasks-screen.test.tsx`,
+`tests/e2e/tasks.spec.ts` (real Electron, including quitting and relaunching mid-task).
+**Unverified:** behaviour with real AI providers (a real model may plan badly or resist the step/finish protocol), and everything
+Windows-specific the tools depend on.
+
+## 11. Not yet covered (honest status)
 
 See `docs/STATUS.md` for the per-requirement state. Security items that are designed but not yet built or not yet
 verifiable in this environment are tracked there, notably: NTFS-specific file behaviour, Edge/Chrome on Windows, the Windows input adapter's behaviour on a real desktop, the global (system-wide) emergency-stop shortcut, the Permissions screen, and Windows-specific hardening (UI Automation scope, installer signing,

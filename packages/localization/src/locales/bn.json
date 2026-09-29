@@ -242,7 +242,8 @@
       "scheduled": "নির্ধারিত",
       "completed": "সম্পন্ন",
       "failed": "ব্যর্থ",
-      "paused": "বিরতিতে"
+      "paused": "বিরতিতে",
+      "waiting": "আপনার অপেক্ষায়"
     },
     "emptyTitle": "এখনও কোনো task নেই।",
     "emptyBody": "Allaya-কে আপনার প্রথম কাজটি দিন।",
@@ -252,7 +253,117 @@
     "filesChanged_one": "{count}টি ফাইল পরিবর্তিত",
     "filesChanged_other": "{count}টি ফাইল পরিবর্তিত",
     "duration": "সময়",
-    "started": "শুরু"
+    "started": "শুরু",
+    "new": {
+      "title": "নতুন কাজ",
+      "placeholder": "Allaya-কে কী করতে হবে বলুন — এক ধাপে বা কয়েক ধাপে",
+      "planFirst": "শুরুর আগে পরিকল্পনাটা দেখান",
+      "start": "কাজ শুরু করুন",
+      "hint": "Allaya পরিকল্পনা করে, আপনার অনুমতির মধ্যে কাজটি করে, ফলাফল যাচাই করে এবং কী হলো তা জানায়।"
+    },
+    "filter": "কাজ ছাঁটাই করুন",
+    "list": "কাজের তালিকা",
+    "listEmpty": "এই তালিকায় কোনো কাজ নেই।",
+    "clearFinished": "শেষ হওয়াগুলো মুছুন",
+    "cleared_one": "{count}টি কাজ মুছে ফেলা হয়েছে",
+    "cleared_other": "{count}টি কাজ মুছে ফেলা হয়েছে",
+    "selectHint": "একটি কাজ বেছে নিন, ধাপে ধাপে কী হয়েছে দেখুন।",
+    "queued": "নিজের পালার অপেক্ষায়",
+    "running": "কাজ চলছে",
+    "progress": "{total}টির মধ্যে {done}টি ধাপ",
+    "outcome": {
+      "partial": "আংশিক সম্পন্ন"
+    },
+    "paused": {
+      "user": "আপনি কাজটি বিরতিতে রেখেছেন।",
+      "interrupted": "কাজটি চলার সময় Allaya বন্ধ হয়ে গিয়েছিল। আপনি চালু না করলে কিছুই আবার করা হবে না।"
+    },
+    "plan": {
+      "title": "পরিকল্পনা",
+      "review": "পরিকল্পনাটি দেখে নিন",
+      "body": "এখনও কিছুই করা হয়নি। পরিকল্পনা অনুমোদন মানে প্রতিটি কাজ অনুমোদন নয় — ঝুঁকিপূর্ণ কিছু হলে তখনও আপনাকে জিজ্ঞাসা করা হবে।",
+      "why": {
+        "requested": "আপনি আগে পরিকল্পনা দেখতে চেয়েছিলেন",
+        "many_steps": "এতে অনেকগুলো ধাপ আছে",
+        "risky_tool": "এতে ঝুঁকিপূর্ণ কাজ আছে",
+        "sensitive_subject": "এতে সংবেদনশীল কিছু আছে: মুছে ফেলা, পাঠানো বা ইনস্টল করা"
+      },
+      "risk": "সর্বোচ্চ ঝুঁকি: {risk}",
+      "tools": "ব্যবহার করবে: {tools}",
+      "criteria": "সম্পন্ন ধরা হবে যখন: {criteria}"
+    },
+    "approve": "পরিকল্পনা অনুমোদন করুন",
+    "reject": "করবেন না",
+    "question": {
+      "title": "Allaya-র জানা দরকার",
+      "placeholder": "আপনার উত্তর",
+      "send": "উত্তর দিন"
+    },
+    "declined": {
+      "title": "আপনি একটি কাজ করতে দেননি",
+      "body": "“{summary}” করা হয়নি। আপনি কাজের বাকি অংশ চালিয়ে যেতে পারেন, অথবা থামিয়ে দিতে পারেন।",
+      "continue": "চালিয়ে যান",
+      "stop": "কাজটি থামান",
+      "unansweredTitle": "সময়মতো উত্তর পাওয়া যায়নি",
+      "unansweredBody": "সময়মতো উত্তর না পাওয়ায় “{summary}” করা হয়নি। আপনি কাজের বাকি অংশ চালিয়ে যেতে পারেন, অথবা থামিয়ে দিতে পারেন।"
+    },
+    "runAgain": "আবার চালান",
+    "result": "ফলাফল",
+    "whyStopped": "কেন থেমেছে",
+    "steps": "ধাপসমূহ",
+    "step": {
+      "attempts_one": "{count}বার চেষ্টা",
+      "attempts_other": "{count}বার চেষ্টা",
+      "unverified": "যাচাই করা যায়নি",
+      "optional": "ঐচ্ছিক",
+      "tool": "টুল: {tool}",
+      "reported": "Allaya যা জানিয়েছে",
+      "checked": "যা যাচাই হয়েছে",
+      "expected": "শেষে যা হওয়া উচিত: {expected}"
+    },
+    "activity": "কার্যকলাপ",
+    "usage": "{turns}টি AI কল, {calls}টি অ্যাকশন, {time}",
+    "event": {
+      "TASK_CREATED": "কাজ তৈরি হয়েছে",
+      "TASK_STARTED": "শুরু হয়েছে",
+      "PLAN_CREATED": "পরিকল্পনা তৈরি হয়েছে",
+      "PERMISSION_REQUESTED": "আপনার অনুমতি চাওয়া হয়েছে",
+      "PERMISSION_GRANTED": "অনুমতি দেওয়া হয়েছে",
+      "PERMISSION_DENIED": "আপনার অনুমতি সেটিংসে আটকে গেছে",
+      "TOOL_STARTED": "কাজ শুরু হয়েছে",
+      "TOOL_COMPLETED": "কাজ সম্পন্ন",
+      "TOOL_FAILED": "কাজ ব্যর্থ",
+      "OBSERVATION_CREATED": "ফলাফল দেখা হয়েছে",
+      "VERIFICATION_STARTED": "ফলাফল যাচাই চলছে",
+      "VERIFICATION_COMPLETED": "ফলাফল যাচাই হয়েছে",
+      "TASK_PAUSED": "বিরতিতে রাখা হয়েছে",
+      "TASK_RESUMED": "আবার চালু হয়েছে",
+      "TASK_CANCELLED": "বাতিল হয়েছে",
+      "TASK_COMPLETED": "শেষ হয়েছে",
+      "TASK_FAILED": "সমস্যার কারণে থেমেছে",
+      "STATE_CHANGED": "অবস্থা বদলেছে",
+      "CLARIFICATION_REQUESTED": "আপনাকে একটি প্রশ্ন করা হয়েছে",
+      "PLAN_APPROVAL_REQUESTED": "পরিকল্পনা অনুমোদনের অপেক্ষায়",
+      "PLAN_APPROVED": "আপনি পরিকল্পনা অনুমোদন করেছেন",
+      "PLAN_REJECTED": "আপনি পরিকল্পনা বাতিল করেছেন",
+      "STEP_STARTED": "ধাপ শুরু হয়েছে",
+      "STEP_COMPLETED": "ধাপ সম্পন্ন",
+      "STEP_FAILED": "ধাপটি কাজ করেনি",
+      "STEP_RETRY": "ধাপটি আবার চেষ্টা করা হচ্ছে",
+      "USER_DECLINED": "আপনি একটি কাজ করতে দেননি",
+      "INTERRUPTED": "Allaya বন্ধ হওয়ায় থেমে গিয়েছিল",
+      "BUDGET_EXCEEDED": "সীমায় পৌঁছে থেমেছে"
+    },
+    "toast": {
+      "completed": "“{title}” সম্পন্ন হয়েছে",
+      "partial": "“{title}” আংশিক সম্পন্ন হয়েছে",
+      "failed": "“{title}” শেষ করা যায়নি",
+      "waiting": "“{title}”-এর জন্য আপনাকে দরকার",
+      "open": "খুলুন"
+    },
+    "openTask": "কাজটি খুলুন",
+    "needsYou_one": "{count}টি কাজের জন্য আপনাকে দরকার",
+    "needsYou_other": "{count}টি কাজের জন্য আপনাকে দরকার"
   },
   "automations": {
     "title": "অটোমেশন",
@@ -743,7 +854,9 @@
       "PROVIDER_RATE_LIMITED": "AI provider এখন অনুরোধ সীমিত করছে। একটু পরে আবার চেষ্টা করুন।",
       "PROVIDER_UNAVAILABLE": "AI provider এখন পাওয়া যাচ্ছে না।",
       "INTERNAL": "আমাদের দিকে একটি সমস্যা হয়েছে।",
-      "UNKNOWN": "কিছু একটা সমস্যা হয়েছে।"
+      "UNKNOWN": "কিছু একটা সমস্যা হয়েছে।",
+      "CONFLICT": "এখন এটি করা সম্ভব নয়।",
+      "NOT_FOUND": "সেটি আর নেই।"
     }
   },
   "toast": {

@@ -133,6 +133,8 @@ export const tasks = sqliteTable(
     resultSummary: text('result_summary'),
     errorJson: text('error_json'),
     automationRunId: text('automation_run_id'),
+    /** Engine bookkeeping that is not queried on: usage counters, what the task is waiting for, where it resumes. */
+    runtimeJson: text('runtime_json'),
     filesChanged: integer('files_changed').notNull().default(0),
     actionCount: integer('action_count').notNull().default(0),
     startedAt: integer('started_at', { mode: 'number' }),
@@ -161,6 +163,8 @@ export const taskSteps = sqliteTable(
     argumentsJson: text('arguments_json'),
     state: text('state').notNull().default('pending'),
     error: text('error'),
+    /** What the plan said about the step, and what came of it (summary, evidence, attempts, …). */
+    dataJson: text('data_json'),
     startedAt: integer('started_at', { mode: 'number' }),
     completedAt: integer('completed_at', { mode: 'number' }),
   },

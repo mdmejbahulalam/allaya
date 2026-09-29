@@ -242,7 +242,8 @@
       "scheduled": "Scheduled",
       "completed": "Completed",
       "failed": "Failed",
-      "paused": "Paused"
+      "paused": "Paused",
+      "waiting": "Needs you"
     },
     "emptyTitle": "No tasks yet.",
     "emptyBody": "Ask Allaya to perform your first task.",
@@ -252,7 +253,117 @@
     "filesChanged_one": "{count} file changed",
     "filesChanged_other": "{count} files changed",
     "duration": "Duration",
-    "started": "Started"
+    "started": "Started",
+    "new": {
+      "title": "New task",
+      "placeholder": "Tell Allaya what to do — one step or many",
+      "planFirst": "Show me the plan before starting",
+      "start": "Start task",
+      "hint": "Allaya plans it, does it within your permissions, checks the results and tells you what happened."
+    },
+    "filter": "Filter tasks",
+    "list": "Tasks",
+    "listEmpty": "No tasks in this view.",
+    "clearFinished": "Clear finished",
+    "cleared_one": "Removed {count} task",
+    "cleared_other": "Removed {count} tasks",
+    "selectHint": "Choose a task to see what it did, step by step.",
+    "queued": "Waiting for its turn",
+    "running": "Working on it",
+    "progress": "{done} of {total} steps",
+    "outcome": {
+      "partial": "Partly done"
+    },
+    "paused": {
+      "user": "You paused this task.",
+      "interrupted": "Allaya was closed while this was running. Nothing is repeated unless you resume it."
+    },
+    "plan": {
+      "title": "The plan",
+      "review": "Review the plan",
+      "body": "Nothing has been done yet. Approving the plan does not approve each action — anything risky still asks you first.",
+      "why": {
+        "requested": "You asked to see the plan first",
+        "many_steps": "It has many steps",
+        "risky_tool": "It includes risky actions",
+        "sensitive_subject": "It touches something sensitive: deleting, sending or installing"
+      },
+      "risk": "Highest risk: {risk}",
+      "tools": "Uses: {tools}",
+      "criteria": "Done when: {criteria}"
+    },
+    "approve": "Approve plan",
+    "reject": "Don't do it",
+    "question": {
+      "title": "Allaya needs to know",
+      "placeholder": "Your answer",
+      "send": "Answer"
+    },
+    "declined": {
+      "title": "You declined an action",
+      "body": "“{summary}” was not done. You can carry on with the rest of the task, or stop it.",
+      "continue": "Carry on",
+      "stop": "Stop the task",
+      "unansweredTitle": "No answer in time",
+      "unansweredBody": "“{summary}” was not done because there was no answer in time. You can carry on with the rest of the task, or stop it."
+    },
+    "runAgain": "Run again",
+    "result": "Result",
+    "whyStopped": "Why it stopped",
+    "steps": "Steps",
+    "step": {
+      "attempts_one": "{count} attempt",
+      "attempts_other": "{count} attempts",
+      "unverified": "Could not be confirmed",
+      "optional": "Optional",
+      "tool": "Tool: {tool}",
+      "reported": "What Allaya reported",
+      "checked": "What was checked",
+      "expected": "Should end with: {expected}"
+    },
+    "activity": "Activity",
+    "usage": "{turns} AI calls, {calls} actions, {time}",
+    "event": {
+      "TASK_CREATED": "Task created",
+      "TASK_STARTED": "Started",
+      "PLAN_CREATED": "Plan made",
+      "PERMISSION_REQUESTED": "Asked for your permission",
+      "PERMISSION_GRANTED": "Permission given",
+      "PERMISSION_DENIED": "Blocked by your permission settings",
+      "TOOL_STARTED": "Action started",
+      "TOOL_COMPLETED": "Action done",
+      "TOOL_FAILED": "Action failed",
+      "OBSERVATION_CREATED": "Looked at the result",
+      "VERIFICATION_STARTED": "Checking the results",
+      "VERIFICATION_COMPLETED": "Results checked",
+      "TASK_PAUSED": "Paused",
+      "TASK_RESUMED": "Resumed",
+      "TASK_CANCELLED": "Cancelled",
+      "TASK_COMPLETED": "Finished",
+      "TASK_FAILED": "Stopped with a problem",
+      "STATE_CHANGED": "State changed",
+      "CLARIFICATION_REQUESTED": "Asked you a question",
+      "PLAN_APPROVAL_REQUESTED": "Waiting for you to approve the plan",
+      "PLAN_APPROVED": "You approved the plan",
+      "PLAN_REJECTED": "You rejected the plan",
+      "STEP_STARTED": "Step started",
+      "STEP_COMPLETED": "Step done",
+      "STEP_FAILED": "Step did not work",
+      "STEP_RETRY": "Trying the step again",
+      "USER_DECLINED": "You declined an action",
+      "INTERRUPTED": "Interrupted when Allaya closed",
+      "BUDGET_EXCEEDED": "Stopped at a limit"
+    },
+    "toast": {
+      "completed": "“{title}” is done",
+      "partial": "“{title}” is partly done",
+      "failed": "“{title}” did not finish",
+      "waiting": "“{title}” needs you",
+      "open": "Open"
+    },
+    "openTask": "Open task",
+    "needsYou_one": "{count} task needs you",
+    "needsYou_other": "{count} tasks need you"
   },
   "automations": {
     "title": "Automations",
@@ -743,7 +854,9 @@
       "PROVIDER_RATE_LIMITED": "The AI provider is rate limiting requests. Try again shortly.",
       "PROVIDER_UNAVAILABLE": "The AI provider is unavailable.",
       "INTERNAL": "Something went wrong on our side.",
-      "UNKNOWN": "Something went wrong."
+      "UNKNOWN": "Something went wrong.",
+      "CONFLICT": "That can't be done right now.",
+      "NOT_FOUND": "That no longer exists."
     }
   },
   "toast": {

@@ -7,7 +7,11 @@ export interface ActiveRun {
   startedAt: number;
 }
 
-type RunEvents = { changed: ActiveRun[] };
+type RunEvents = {
+  changed: ActiveRun[];
+  /** The emergency stop (or a typed "stop") was used: runs are cancelled, and anything queued should be dropped too. */
+  stopped: { reason: string; count: number };
+};
 
 /**
  * Every long-running agent operation (a chat generation, a task, an automation run) registers here.
@@ -48,6 +52,7 @@ export class RunRegistry {
   cancelAll(reason = 'emergency stop'): number {
     const entries = [...this.runs.values()];
     for (const { source } of entries) source.cancel(reason);
+    this.events.emit('stopped', { reason, count: entries.length });
     return entries.length;
   }
 

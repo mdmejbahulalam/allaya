@@ -2,7 +2,7 @@ import { lazy } from 'react';
 import type { ComponentType } from 'react';
 import type { RouteId } from '@renderer/app/routes';
 import { EmptyScreen } from './placeholder';
-import { Activity, AppWindow, Bot, Brain, ListChecks, ShieldCheck } from 'lucide-react';
+import { Activity, AppWindow, Bot, Brain, ShieldCheck } from 'lucide-react';
 
 const lazyNamed = <T extends Record<string, ComponentType>>(
   loader: () => Promise<T>,
@@ -16,14 +16,7 @@ export const SCREENS: Record<RouteId, ComponentType> = {
   help: lazyNamed(() => import('./help/help-screen'), 'HelpScreen'),
   gallery: lazyNamed(() => import('./gallery/gallery-screen'), 'GalleryScreen'),
   chat: lazyNamed(() => import('./chat/chat-screen'), 'ChatScreen'),
-  tasks: () => (
-    <EmptyScreen
-      icon={ListChecks}
-      titleKey="tasks.title"
-      emptyTitleKey="tasks.emptyTitle"
-      emptyBodyKey="tasks.emptyBody"
-    />
-  ),
+  tasks: lazyNamed(() => import('./tasks/tasks-screen'), 'TasksScreen'),
   automations: () => (
     <EmptyScreen
       icon={Bot}

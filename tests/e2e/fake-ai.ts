@@ -1,6 +1,9 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 
+export type TaskTurn =
+  { text?: string[]; calls?: Array<{ id: string; name: string; input: unknown }> } | 'hang';
+
 export interface FakeRequest {
   method: string;
   url: string;
@@ -58,6 +61,15 @@ export class FakeAi {
    */
   turns: Array<{ text?: string[]; calls?: Array<{ id: string; name: string; input: unknown }> }> =
     [];
+  /**
+   * Scripted turns for the task engine, recognised by what each request is for: the planner, a step (by the plan's
+   * step id) and the final answer. `'hang'` keeps the connection open until the app disconnects.
+   */
+  tasks: {
+    plan: Array<TaskTurn>;
+    steps: Record<string, Array<TaskTurn>>;
+    summary: Array<TaskTurn>;
+  } = { plan: [], steps: {}, summary: [] };
   /** What the speech-to-text endpoint hears. */
   transcript = { text: 'Chrome খুলে দাও', avgLogprob: -0.08, noSpeechProb: 0.01 };
   private server!: Server;
@@ -76,6 +88,19 @@ export class FakeAi {
   async stop(): Promise<void> {
     this.server.closeAllConnections();
     await new Promise<void>((resolve) => this.server.close(() => resolve()));
+  }
+
+  /** The scripted turn for a task-engine request, if this is one and the script has something for it. */
+  private taskTurn(body: { system?: string; messages?: unknown[] }): TaskTurn | undefined {
+    const system = body.system ?? '';
+    if (system.includes('planner of Allaya')) return this.tasks.plan.shift();
+    if (system.includes('A task has finished running')) return this.tasks.summary.shift();
+    if (system.includes('carrying out one step of a task')) {
+      const brief = JSON.stringify(body.messages?.[0] ?? '');
+      const stepId = /Current step ([\w-]+):/.exec(brief)?.[1] ?? '?';
+      return this.tasks.steps[stepId]?.shift();
+    }
+    return undefined;
   }
 
   private async handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
@@ -183,7 +208,19 @@ export class FakeAi {
           .at(-1)
           ?.content.map((c) => c.text ?? '')
           .join('') ?? '';
-      const turn = this.turns.shift();
+      const scripted = this.taskTurn(body as { system?: string; messages?: unknown[] });
+      if (scripted === 'hang') {
+        res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache' });
+        res.write(
+          `event: message_start\ndata: ${JSON.stringify({
+            type: 'message_start',
+            message: { model: 'claude-sonnet-5-5', usage: { input_tokens: 12, output_tokens: 1 } },
+          })}\n\n`,
+        );
+        await new Promise<void>((resolve) => req.on('close', resolve));
+        return;
+      }
+      const turn = scripted ?? this.turns.shift();
       if (turn) {
         res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache' });
         const emit = (event: string, data: unknown) =>

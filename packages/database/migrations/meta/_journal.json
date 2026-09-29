@@ -15,6 +15,13 @@
       "when": 1790651099754,
       "tag": "0001_bouncy_diamondback",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1790657719193,
+      "tag": "0002_puzzling_metal_master",
+      "breakpoints": true
     }
   ]
 }

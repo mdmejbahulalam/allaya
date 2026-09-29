@@ -100,15 +100,15 @@ const bodyOf = (req: RecordedRequest) =>
   };
 
 describe('computer tools through the agent loop', () => {
-  it('the model is offered exactly the computer tools this machine supports', async () => {
+  it('the model is offered exactly the computer tools this machine supports (plus the way to start a task)', async () => {
     const { requests } = await rig(['text']);
     const r = await send('hi');
     await done(r.assistantMessage.id);
-    expect(
-      bodyOf(requests[0]!)
-        .tools?.map((t) => t.name)
-        .sort(),
-    ).toEqual([
+    const offered = bodyOf(requests[0]!)
+      .tools?.map((t) => t.name)
+      .sort();
+    expect(offered).toContain('start_task');
+    expect(offered?.filter((name) => name !== 'start_task')).toEqual([
       'click_at',
       'click_element',
       'close_app',

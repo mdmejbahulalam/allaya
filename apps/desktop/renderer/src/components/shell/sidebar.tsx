@@ -5,6 +5,7 @@ import { NAV_GROUPS, ROUTES, routeById, type RouteDef, type RouteId } from '@ren
 import { Button } from '@renderer/components/ui/button';
 import { IconButton } from '@renderer/components/ui/icon-button';
 import { Tooltip } from '@renderer/components/ui/tooltip';
+import { needsAttention, useTasksStore } from '@renderer/stores/tasks';
 
 function NavItem({
   route,
@@ -20,6 +21,10 @@ function NavItem({
   const t = useT();
   const label = t.t(`nav.${route.id as 'home'}`);
   const Icon = route.icon;
+  // Tasks waiting for the person are visible from anywhere in the app.
+  const waiting = useTasksStore((s) =>
+    route.id === 'tasks' ? Object.values(s.byId).filter(needsAttention).length : 0,
+  );
   return (
     <Tooltip label={label} side="right" disabled={!collapsed}>
       <button
@@ -42,6 +47,18 @@ function NavItem({
         )}
         <Icon aria-hidden size={20} className={cn('shrink-0', active && 'text-accent-text')} />
         {!collapsed && <span className="truncate">{label}</span>}
+        {waiting > 0 && (
+          <span
+            data-testid="tasks-waiting"
+            className={cn(
+              'flex min-w-5 items-center justify-center rounded-pill bg-warning px-1.5 text-caption font-semibold text-black tabular-nums',
+              collapsed ? 'absolute end-2 top-1.5 min-w-4 px-1 text-[10px]' : 'ms-auto',
+            )}
+          >
+            <span aria-hidden>{waiting}</span>
+            <span className="sr-only">{t.t('tasks.needsYou', { count: waiting })}</span>
+          </span>
+        )}
       </button>
     </Tooltip>
   );

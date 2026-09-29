@@ -7,6 +7,7 @@ import {
   openDatabase,
   ProviderRepository,
   SettingsRepository,
+  TaskRepository,
   type DatabaseHandle,
 } from '@allaya/database';
 import { CredentialVault, type Cipher, type CredentialStore } from '@allaya/security';
@@ -45,6 +46,8 @@ import { FolderRoots } from './files/folder-roots';
 import { FileService } from './services/file-service';
 import { registerFileHandlers } from './ipc/handlers/files';
 import { registerBrowserHandlers } from './ipc/handlers/browser';
+import { registerTaskHandlers } from './ipc/handlers/tasks';
+import { TaskService, type TaskServiceDeps } from './services/task-service';
 import { BrowserService, type BrowserLaunchState } from './services/browser-service';
 import { EventPublisher } from './ipc/events';
 import { HandlerRegistry } from './ipc/registry';
@@ -118,6 +121,8 @@ export interface ContainerOptions {
   extraTools?: ToolDefinition[];
   /** How long an unanswered confirmation stays open. Tests shorten it. */
   confirmationTimeoutMs?: number;
+  /** Test seam for the task engine: tighter limits, no waiting between retries. */
+  tasks?: Pick<TaskServiceDeps, 'limits' | 'backoffMs'>;
 }
 
 /**
@@ -134,6 +139,7 @@ export interface Container {
   computer: ComputerService;
   files: FileService;
   browser: BrowserService;
+  tasks: TaskService;
   permissions: PermissionService;
   runs: RunRegistry;
   events: EventPublisher;
@@ -301,11 +307,28 @@ export function createContainer(options: ContainerOptions): Container {
     ...(options.files?.reveal ? { reveal: options.files.reveal } : {}),
   });
 
+  const conversations = new ConversationRepository(database.db);
+  const tasks = new TaskService({
+    repo: new TaskRepository(database.db),
+    conversations,
+    providers,
+    tools,
+    permissions,
+    settings,
+    events,
+    runs,
+    logger: options.logger.child('tasks'),
+    osLocale: () => options.getAppInfo().osLocale,
+    ...(options.tasks?.limits ? { limits: options.tasks.limits } : {}),
+    ...(options.tasks?.backoffMs ? { backoffMs: options.tasks.backoffMs } : {}),
+  });
+  tasks.recover();
   const chat = new ChatService({
-    conversations: new ConversationRepository(database.db),
+    conversations,
     providers,
     settings,
     tools,
+    tasks,
     events,
     runs,
     logger: options.logger.child('chat'),
@@ -331,6 +354,7 @@ export function createContainer(options: ContainerOptions): Container {
   registerComputerHandlers(registry, computer);
   registerFileHandlers(registry, fileService);
   registerBrowserHandlers(registry, browser);
+  registerTaskHandlers(registry, tasks);
   registerAgentHandlers(registry, runs);
 
   return {
@@ -343,12 +367,15 @@ export function createContainer(options: ContainerOptions): Container {
     computer,
     files: fileService,
     browser,
+    tasks,
     permissions,
     runs,
     events,
     registry,
     logger: options.logger,
     dispose: () => {
+      // Tasks first: they are paused as interrupted (resumable), not cancelled by the general stop below.
+      tasks.shutdown();
       runs.cancelAll('shutdown');
       void browserEngine.close().finally(() => proxy.stop());
       database.close();

@@ -157,7 +157,7 @@ All checks below run in CI-equivalent form in this environment: `pnpm typecheck`
 - The Permissions **screen** is not built yet (Phase 12); the backend and defaults are.
 - The typed/spoken answer channel is enforced in the trusted process, but the renderer reports which channel it used; that is
   acceptable because the renderer is the user's own UI (the restriction protects against _mis-heard_ speech, not a hostile renderer).
-- Tool _plans_ spanning several user turns (a persistent task, pause/resume) belong to the task engine (Phase 9).
+- Tool _plans_ spanning several user turns (a persistent task, pause/resume) are the task engine's (Phase 9, below).
 
 ## Phase 6 — Computer control 🪟 (engine and safety verified; Windows behaviour NOT verified)
 
@@ -289,9 +289,54 @@ screen's own actions — goes through one guard (`PathPolicy` → `FileManager`)
   verified (Phases 13/15).
 - The plain-HTTP WebSocket upgrade path of the proxy is refused; `ws://`/`wss://` normally travel through `CONNECT`.
 
+## Phase 9 — Task engine 🧩 (verified end to end against a scripted model; no real AI provider was used)
+
+`@allaya/agent` (`tasks/`, Electron-free) + `TaskService` / `ProviderModel` / `ToolServicePort` in the main process + the Tasks
+screen. A **task** is a request that runs in the background: understand → plan (only when it pays) → show the plan when it
+should be seen → do it step by step through the **same** tool pipeline chat uses → check the results → answer. The model
+_proposes_ (a plan, the next tool call, "this step is done"); the orchestrator _disposes_ — every state change goes through a
+state machine, every budget is enforced here, and a step counts as done only if the tool results support it.
+
+| Item                                                                                                                                                                                                                                                                                                                                    | State                                                                                          |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| **State machine as data**: the 15 task states, every edge listed; a final state never leaves; impossible moves throw; every recorded change of state is checked (in tests) to be a legal move that starts where the last ended                                                                                                          | ✅ (unit; 102 tests across the machine, plan, complexity and orchestrator files)               |
+| Complexity is decided locally, without a model call (Bengali, English, Banglish): one command → one step, no planning call; sequenced or long requests are planned                                                                                                                                                                      | ✅ (unit)                                                                                      |
+| Planner returns one structured plan; the plan is **validated** (unique ids, dependencies only on _earlier_ steps so cycles are impossible, only tools that exist, size limits) and **repaired once** with the exact problem quoted back; otherwise the task fails as `PLAN_INVALID`                                                     | ✅ (unit)                                                                                      |
+| A plan is shown and **waits for a yes** when the person asked, when it is long, when it names a risky tool or a sensitive area (deleting, sending, installing). Approving a plan is **not** approving its actions: each risky action still asks on its own, CRITICAL still needs a click                                                | ✅ (unit + integration + security + E2E)                                                       |
+| **A step is not "done" because the model says so.** Refused as done: nothing was run for a step that names a tool; every action failed; the last change it made failed. What was checked is recorded next to what the model reported; unconfirmed changes are marked and named in the answer                                            | ✅ (unit; each rule mutation-checked — 14 orchestrator rules and 8 integration/security rules) |
+| The final verdict can only get **stricter** than the model's: a required step that was not done makes the outcome "partly done" (or failed) whatever the model claims                                                                                                                                                                   | ✅ (unit + integration)                                                                        |
+| The person says **no** to an action → the step stops at once and the model is never asked to find a way around it; the task waits and the person can carry on with the rest or stop. Silence is reported as "no answer in time", not as a "no"                                                                                          | ✅ (unit + integration + security + E2E)                                                       |
+| Refusals that will not change (protected path, secret, permission off) are **not retried**; other failures retry up to 3 times with a note of what went wrong, and back off for busy/unreachable providers                                                                                                                              | ✅ (unit + integration)                                                                        |
+| Questions: the planner or a step may ask the person one question (max 3 per task); the answer becomes part of the request; a typed answer in the originating chat is taken as the answer unless it is a clear command of its own                                                                                                        | ✅ (unit + integration + security + E2E)                                                       |
+| Budgets: 20 steps, 6 rounds per step, 3 attempts per step, 80 actions, 6 actions per turn, 30 minutes of running time (waiting for the person does not count), 3 questions                                                                                                                                                              | ✅ (unit)                                                                                      |
+| Pause (at the next safe point — a running action is never cut off by a pause), resume, cancel; the emergency stop and a typed "stop" cancel running **and queued** tasks; a paused/cancelled task never repeats an action by itself                                                                                                     | ✅ (unit + integration + E2E)                                                                  |
+| **One task runs at a time** (two must not fight over the mouse and keyboard); others queue                                                                                                                                                                                                                                              | ✅ (unit + integration)                                                                        |
+| **Persistence and recovery**: every change is written (SQLite, migration `0002`); closing Allaya pauses a running task as _interrupted_ (written synchronously); after a crash the half-done task is found and paused; nothing resumes by itself, and the interrupted step is told it may be part-done                                  | ✅ (integration incl. a crash snapshot + real Electron restart in E2E)                         |
+| Damaged rows degrade instead of crashing (an unreadable state shows as failed, never as running)                                                                                                                                                                                                                                        | ✅ (integration)                                                                               |
+| Chat: the model gets `start_task` for multi-step requests (one per reply); the result, questions and plan/decline notices are posted **into the conversation**, linked to the task; yes/no in chat approves a plan or continues after a decline                                                                                         | ✅ (integration + security + E2E)                                                              |
+| Tasks screen: composer (with "show me the plan first"), tabs, live list with progress, detail with plan review, question, decline and pause cards, steps with _what was reported_ vs _what was checked_, activity log, run again / remove; sidebar marker and toast when a task needs you; Home shows current and recent tasks; Bengali | ✅ (28 renderer tests + E2E)                                                                   |
+| Audit: every action a task takes is recorded under the task; removing a task **detaches** (never deletes) its audit rows; typed text and file contents stay out of the timeline and audit trail                                                                                                                                         | ✅ (integration + security; the removal rule was found by a test and fixed)                    |
+
+**Caveats — read these**
+
+- **Only scripted models were used.** The planner, step and answer prompts have never been run against a real provider, so
+  how well real models plan, stay on a step, call `finish_step`, or write a good answer in Bengali is **unverified**. The
+  orchestrator is built not to trust any of it (see above), but quality is unmeasured.
+- The **complexity classifier is a heuristic** (sequencing words, sentences, list items, length) in three languages; it is
+  tuned on examples, not measured. A request wrongly classed as simple runs as one step under the same permission checks.
+- The **plan preview is an estimate**: it knows only the tools the plan names. A tool whose risk or permission depends on its
+  arguments (browser clicks, overwriting a file) counts as MEDIUM in the preview and is judged for real at each call.
+- Step summaries, the final answer and the person's answers are stored **as written** in the local database (like chat
+  messages); a model that echoes private text into its summary keeps it there until the task is removed.
+- One task at a time also means a task waiting on a question does not block the queue — but a paused task's world may have
+  changed by the time it resumes; the step is told to look before repeating anything.
+- Tool calls are audited under the task but not under the individual **step** (the audit schema has a `step_id` column that is
+  not filled in); the timeline carries the step id in its own events.
+- Not built here: scheduled/recurring tasks (Phase 10), sub-tasks, plan editing by the person, vision-based steps.
+
 ## Not started
 
-Phases 9–15 (task engine, automation,
+Phases 10–15 (automation,
 memory, security hardening, Windows polish, release). Anything that needs Windows UI Automation, the tray,
 global hotkeys, the installer, or auto-update **cannot be verified in this Linux environment** and will be marked 🪟
 until run on Windows.

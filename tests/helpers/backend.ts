@@ -38,6 +38,7 @@ export interface TestBackendOptions {
   files?: ContainerOptions['files'];
   browser?: ContainerOptions['browser'];
   confirmationTimeoutMs?: number;
+  tasks?: ContainerOptions['tasks'];
 }
 
 export interface TestBackend {
@@ -76,6 +77,7 @@ export function createTestBackend(options: TestBackendOptions = {}): TestBackend
     ...(options.confirmationTimeoutMs !== undefined
       ? { confirmationTimeoutMs: options.confirmationTimeoutMs }
       : {}),
+    tasks: { backoffMs: () => 0, ...(options.tasks ?? {}) },
     providerOptions: {
       ...(options.fetch ? { fetch: options.fetch } : {}),
       maxRetries: 0,

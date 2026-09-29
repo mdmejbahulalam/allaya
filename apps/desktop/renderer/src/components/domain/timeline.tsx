@@ -10,6 +10,9 @@ export interface TimelineStep {
   state: TimelineStepState;
   detail?: string;
   durationMs?: number;
+  /** A short remark shown next to the title ("Optional", "Could not be confirmed"). */
+  note?: string;
+  noteTone?: 'muted' | 'warning';
 }
 
 function StepIcon({ state }: { state: TimelineStepState }) {
@@ -94,6 +97,18 @@ export function Timeline({ steps, className }: { steps: TimelineStep[]; classNam
                   {step.title}
                 </span>
                 <span className="sr-only">{t.t(stateLabelKey[step.state])}</span>
+                {step.note && (
+                  <span
+                    className={cn(
+                      'rounded-pill border px-2 text-caption',
+                      step.noteTone === 'warning'
+                        ? 'border-warning/30 bg-warning/10 text-warning'
+                        : 'border-line text-muted',
+                    )}
+                  >
+                    {step.note}
+                  </span>
+                )}
                 {step.durationMs !== undefined && (
                   <span className="text-caption text-muted tabular-nums">
                     {t.formatDuration(step.durationMs)}

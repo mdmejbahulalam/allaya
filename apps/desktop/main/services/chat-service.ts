@@ -44,11 +44,13 @@ import {
   type MessageView,
   type ModelRefView,
   serializedErrorSchema,
+  MAX_TASK_REQUEST_CHARS,
 } from '@allaya/validation';
 import type { EventPublisher } from '../ipc/events';
 import type { ProviderService } from './provider-service';
 import type { SettingsService } from './settings-service';
 import type { ToolService } from './tool-service';
+import { titleFromText } from './text';
 
 /** Persisted in `messages.metadata_json` for assistant messages. */
 const assistantMetadataSchema = z.object({
@@ -61,7 +63,7 @@ const assistantMetadataSchema = z.object({
   finishReason: z.string().optional(),
   error: serializedErrorSchema.optional(),
   /** Set when Allaya answered on its own (no model call): a language switch or a stop/cancel command. */
-  local: z.enum(['language', 'stop', 'cancel', 'confirmation']).optional(),
+  local: z.enum(['language', 'stop', 'cancel', 'confirmation', 'task']).optional(),
   /** What Allaya did on the computer while producing this reply. */
   actions: z.array(actionRecordSchema).optional(),
 });
@@ -79,24 +81,66 @@ const CONTROL_MAX_CHARS = 80;
 const MAX_TOOL_ROUNDS = 8;
 const MAX_CALLS_PER_ROUND = 8;
 
-const TITLE_MAX = 60;
 const DELTA_FLUSH_MS = 30;
 const DEFAULT_MAX_OUTPUT = 4096;
 /** History is trimmed to leave this much of the window for the reply and the system prompt. */
 const CONTEXT_SAFETY_MARGIN = 2048;
 
-export function titleFromText(text: string): string {
-  const oneLine = text.replace(/\s+/g, ' ').trim();
-  // Slice by code points so a Bengali conjunct or emoji is never split in half.
-  const chars = Array.from(oneLine);
-  return chars.length > TITLE_MAX ? `${chars.slice(0, TITLE_MAX - 1).join('')}…` : oneLine;
+export { titleFromText };
+
+/** What chat needs from the task engine. */
+export interface TaskChatPort {
+  create(input: {
+    request: string;
+    conversationId: string;
+    language: 'bn' | 'en';
+    source: 'chat';
+    complexity: 'multi_step';
+    planFirst?: boolean | undefined;
+  }): { id: string; title: string };
+  /** A message in a conversation where a task is waiting: its answer, or a yes/no. `undefined` if it is not for the task. */
+  answerFromChat(conversationId: string, text: string): string | undefined;
+  /** "Cancel" in a conversation also stops the task it started. */
+  cancelForConversation(conversationId: string): boolean;
 }
+
+/**
+ * The one tool that is not a computer action: hand a multi-step request to the task engine. It is handled here
+ * (not in the tool pipeline) because it starts a run rather than acting on the computer — everything the task then
+ * does still goes through the pipeline.
+ */
+export const START_TASK_TOOL = 'start_task';
+
+const startTaskSchema = z.object({
+  request: z.string().trim().min(1).max(MAX_TASK_REQUEST_CHARS),
+  plan_first: z.boolean().optional(),
+});
+
+const startTaskSpec = (): ModelToolSpec => ({
+  name: START_TASK_TOOL,
+  description:
+    'Starts a background task for a request that needs several steps or will take a while (for example "find the ' +
+    'newest invoice, move it to Documents, then open it"). Pass the user\'s request in their own words. The task ' +
+    'plans, does the work with the same tools and permissions, checks the results, and posts the outcome here when ' +
+    'it is done. For one quick action, use that tool directly instead. Set plan_first to true if the user wants to ' +
+    'see the plan before anything is done.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      request: { type: 'string', description: 'What the user asked for, in their own words.' },
+      plan_first: { type: 'boolean', description: 'Show the plan and wait for approval first.' },
+    },
+    required: ['request'],
+  },
+});
 
 export interface ChatServiceDeps {
   conversations: ConversationRepository;
   providers: ProviderService;
   settings: SettingsService;
   tools: ToolService;
+  /** The task engine. Omitted in tests that do not use it (then the model is not offered `start_task`). */
+  tasks?: TaskChatPort;
   events: EventPublisher;
   runs: RunRegistry;
   logger: Logger;
@@ -173,6 +217,11 @@ export class ChatService {
     if (waiting) {
       const handled = this.answerConfirmation(conversation, input, analysis, session, waiting);
       if (handled) return handled;
+    }
+    // A task from this conversation is waiting for an answer or a yes/no: this message may be it.
+    const taskReply = this.deps.tasks?.answerFromChat(conversation.id, input.text);
+    if (taskReply !== undefined) {
+      return this.replyLocally(conversation, input.text, analysis, taskReply, 'task');
     }
     if (active) {
       throw new AllayaError('Allaya is still replying in this conversation', { code: 'CONFLICT' });
@@ -259,7 +308,9 @@ export class ChatService {
         content = localReply(stopped > 0 ? 'stopped' : 'nothingRunning', language, stopped);
         local = 'stop';
       } else {
-        const cancelled = runs.cancel(runId(conversation.id), 'cancelled by user');
+        const cancelled =
+          runs.cancel(runId(conversation.id), 'cancelled by user') ||
+          (this.deps.tasks?.cancelForConversation(conversation.id) ?? false);
         content = localReply(cancelled ? 'cancelled' : 'nothingToCancel', language);
         local = 'cancel';
       }
@@ -449,8 +500,12 @@ export class ChatService {
 
       const { tools } = this.deps;
       // Tools are offered only to a model that can use them, and only if any are registered.
+      const canStartTasks = this.deps.tasks !== undefined && model.capabilities.tools;
       const modelTools =
-        tools.hasTools() && model.capabilities.tools ? tools.modelTools() : undefined;
+        tools.hasTools() && model.capabilities.tools
+          ? [...tools.modelTools(), ...(canStartTasks ? [startTaskSpec()] : [])]
+          : undefined;
+      let startedTask = false;
       const toolLanguage = replyLanguage.language === 'en' ? 'en' : 'bn';
       const messages: AIMessage[] = [...history];
       const actions: ActionRecord[] = [];
@@ -473,7 +528,13 @@ export class ChatService {
       };
 
       for (let round = 0; ; round += 1) {
-        const request = this.buildRequest(model, messages, replyLanguage, modelTools);
+        const request = this.buildRequest(
+          model,
+          messages,
+          replyLanguage,
+          modelTools,
+          canStartTasks,
+        );
         const calls: ToolCall[] = [];
         let roundText = '';
         let roundUsage = { inputTokens: 0, outputTokens: 0 };
@@ -546,6 +607,18 @@ export class ChatService {
                 error: 'Too many tool calls at once. Do them one step at a time.',
               }),
               isError: true,
+            });
+            continue;
+          }
+          if (call.name === START_TASK_TOOL && canStartTasks) {
+            const started = this.startTask(conversationId, call, toolLanguage, startedTask);
+            if (started.action) upsertAction(started.action);
+            if (started.ok) startedTask = true;
+            results.push({
+              type: 'tool_result',
+              toolCallId: call.id,
+              content: started.content,
+              isError: !started.ok,
             });
             continue;
           }
@@ -623,11 +696,57 @@ export class ChatService {
       }));
   }
 
+  /** Hands a request to the task engine. One task per reply; the model is told plainly what did and did not happen. */
+  private startTask(
+    conversationId: string,
+    call: ToolCall,
+    language: 'bn' | 'en',
+    alreadyStarted: boolean,
+  ): { ok: boolean; content: string; action?: ActionRecord } {
+    const fail = (error: string) => ({ ok: false, content: JSON.stringify({ ok: false, error }) });
+    const parsed = startTaskSchema.safeParse(call.arguments);
+    if (!parsed.success) return fail('start_task needs the request as text.');
+    if (alreadyStarted) return fail('A task was already started for this message.');
+    try {
+      const task = this.deps.tasks!.create({
+        request: parsed.data.request,
+        conversationId,
+        language,
+        source: 'chat',
+        complexity: 'multi_step',
+        planFirst: parsed.data.plan_first,
+      });
+      const summary =
+        language === 'bn' ? `টাস্ক শুরু হয়েছে: ${task.title}` : `Started a task: ${task.title}`;
+      return {
+        ok: true,
+        content: JSON.stringify({
+          ok: true,
+          taskId: task.id,
+          note:
+            'The task was started and runs in the background. Tell the user in one short sentence that you started ' +
+            'it and that the result will be posted here when it is done. Do not say anything is done yet.',
+        }),
+        action: {
+          callId: call.id,
+          tool: START_TASK_TOOL,
+          summary,
+          status: 'success',
+          verification: 'not_applicable',
+        },
+      };
+    } catch (error) {
+      const message = toSerializedError(error).message;
+      return fail(`The task could not be started: ${message}`);
+    }
+  }
+
   private buildRequest(
     model: ModelInfo,
     history: AIMessage[],
     replyLanguage: ResolvedResponseLanguage,
     tools?: ModelToolSpec[],
+    canStartTasks = false,
   ): AIRequest {
     const { settings, now } = this.deps;
     const system = buildSystemPrompt({
@@ -635,6 +754,7 @@ export class ChatService {
       reply: replyLanguage,
       userName: settings.get('profile.displayName'),
       toolsAvailable: tools !== undefined && tools.length > 0,
+      canStartTasks,
       now: (now ?? (() => new Date()))(),
     });
     const maxOutput = Math.min(
@@ -772,5 +892,6 @@ export function toMessageView(row: MessageRow): MessageView {
     ...(meta?.usage ? { usage: meta.usage } : {}),
     ...(meta?.error ? { error: meta.error } : {}),
     ...(meta?.actions?.length ? { actions: meta.actions } : {}),
+    ...(row.taskId ? { taskId: row.taskId } : {}),
   };
 }

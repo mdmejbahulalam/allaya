@@ -68,6 +68,9 @@ export type TaskState = (typeof TASK_STATES)[number];
 
 export const TERMINAL_TASK_STATES: readonly TaskState[] = ['COMPLETED', 'FAILED', 'CANCELLED'];
 
+/** States in which nothing is running and the task is waiting for the user (or a resume). */
+export const IDLE_TASK_STATES: readonly TaskState[] = ['PAUSED', 'WAITING_FOR_USER'];
+
 /** Orchestrator-level phase (§9). */
 export const AGENT_PHASES = [
   'IDLE',
@@ -112,6 +115,19 @@ export const TASK_EVENT_TYPES = [
   'TASK_CANCELLED',
   'TASK_COMPLETED',
   'TASK_FAILED',
+  // Added by the task engine (Phase 9)
+  'STATE_CHANGED',
+  'CLARIFICATION_REQUESTED',
+  'PLAN_APPROVAL_REQUESTED',
+  'PLAN_APPROVED',
+  'PLAN_REJECTED',
+  'STEP_STARTED',
+  'STEP_COMPLETED',
+  'STEP_FAILED',
+  'STEP_RETRY',
+  'USER_DECLINED',
+  'INTERRUPTED',
+  'BUDGET_EXCEEDED',
 ] as const;
 export type TaskEventType = (typeof TASK_EVENT_TYPES)[number];
 

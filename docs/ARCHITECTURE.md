@@ -34,7 +34,7 @@ Operating system
 | `@allaya/database`   | Drizzle schema, migrations, SQLite connection, repositories                                     |
 | `@allaya/ai`         | Provider adapters, SSE, retry/cancel, model router, token estimates                             |
 | `@allaya/security`   | Credential vault (OS-encrypted, no plaintext fallback)                                          |
-| `@allaya/agent`      | System prompt policy (language rules, "no tools" honesty)                                       |
+| `@allaya/agent`      | Prompt policy, and the task engine: state machine, planner, orchestrator (Electron-free)        |
 | `@allaya/language`   | Bengali/Banglish/English detection, normaliser, intent parser, dates, replies                   |
 | `@allaya/speech`     | Pure voice logic: state machine, VAD, transcript safety gate, speech-text prep                  |
 | `@allaya/voice`      | Main-process STT/TTS providers (OpenAI-compatible)                                              |
@@ -56,6 +56,32 @@ The parser output is **language-independent**: the same request in any language 
 downstream ever sees Bengali. It is a _fast path_ that is deliberately conservative — a clause that is not fully
 understood, or that is missing a parameter, is reported (`resolved:false`, `missing`, `leftovers`) and goes to the AI
 planner rather than being guessed. Destructive intents are flagged and never take their target from context.
+
+## Task engine
+
+`@allaya/agent/tasks` runs a request from start to answer. It never touches the computer itself: it depends on three ports —
+`AgentModel` (one whole model turn), `ToolPort` (the tool pipeline) and `TaskStore` (persistence) — so it runs in plain Node
+with a scripted model and an in-memory store, and in the app with the user's providers, `ToolService` and SQLite.
+
+```
+CREATED → ANALYZING → (PLANNING → PERMISSION_CHECK →) READY → EXECUTING → VERIFYING → COMPLETED
+                         ↘ WAITING_FOR_USER (approval / a question / a declined action)
+EXECUTING → ERROR → RECOVERY → RETRY → EXECUTING          any working state ⇄ PAUSED     → CANCELLED / FAILED
+```
+
+- **Understand** — `classifyComplexity` (local, no model call). Simple requests run as one step; the rest are planned.
+- **Plan** — a forced `submit_plan` call; `validatePlan` rejects unknown tools, forward/unknown dependencies and oversize
+  plans (one repair round); `assessPlan` decides whether the person must approve first.
+- **Do** — per step, a fresh model conversation (brief = request + plan + notes from earlier steps, never a growing
+  transcript) with the real tools plus `finish_step` and `ask_user`. `judgeStep` decides whether "done" is believed.
+- **Verify** — the record (not the model) sets the ceiling on the verdict; a `finish_task` call writes the answer.
+- **Control** — pause is cooperative (safe points), cancel and the emergency stop abort model calls and actions, budgets are
+  checked before every model call. One run at a time; others queue. `recover()` and `shutdown()` turn interrupted runs into
+  PAUSED so nothing repeats on its own.
+
+The main process adds `TaskService` (IPC, events, conversation posts, status pill), `DbTaskStore` (tasks, steps and a
+timeline in SQLite; engine bookkeeping in `runtime_json` / `data_json`, validated on read), `ProviderModel` (routes planning
+to the strongest tool-capable model, steps by task size) and `ToolServicePort`. Chat gets the `start_task` tool.
 
 ## Data
 

@@ -109,7 +109,7 @@ test('"screenshot nao": a real screenshot is captured, saved as a PNG, and verif
   expect(result.output.path).toBe(join(dir, files[0]!));
 });
 
-test('the model is offered only the tools that work on this machine', async () => {
+test('the model is offered only the tools that work on this machine (and the way to start a task)', async () => {
   ai.turns = [{ text: ['ok'] }];
   const { page } = await start();
   await connect(page);
@@ -146,6 +146,7 @@ test('the model is offered only the tools that work on this machine', async () =
       'read_clipboard',
       'read_file',
       'rename_file',
+      'start_task',
       'take_screenshot',
       'undo_file_action',
       'write_clipboard',

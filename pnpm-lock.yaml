@@ -195,12 +195,21 @@ importers:
       '@allaya/ai':
         specifier: workspace:*
         version: link:../ai
+      '@allaya/language':
+        specifier: workspace:*
+        version: link:../language
       '@allaya/shared':
         specifier: workspace:*
         version: link:../shared
+      '@allaya/tools':
+        specifier: workspace:*
+        version: link:../tools
       '@allaya/types':
         specifier: workspace:*
         version: link:../types
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
 
   packages/ai:
     dependencies:

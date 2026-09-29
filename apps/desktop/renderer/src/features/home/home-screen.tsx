@@ -9,12 +9,16 @@ import {
   SendHorizontal,
   KeyRound,
 } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useGreeting, useT } from '@renderer/lib/i18n';
 import { useUiStore } from '@renderer/stores/ui';
 import { selectHasConnected, useProvidersStore } from '@renderer/stores/providers';
 import { useSettingsStore } from '@renderer/stores/settings';
 import { useAgentStore } from '@renderer/stores/agent';
+import { isFinished, sortTasks, useTasksStore } from '@renderer/stores/tasks';
+import { TaskCard } from '@renderer/components/domain/task-card';
+import { Progress } from '@renderer/components/ui/progress';
+import { progressOf } from '../tasks/task-utils';
 import { AIStatus } from '@renderer/components/domain/ai-status';
 import { Button } from '@renderer/components/ui/button';
 import { Card } from '@renderer/components/ui/card';
@@ -41,6 +45,17 @@ export function HomeScreen() {
   const setComposerDraft = useUiStore((s) => s.setComposerDraft);
   const quickActions = useSettingsStore((s) => s.values['general.quickActions']);
   const { status, detail } = useAgentStore();
+  const tasksById = useTasksStore((s) => s.byId);
+  const selectTask = useTasksStore((s) => s.select);
+  const recentTasks = useMemo(() => sortTasks(tasksById).slice(0, 3), [tasksById]);
+  const currentTask = useMemo(
+    () => sortTasks(tasksById).find((task) => !isFinished(task) && task.state !== 'PAUSED'),
+    [tasksById],
+  );
+  const openTask = (id: string) => {
+    selectTask(id);
+    navigate('tasks');
+  };
   const [text, setText] = useState('');
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -115,7 +130,29 @@ export function HomeScreen() {
           <h2 className="mb-2 text-caption font-semibold tracking-wider text-muted uppercase">
             {t.t('home.currentTask')}
           </h2>
-          <AIStatus variant="inline" status={status} {...(detail ? { detail } : {})} />
+          {currentTask ? (
+            <button
+              type="button"
+              onClick={() => openTask(currentTask.id)}
+              className="flex w-full min-w-0 flex-col gap-1.5 text-start"
+            >
+              <span className="truncate text-body font-medium text-fg">{currentTask.title}</span>
+              {progressOf(currentTask) !== undefined && (
+                <Progress
+                  value={progressOf(currentTask)}
+                  label={t.t('tasks.progress', {
+                    done: currentTask.stepsDone,
+                    total: currentTask.stepCount,
+                  })}
+                />
+              )}
+              <span className="text-caption text-muted">
+                {t.t(`taskState.${currentTask.state}`)}
+              </span>
+            </button>
+          ) : (
+            <AIStatus variant="inline" status={status} {...(detail ? { detail } : {})} />
+          )}
         </div>
         {status === 'ready' && (
           <p className="hidden text-small text-muted md:block">{t.t('home.tryExample')}</p>
@@ -163,15 +200,38 @@ export function HomeScreen() {
             {t.t('home.viewAllTasks')}
           </Button>
         </div>
-        <Card className="flex items-center gap-4 border-dashed">
-          <span className="flex size-10 items-center justify-center rounded-xl bg-elevated text-muted">
-            <ListChecks aria-hidden size={20} />
-          </span>
-          <div>
-            <p className="text-body font-medium text-fg">{t.t('tasks.emptyTitle')}</p>
-            <p className="text-small text-muted">{t.t('tasks.emptyBody')}</p>
-          </div>
-        </Card>
+        {recentTasks.length === 0 ? (
+          <Card className="flex items-center gap-4 border-dashed">
+            <span className="flex size-10 items-center justify-center rounded-xl bg-elevated text-muted">
+              <ListChecks aria-hidden size={20} />
+            </span>
+            <div>
+              <p className="text-body font-medium text-fg">{t.t('tasks.emptyTitle')}</p>
+              <p className="text-small text-muted">{t.t('tasks.emptyBody')}</p>
+            </div>
+          </Card>
+        ) : (
+          <ul className="flex flex-col gap-3">
+            {recentTasks.map((task) => (
+              <li key={task.id}>
+                <TaskCard
+                  task={{
+                    id: task.id,
+                    title: task.title,
+                    state: task.state,
+                    ...(task.startedAt !== undefined ? { startedAt: task.startedAt } : {}),
+                    ...(task.startedAt !== undefined && task.completedAt !== undefined
+                      ? { durationMs: task.completedAt - task.startedAt }
+                      : {}),
+                    actionCount: task.actionCount,
+                    filesChanged: task.filesChanged,
+                  }}
+                  onOpen={() => openTask(task.id)}
+                />
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
     </div>
   );
