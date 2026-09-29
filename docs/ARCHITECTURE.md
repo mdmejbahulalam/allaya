@@ -38,6 +38,7 @@ Operating system
 | `@allaya/language`   | Bengali/Banglish/English detection, normaliser, intent parser, dates, replies  |
 | `@allaya/speech`     | Pure voice logic: state machine, VAD, transcript safety gate, speech-text prep |
 | `@allaya/voice`      | Main-process STT/TTS providers (OpenAI-compatible)                             |
+| `@allaya/tools`      | Tool registry, risk/permission policy, confirmation broker, execution pipeline |
 
 More packages arrive with their phases (see STATUS.md).
 

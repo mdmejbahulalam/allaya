@@ -143,7 +143,11 @@ describe('chat with a connected provider', () => {
     expect(body.messages[0]!.content[0]!.text).toBe('আমার Downloads folder খুলে দাও');
     expect(body.messages[2]!.content[0]!.text).toBe('এর মধ্যে PDF গুলো খুঁজে দাও');
     expect(body.system).toMatch(/Banglish/);
-    expect(body.system).toMatch(/NO tools/); // never claims actions it cannot perform
+    // Tools exist now, so the prompt says the model may act ONLY through them (and never claim success otherwise).
+    expect(body.system).toMatch(/only by calling the provided tools/);
+    expect(body.system).toMatch(
+      /Never describe an action as done unless a tool result confirms it/,
+    );
     expect(body.system).toMatch(/Babul/);
     expect(body.stream).toBe(true);
   });

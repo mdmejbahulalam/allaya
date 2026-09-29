@@ -8,6 +8,8 @@ import { cn } from '@renderer/lib/cn';
 import { Badge } from '@renderer/components/ui/badge';
 import { Button } from '@renderer/components/ui/button';
 import { IconButton } from '@renderer/components/ui/icon-button';
+import { useToolsStore } from '@renderer/stores/tools';
+import { ActionTimeline } from '../tools/action-timeline';
 
 export function UserBubble({ message }: { message: MessageView }) {
   const lang = useMemo(() => textLang(message.content), [message.content]);
@@ -58,6 +60,11 @@ export function AssistantBubble({
   const text = streaming ? (liveText ?? message.content) : message.content;
   const failed = message.status === 'error';
   const lang = useMemo(() => textLang(text), [text]);
+  const liveActions = useToolsStore((s) => s.live[message.id]);
+  const actions =
+    liveActions && liveActions.length >= (message.actions?.length ?? 0)
+      ? liveActions
+      : message.actions;
 
   const copy = async () => {
     try {
@@ -93,6 +100,8 @@ export function AssistantBubble({
             </div>
           )
         )}
+
+        {actions && <ActionTimeline actions={actions} />}
 
         {failed && message.error && (
           <div role="alert" className="mt-2 rounded-xl border border-danger/30 bg-danger/8 p-3">

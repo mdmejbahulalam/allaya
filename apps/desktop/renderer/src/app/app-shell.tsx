@@ -19,6 +19,7 @@ import { Sidebar } from '@renderer/components/shell/sidebar';
 import { Drawer } from '@renderer/components/ui/drawer';
 import { Skeleton } from '@renderer/components/ui/skeleton';
 import { SCREENS } from '@renderer/features/screens';
+import { ToolConfirmationHost } from '@renderer/features/tools/confirmation-host';
 import { VoiceBridge } from '@renderer/features/voice/voice-bridge';
 import { NAV_GROUPS, ROUTES, type RouteId } from './routes';
 
@@ -258,6 +259,7 @@ export function AppShell() {
       )}
 
       <VoiceBridge />
+      <ToolConfirmationHost />
       <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} items={items} onAsk={ask} />
     </div>
   );

@@ -162,7 +162,7 @@ describe('from speech to a message', () => {
       'voice:transcribe',
       expect.objectContaining({ mimeType: 'audio/webm' }),
     );
-    expect(sendMock).toHaveBeenCalledWith('Chrome খুলে দাও');
+    expect(sendMock).toHaveBeenCalledWith('Chrome খুলে দাও', undefined, 'voice');
     expect(useUiStore.getState().route).toBe('chat');
     expect(state()).toBe('IDLE');
     expect(useVoiceStore.getState().review).toBeNull();
@@ -206,7 +206,7 @@ describe('from speech to a message', () => {
 
     useVoiceStore.getState().confirmReview('  old-report.docx ডিলিট করো ');
     await flush();
-    expect(sendMock).toHaveBeenCalledWith('old-report.docx ডিলিট করো');
+    expect(sendMock).toHaveBeenCalledWith('old-report.docx ডিলিট করো', undefined, 'voice');
     expect(useVoiceStore.getState().review).toBeNull();
   });
 
@@ -300,7 +300,7 @@ describe('cancelling and stale results', () => {
     await second;
     await flush();
     expect(sendMock).toHaveBeenCalledTimes(1);
-    expect(sendMock).toHaveBeenCalledWith('the new request');
+    expect(sendMock).toHaveBeenCalledWith('the new request', undefined, 'voice');
   });
 
   it('interrupting while listening releases the microphone immediately', async () => {

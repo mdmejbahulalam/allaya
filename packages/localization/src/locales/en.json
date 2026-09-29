@@ -701,5 +701,32 @@
     "tip3": "“amar Downloads folder ta open koro”",
     "tip4": "“Chrome খুলে Google এ search করো”",
     "tipsNote": "Allaya understands Bengali, English, Banglish and mixed commands."
+  },
+  "tools": {
+    "actionsLabel": "Actions",
+    "allowOnce": "Allow once",
+    "dontAllow": "Don't allow",
+    "answerOnScreen": "This one has to be confirmed here on the screen.",
+    "moreWaiting": "{count} more waiting",
+    "confirmFailed": "That question is no longer open.",
+    "status": {
+      "running": "Working…",
+      "awaiting_confirmation": "Waiting for you",
+      "success": "Done",
+      "failed": "Didn't work",
+      "denied": "Not allowed",
+      "rejected": "You said no",
+      "cancelled": "Stopped",
+      "invalid": "Couldn't understand the request",
+      "unknown_tool": "Not available",
+      "unsupported": "Not available on this PC"
+    },
+    "verification": {
+      "verified": "Checked",
+      "failed": "Couldn't confirm",
+      "unverified": "Not checked"
+    },
+    "answerByVoice": "You can also answer by voice: say “yes” or “no”.",
+    "stopEverything": "Stop everything"
   }
 }

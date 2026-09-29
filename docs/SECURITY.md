@@ -108,10 +108,35 @@ Tests: `tests/security/permissions.test.ts`, `tests/integration/voice.test.ts`, 
 `tests/unit/renderer/voice-store.test.ts`, and `tests/e2e/voice.spec.ts` (real Electron: mic and camera denied before
 consent, mic granted after, revoked when voice is switched off).
 
-## 6. Not yet covered (honest status)
+## 6. Tools: what the AI may cause, and how it is stopped
+
+The model can only _request_ an action. Everything after that is decided by trusted code in `@allaya/tools`:
+
+1. **Validate** the arguments against the tool's zod schema. Risk and required permissions are computed from the
+   _validated_ arguments (a hostile `recursive: true` cannot hide behind a benign-looking call).
+2. **Policy** (`evaluatePolicy`, one pure, exhaustively tested function): a subject set to _never_ denies the action;
+   CRITICAL always needs a fresh confirmation **on screen** (a spoken or typed "yes" is refused); sensitive actions (delete
+   files, send email, install software, admin commands, external communication) can never be "always allow"; MEDIUM/HIGH ask
+   unless every subject is always-allowed; LOW observation never interrupts.
+3. **Confirm**: the approval belongs to one request and to the exact arguments that were validated; silence expires as "no";
+   STOP cancels it; only the first answer counts.
+4. **Run** with a timeout and cancellation that work even if the tool ignores its abort signal.
+5. **Verify** with an independent check. A failed check turns "ran" into "failed"; a missing check is reported to the model as
+   _unverified_ with an instruction not to claim success (§131).
+6. **Audit** every attempt — including refused, unknown-tool and invalid calls — with redacted, size-bounded arguments.
+   **If the record cannot be written, the action does not run.**
+
+Also enforced: the registry refuses a state-changing tool that declares itself LOW risk; unknown tool names from a model are a
+normal, audited error; one reply is limited to 8 tool rounds and 8 calls per round; a reply cut off by the length limit never
+executes a half-received tool call.
+
+Tests: `tests/unit/tools/*` (policy invariants, broker, executor with mutation-checked properties), `tests/integration/agent-tools.test.ts`
+(the loop, confirmations by button/typed/spoken answer, permissions, audit, cancellation), `tests/e2e/tools.spec.ts` (real UI).
+
+## 7. Not yet covered (honest status)
 
 See `docs/STATUS.md` for the per-requirement state. Security items that are designed but not yet built or not yet
-verifiable in this environment are tracked there, notably: the tool permission/risk engine and confirmation flow,
-the global (system-wide) emergency-stop shortcut, and Windows-specific hardening (UI Automation scope, installer signing,
+verifiable in this environment are tracked there, notably: the real computer/file/browser tools and their path and scope
+restrictions, the global (system-wide) emergency-stop shortcut, the Permissions screen, and Windows-specific hardening (UI Automation scope, installer signing,
 auto-update signature verification). Those require the corresponding phases and, for the Windows-specific items,
 a real Windows machine.

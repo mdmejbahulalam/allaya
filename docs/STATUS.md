@@ -59,8 +59,8 @@ All checks below run in CI-equivalent form in this environment: `pnpm typecheck`
   shapes, model ids) can only be found by running with real keys.
 - **Windows credential encryption (DPAPI via Electron `safeStorage`) is not exercised here.** The vault is tested with a
   fake cipher and E2E uses a build-time-gated insecure test cipher that is compiled out of production bundles.
-- The system prompt tells the model it has **no tools yet**, so it cannot claim to have controlled the computer. This
-  changes when the tool engine lands (Phase 5).
+- The system prompt states whether tools exist. Without tools the model is told it cannot act and must never claim to have;
+  with tools (Phase 5) it may act only through them and report success only when a tool result confirms it.
 
 ## Phase 3 — Bengali / multilingual language engine ✅ (with caveats below)
 
@@ -89,8 +89,9 @@ All checks below run in CI-equivalent form in this environment: `pnpm typecheck`
   (`needsPlanner`) instead of being guessed. Coverage will need to grow from real usage.
 - **Detection of short Banglish is heuristic** (a romanised-word lexicon). Very short or ambiguous input scores low and
   inherits the conversation's language.
-- The parsed intents are **not yet executed** — there are no tools until Phase 5. Only `stop`, `cancel` and
-  language switching have an effect today (they are handled locally in chat).
+- The parsed intents are **not yet executed** — the tool engine exists (Phase 5) but there are no computer/file/browser tools
+  until Phases 6–8. Only `stop`, `cancel`, language switching and answering a pending confirmation have an effect today
+  (they are handled locally in chat).
 - Bengali quality of _model_ replies depends on the provider; only the instruction to the model is verified here.
 
 ## Phase 4 — Voice ✅ (with important caveats below)
@@ -125,9 +126,42 @@ All checks below run in CI-equivalent form in this environment: `pnpm typecheck`
   microphone level calibration UI, voice activity while the window is hidden.
 - VAD defaults (threshold, 1.1 s end-of-speech silence) were chosen by reasoning about Bengali speech pauses, not measured.
 
+## Phase 5 — Tool engine ✅ (engine verified; the tools themselves arrive in Phases 6–8)
+
+`@allaya/tools` (Electron-free) plus the main-process wiring and confirmation UI.
+
+| Item                                                                                                                                                                                        | State                              |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| Registry: strict names, no duplicates, state-changing tools cannot be statically LOW risk, prototype-safe lookup, JSON Schema for the model (zod, `io: input`), per-platform filtering      | ✅ (unit)                          |
+| Argument validation with zod; **risk and permissions computed from the validated arguments**; errors name the problem without echoing values                                                | ✅ (unit; mutation-checked)        |
+| Permission/risk policy as one pure function, exhaustively tested over risk × mode × subject: `never` denies; CRITICAL always confirms on screen; sensitive actions can't be always-allowed  | ✅ (unit, exhaustive)              |
+| Confirmation broker: approval bound to one request, expiry = "no", STOP cancels, first answer wins, channel rules (voice/text never approve CRITICAL)                                       | ✅ (unit + integration + E2E)      |
+| Execution pipeline: never runs before approval; timeout + cancellation even for tools that ignore the abort signal; secrets masked in errors                                                | ✅ (unit; mutation-checked)        |
+| Verification: verified / failed / unverified / not-applicable; a failed check turns success into failure; the model is told plainly when an effect is unverified                            | ✅ (unit + integration + E2E)      |
+| Audit: every attempt (including refused, unknown and invalid ones) → `tool_calls`, `tool_results`, `activity_logs`; args redacted and size-bounded; **no record ⇒ no action** (fail closed) | ✅ (unit + integration)            |
+| Agent loop: model → tools → results → answer, bounded rounds, only completed tool-use turns act, usage summed, cancellation at every step                                                   | ✅ (integration + E2E, fake model) |
+| Permissions backend (`permissions:list/set`) with cautious defaults (camera, admin commands off)                                                                                            | ✅ (integration)                   |
+| UI: confirmation dialog (focus on "Don't allow", Esc declines, **Stop everything** inside it), per-reply action timeline with outcome + "Checked/Not checked", Bengali/English              | ✅ (unit + E2E)                    |
+| Answering a question by voice/typed "yes"/"no" (strict parser; CRITICAL refuses it); unclear replies re-ask                                                                                 | ✅ (integration + E2E)             |
+| Built-in tools: `get_datetime` (real). `e2e_probe` (test builds only, compiled out of production)                                                                                           | ✅                                 |
+
+**Caveats — read these**
+
+- **There are no computer-control, file or browser tools yet** (Phases 6–8), so the engine is proven with `get_datetime` and a
+  harmless test probe, not with real actions. The risk classification of real tools will be reviewed as each is written.
+- The model side is verified against a **fake Anthropic-shaped server**. Tool-call streaming for the other providers is covered by
+  the Phase 2 wire-format fixtures only.
+- The confirmation dialog makes the rest of the window inert (standard modal behaviour), which is why it carries its own
+  "Stop everything" button and why a spoken answer is the way to reply while it is open. A **system-wide emergency-stop shortcut**
+  needs the Windows integration phase.
+- The Permissions **screen** is not built yet (Phase 12); the backend and defaults are.
+- The typed/spoken answer channel is enforced in the trusted process, but the renderer reports which channel it used; that is
+  acceptable because the renderer is the user's own UI (the restriction protects against _mis-heard_ speech, not a hostile renderer).
+- Tool _plans_ spanning several user turns (a persistent task, pause/resume) belong to the task engine (Phase 9).
+
 ## Not started
 
-Phases 5–15 (tool engine, computer control, files, browser, task engine, automation,
+Phases 6–15 (computer control, files, browser, task engine, automation,
 memory, security hardening, Windows polish, release). Anything that needs Windows UI Automation, the tray,
 global hotkeys, the installer, or auto-update **cannot be verified in this Linux environment** and will be marked 🪟
 until run on Windows.

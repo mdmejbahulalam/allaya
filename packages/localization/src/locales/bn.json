@@ -701,5 +701,32 @@
     "tip3": "“amar Downloads folder ta open koro”",
     "tip4": "“Chrome খুলে Google এ search করো”",
     "tipsNote": "Allaya বাংলা, English, Banglish এবং মিশ্র ভাষার কমান্ড বোঝে।"
+  },
+  "tools": {
+    "actionsLabel": "কাজ",
+    "allowOnce": "একবার অনুমতি দিন",
+    "dontAllow": "অনুমতি দেবেন না",
+    "answerOnScreen": "এটা এখানে স্ক্রিনেই নিশ্চিত করতে হবে।",
+    "moreWaiting": "আরও {count}টি অপেক্ষায়",
+    "confirmFailed": "প্রশ্নটি আর খোলা নেই।",
+    "status": {
+      "running": "চলছে…",
+      "awaiting_confirmation": "আপনার উত্তরের অপেক্ষায়",
+      "success": "হয়েছে",
+      "failed": "কাজ হয়নি",
+      "denied": "অনুমতি নেই",
+      "rejected": "আপনি না বলেছেন",
+      "cancelled": "থামানো হয়েছে",
+      "invalid": "অনুরোধটি বোঝা যায়নি",
+      "unknown_tool": "পাওয়া যায়নি",
+      "unsupported": "এই পিসিতে পাওয়া যায় না"
+    },
+    "verification": {
+      "verified": "যাচাই হয়েছে",
+      "failed": "নিশ্চিত হওয়া যায়নি",
+      "unverified": "যাচাই হয়নি"
+    },
+    "answerByVoice": "আপনি ভয়েসেও উত্তর দিতে পারেন: “হ্যাঁ” বা “না” বলুন।",
+    "stopEverything": "সবকিছু থামান"
   }
 }

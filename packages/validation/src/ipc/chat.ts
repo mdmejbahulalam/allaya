@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { serializedErrorSchema, spec, noPayload, idSchema } from './common';
 import { modelRefSchema } from './providers';
+import { actionRecordSchema } from './tools';
 
 export const conversationViewSchema = z.object({
   id: z.string(),
@@ -27,6 +28,8 @@ export const messageViewSchema = z.object({
   routeReason: z.string().optional(),
   usage: z.object({ inputTokens: z.number(), outputTokens: z.number() }).optional(),
   error: serializedErrorSchema.optional(),
+  /** What Allaya did on the computer while producing this reply, in order. */
+  actions: z.array(actionRecordSchema).optional(),
 });
 export type MessageView = z.infer<typeof messageViewSchema>;
 
@@ -40,6 +43,8 @@ export const chatContract = {
       z.object({
         conversationId: idSchema.optional(),
         text: z.string().trim().min(1).max(MAX_MESSAGE_CHARS),
+        /** How the text was entered. A spoken "yes" cannot approve the most dangerous actions. */
+        source: z.enum(['text', 'voice']).optional(),
         /** Explicit per-message model choice; omit for automatic/assigned routing. */
         model: modelRefSchema.optional(),
       }),

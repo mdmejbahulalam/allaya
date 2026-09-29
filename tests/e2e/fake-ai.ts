@@ -52,6 +52,12 @@ export class FakeAi {
   chunkDelayMs = 0;
   /** When true the stream sends its first piece then stalls until the client disconnects. */
   stall = false;
+  /**
+   * Scripted model turns, consumed one per chat request (before falling back to `reply`). A turn with `calls`
+   * makes the fake model ask for tools, exactly like the real API's `tool_use` blocks.
+   */
+  turns: Array<{ text?: string[]; calls?: Array<{ id: string; name: string; input: unknown }> }> =
+    [];
   /** What the speech-to-text endpoint hears. */
   transcript = { text: 'Chrome খুলে দাও', avgLogprob: -0.08, noSpeechProb: 0.01 };
   private server!: Server;
@@ -177,6 +183,54 @@ export class FakeAi {
           .at(-1)
           ?.content.map((c) => c.text ?? '')
           .join('') ?? '';
+      const turn = this.turns.shift();
+      if (turn) {
+        res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache' });
+        const emit = (event: string, data: unknown) =>
+          res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+        emit('message_start', {
+          type: 'message_start',
+          message: { model: 'claude-sonnet-5-5', usage: { input_tokens: 12, output_tokens: 1 } },
+        });
+        let index = 0;
+        if (turn.text?.length) {
+          emit('content_block_start', {
+            type: 'content_block_start',
+            index,
+            content_block: { type: 'text', text: '' },
+          });
+          for (const text of turn.text)
+            emit('content_block_delta', {
+              type: 'content_block_delta',
+              index,
+              delta: { type: 'text_delta', text },
+            });
+          emit('content_block_stop', { type: 'content_block_stop', index });
+          index += 1;
+        }
+        for (const call of turn.calls ?? []) {
+          emit('content_block_start', {
+            type: 'content_block_start',
+            index,
+            content_block: { type: 'tool_use', id: call.id, name: call.name, input: {} },
+          });
+          emit('content_block_delta', {
+            type: 'content_block_delta',
+            index,
+            delta: { type: 'input_json_delta', partial_json: JSON.stringify(call.input) },
+          });
+          emit('content_block_stop', { type: 'content_block_stop', index });
+          index += 1;
+        }
+        emit('message_delta', {
+          type: 'message_delta',
+          delta: { stop_reason: (turn.calls?.length ?? 0) > 0 ? 'tool_use' : 'end_turn' },
+          usage: { output_tokens: 9 },
+        });
+        emit('message_stop', { type: 'message_stop' });
+        res.end();
+        return;
+      }
       const pieces = this.reply(last);
       res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache' });
       const send = (event: string, data: unknown) =>

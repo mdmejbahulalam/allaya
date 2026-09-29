@@ -145,7 +145,7 @@ export const useVoiceStore = create<VoiceStoreState>((set, get) => {
   const submit = async (text: string) => {
     useUiStore.getState().navigate('chat');
     try {
-      await useChatStore.getState().send(text);
+      await useChatStore.getState().send(text, undefined, 'voice');
     } catch (error) {
       set({ notice: { kind: 'error', code: error instanceof IpcError ? error.code : 'UNKNOWN' } });
     }

@@ -6,6 +6,7 @@ import { IpcDispatcher } from './ipc/dispatcher';
 import type { EventSink } from './ipc/events';
 import { createLogger } from './logging';
 import { E2E, InsecureTestCipher, e2eBaseUrls } from './security/e2e-hooks';
+import { createProbeTool } from './security/e2e-tools';
 import { SafeStorageCipher } from './security/safe-storage-cipher';
 import { resolveAppPaths } from './paths';
 import { APP_INDEX_URL, installAppProtocol, registerAppScheme } from './security/app-protocol';
@@ -69,7 +70,12 @@ function bootstrapBackend(): Container {
     getAppInfo,
     strict: environment !== 'production',
     cipher: E2E ? new InsecureTestCipher() : new SafeStorageCipher(),
-    ...(E2E ? { providerOptions: { baseUrls: e2eBaseUrls(), maxRetries: 0, backoffMs: 0 } } : {}),
+    ...(E2E
+      ? {
+          providerOptions: { baseUrls: e2eBaseUrls(), maxRetries: 0, backoffMs: 0 },
+          extraTools: [createProbeTool()],
+        }
+      : {}),
   });
   c.registry.assertComplete();
 

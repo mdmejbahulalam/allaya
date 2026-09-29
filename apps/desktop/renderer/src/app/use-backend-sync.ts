@@ -3,6 +3,7 @@ import { invoke, subscribe } from '@renderer/lib/api';
 import { useAgentStore } from '@renderer/stores/agent';
 import { useChatStore } from '@renderer/stores/chat';
 import { useProvidersStore } from '@renderer/stores/providers';
+import { useToolsStore } from '@renderer/stores/tools';
 
 /**
  * Subscribes the renderer's stores to main-process events for the lifetime of the app. Events are the
@@ -23,6 +24,13 @@ export function useBackendSync(): void {
       }),
       subscribe('chat:delta', ({ messageId, text }) =>
         useChatStore.getState().applyDelta(messageId, text),
+      ),
+      subscribe('tools:confirmationRequested', (view) => useToolsStore.getState().addPending(view)),
+      subscribe('tools:confirmationResolved', ({ id }) =>
+        useToolsStore.getState().resolvePending(id),
+      ),
+      subscribe('tools:activity', ({ messageId, action }) =>
+        useToolsStore.getState().applyActivity(messageId, action),
       ),
       subscribe('chat:finished', ({ message }) => useChatStore.getState().applyFinished(message)),
       subscribe(

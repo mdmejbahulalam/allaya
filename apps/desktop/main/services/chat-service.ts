@@ -5,6 +5,8 @@ import {
   type AIRequest,
   type FinishReason,
   type ModelInfo,
+  type ToolCall,
+  type ToolResultPart,
 } from '@allaya/ai';
 import { buildSystemPrompt } from '@allaya/agent';
 import {
@@ -12,12 +14,19 @@ import {
   LanguageSession,
   detectLanguage,
   interpret,
+  parseAnswer,
   reply as localReply,
   type LanguageAnalysis,
   type ParsedIntent,
   type ResolvedResponseLanguage,
 } from '@allaya/language';
 import { resolveUiLocale } from '@allaya/localization';
+import {
+  formatResultForModel,
+  type ConfirmationRequest,
+  type ExecutionProgress,
+  type ModelToolSpec,
+} from '@allaya/tools';
 import type { ConversationRepository, ConversationRow, MessageRow } from '@allaya/database';
 import {
   AllayaError,
@@ -29,6 +38,8 @@ import {
 } from '@allaya/shared';
 import {
   z,
+  actionRecordSchema,
+  type ActionRecord,
   type ConversationView,
   type MessageView,
   type ModelRefView,
@@ -37,6 +48,7 @@ import {
 import type { EventPublisher } from '../ipc/events';
 import type { ProviderService } from './provider-service';
 import type { SettingsService } from './settings-service';
+import type { ToolService } from './tool-service';
 
 /** Persisted in `messages.metadata_json` for assistant messages. */
 const assistantMetadataSchema = z.object({
@@ -49,7 +61,9 @@ const assistantMetadataSchema = z.object({
   finishReason: z.string().optional(),
   error: serializedErrorSchema.optional(),
   /** Set when Allaya answered on its own (no model call): a language switch or a stop/cancel command. */
-  local: z.enum(['language', 'stop', 'cancel']).optional(),
+  local: z.enum(['language', 'stop', 'cancel', 'confirmation']).optional(),
+  /** What Allaya did on the computer while producing this reply. */
+  actions: z.array(actionRecordSchema).optional(),
 });
 type AssistantMetadata = z.infer<typeof assistantMetadataSchema>;
 
@@ -60,6 +74,10 @@ const userMetadataSchema = z.object({
 
 /** Control commands are short; longer text is never treated as one, however it parses. */
 const CONTROL_MAX_CHARS = 80;
+
+/** Upper bounds on one reply's tool use: a model that loops must not run away with the computer. */
+const MAX_TOOL_ROUNDS = 8;
+const MAX_CALLS_PER_ROUND = 8;
 
 const TITLE_MAX = 60;
 const DELTA_FLUSH_MS = 30;
@@ -78,6 +96,7 @@ export interface ChatServiceDeps {
   conversations: ConversationRepository;
   providers: ProviderService;
   settings: SettingsService;
+  tools: ToolService;
   events: EventPublisher;
   runs: RunRegistry;
   logger: Logger;
@@ -133,6 +152,7 @@ export class ChatService {
     conversationId?: string | undefined;
     text: string;
     model?: ModelRefView | undefined;
+    source?: 'text' | 'voice' | undefined;
   }): SendResult {
     const { conversations, runs } = this.deps;
     const conversation = input.conversationId
@@ -147,6 +167,12 @@ export class ChatService {
     // "stop" must work while Allaya is busy, so it is checked before the busy-conversation guard.
     if (control && (control.type !== 'SWITCH_LANGUAGE' || !active)) {
       return this.answerLocally(conversation, input.text, analysis, session, control);
+    }
+    // A question from Allaya is waiting ("Delete 3 files?"): a plain yes/no in chat or by voice answers it.
+    const waiting = this.deps.tools.pendingFor(conversation.id)[0];
+    if (waiting) {
+      const handled = this.answerConfirmation(conversation, input, analysis, session, waiting);
+      if (handled) return handled;
     }
     if (active) {
       throw new AllayaError('Allaya is still replying in this conversation', { code: 'CONFLICT' });
@@ -217,16 +243,7 @@ export class ChatService {
     session: LanguageSession,
     intent: ParsedIntent,
   ): SendResult {
-    const { conversations, runs, settings, events } = this.deps;
-    const userRow = conversations.addMessage({
-      id: newId('msg'),
-      conversationId: conversation.id,
-      kind: 'user',
-      content: text,
-      language: analysis.language,
-      metadata: userMetadata(analysis),
-    });
-
+    const { conversations, runs } = this.deps;
     let content: string;
     let local: NonNullable<AssistantMetadata['local']>;
     if (intent.type === 'SWITCH_LANGUAGE') {
@@ -235,12 +252,7 @@ export class ChatService {
       content = localReply(target === 'bn' ? 'languageSwitchedBn' : 'languageSwitchedEn', target);
       local = 'language';
     } else {
-      const resolved = session.resolve(
-        settings.get('language.response'),
-        analysis,
-        this.uiLanguage(),
-      );
-      const language = resolved.language === 'en' ? 'en' : 'bn';
+      const language = this.replyLanguageCode(session, analysis);
       if (intent.type === 'STOP') {
         // A typed "stop" means stop everything, exactly like the emergency stop.
         const stopped = runs.cancelAll('stop command');
@@ -252,7 +264,67 @@ export class ChatService {
         local = 'cancel';
       }
     }
+    return this.replyLocally(conversation, text, analysis, content, local);
+  }
 
+  /**
+   * Handles a reply to a pending confirmation. Only an unambiguous yes/no counts (`parseAnswer`); anything else
+   * re-shows the question. Returns `undefined` when the question was already settled, so the message is treated
+   * as ordinary input instead of being swallowed.
+   */
+  private answerConfirmation(
+    conversation: ConversationRow,
+    input: { text: string; source?: 'text' | 'voice' | undefined },
+    analysis: LanguageAnalysis,
+    session: LanguageSession,
+    waiting: ConfirmationRequest,
+  ): SendResult | undefined {
+    const language = this.replyLanguageCode(session, analysis);
+    const answer = parseAnswer(input.text);
+    let content: string;
+    if (answer === 'unclear') {
+      content = localReply('confirmationWaiting', language, waiting.summary);
+    } else {
+      const channel = input.source === 'voice' ? 'voice' : 'text';
+      const result = this.deps.tools.respond(
+        waiting.id,
+        answer === 'yes' ? 'approved' : 'rejected',
+        channel,
+      );
+      if (!result.ok && result.reason === 'unknown') return undefined; // settled in the meantime
+      content = result.ok
+        ? localReply(answer === 'yes' ? 'confirmationApproved' : 'confirmationRejected', language)
+        : localReply('confirmationNeedsScreen', language);
+    }
+    return this.replyLocally(conversation, input.text, analysis, content, 'confirmation');
+  }
+
+  private replyLanguageCode(session: LanguageSession, analysis: LanguageAnalysis): 'bn' | 'en' {
+    const resolved = session.resolve(
+      this.deps.settings.get('language.response'),
+      analysis,
+      this.uiLanguage(),
+    );
+    return resolved.language === 'en' ? 'en' : 'bn';
+  }
+
+  /** Persists a user message and a ready-made assistant reply that involved no model call. */
+  private replyLocally(
+    conversation: ConversationRow,
+    text: string,
+    analysis: LanguageAnalysis,
+    content: string,
+    local: NonNullable<AssistantMetadata['local']>,
+  ): SendResult {
+    const { conversations, events } = this.deps;
+    const userRow = conversations.addMessage({
+      id: newId('msg'),
+      conversationId: conversation.id,
+      kind: 'user',
+      content: text,
+      language: analysis.language,
+      metadata: userMetadata(analysis),
+    });
     const assistantRow = conversations.addMessage({
       id: newId('msg'),
       conversationId: conversation.id,
@@ -355,6 +427,12 @@ export class ChatService {
         // with the agent planner; only genuinely large prompts are escalated here.
         ...(estimatedInput > 6000 ? { complexity: 'multi_step' as const } : {}),
         estimatedInputTokens: estimatedInput,
+        // Prefer a model that can use the tools — unless the user picked one, which is always honoured.
+        ...(!pinned &&
+        this.deps.tools.hasTools() &&
+        providers.availableModels().some((m) => m.capabilities.tools)
+          ? { needsTools: true }
+          : {}),
         ...(pinned ? { pinned } : {}),
       });
       const model = decision.model;
@@ -369,29 +447,140 @@ export class ChatService {
       };
       conversations.updateMessage(assistantId, { metadata });
 
-      const request = this.buildRequest(model, history, replyLanguage);
+      const { tools } = this.deps;
+      // Tools are offered only to a model that can use them, and only if any are registered.
+      const modelTools =
+        tools.hasTools() && model.capabilities.tools ? tools.modelTools() : undefined;
+      const toolLanguage = replyLanguage.language === 'en' ? 'en' : 'bn';
+      const messages: AIMessage[] = [...history];
+      const actions: ActionRecord[] = [];
+      let usage = { inputTokens: 0, outputTokens: 0 };
+      let limitHit = false;
       this.publishStatus('working', model.displayName);
       let finishReason: FinishReason = 'stop';
 
-      for await (const event of providers
-        .provider(model.providerId)
-        .stream(request, source.signal)) {
-        if (event.type === 'text_delta') {
-          text += event.text;
-          pendingDelta += event.text;
-          flushTimer ??= setTimeout(flush, DELTA_FLUSH_MS);
-        } else if (event.type === 'usage') {
-          const usage = {
-            inputTokens: event.usage.inputTokens ?? metadata.usage?.inputTokens ?? 0,
-            outputTokens: event.usage.outputTokens ?? metadata.usage?.outputTokens ?? 0,
-          };
-          metadata = { ...metadata, usage };
-        } else if (event.type === 'finish') {
-          finishReason = event.reason;
+      const upsertAction = (action: ActionRecord) => {
+        const index = actions.findIndex((a) => a.callId === action.callId);
+        if (index === -1) actions.push(action);
+        else actions[index] = { ...actions[index]!, ...action };
+        metadata = { ...metadata, actions: [...actions] };
+        conversations.updateMessage(assistantId, { metadata });
+        events.publish('tools:activity', {
+          conversationId,
+          messageId: assistantId,
+          action: actions[index === -1 ? actions.length - 1 : index]!,
+        });
+      };
+
+      for (let round = 0; ; round += 1) {
+        const request = this.buildRequest(model, messages, replyLanguage, modelTools);
+        const calls: ToolCall[] = [];
+        let roundText = '';
+        let roundUsage = { inputTokens: 0, outputTokens: 0 };
+        finishReason = 'stop';
+
+        for await (const event of providers
+          .provider(model.providerId)
+          .stream(request, source.signal)) {
+          if (event.type === 'text_delta') {
+            // A new step's text is set apart from the previous one ("Let me check." / "It is 5 pm.").
+            const piece =
+              round > 0 && roundText === '' && text && !text.endsWith('\n')
+                ? `\n\n${event.text}`
+                : event.text;
+            roundText += event.text;
+            text += piece;
+            pendingDelta += piece;
+            flushTimer ??= setTimeout(flush, DELTA_FLUSH_MS);
+          } else if (event.type === 'tool_call') {
+            calls.push(event.call);
+          } else if (event.type === 'usage') {
+            roundUsage = {
+              inputTokens: event.usage.inputTokens ?? roundUsage.inputTokens,
+              outputTokens: event.usage.outputTokens ?? roundUsage.outputTokens,
+            };
+            metadata = {
+              ...metadata,
+              usage: {
+                inputTokens: usage.inputTokens + roundUsage.inputTokens,
+                outputTokens: usage.outputTokens + roundUsage.outputTokens,
+              },
+            };
+          } else if (event.type === 'finish') {
+            finishReason = event.reason;
+          }
         }
+        usage = {
+          inputTokens: usage.inputTokens + roundUsage.inputTokens,
+          outputTokens: usage.outputTokens + roundUsage.outputTokens,
+        };
+
+        // Only a completed tool-use turn is acted on: a reply cut off by the length limit never runs half a request.
+        if (calls.length === 0 || finishReason !== 'tool_calls') break;
+        if (round >= MAX_TOOL_ROUNDS) {
+          limitHit = true;
+          break;
+        }
+
+        messages.push({
+          role: 'assistant',
+          content: [
+            ...(roundText ? [{ type: 'text' as const, text: roundText }] : []),
+            ...calls.map((call) => ({
+              type: 'tool_call' as const,
+              id: call.id,
+              name: call.name,
+              arguments: call.arguments,
+            })),
+          ],
+        });
+        const results: ToolResultPart[] = [];
+        for (const [index, call] of calls.entries()) {
+          if (source.signal.aborted) throw new AllayaError('cancelled', { code: 'CANCELLED' });
+          if (index >= MAX_CALLS_PER_ROUND) {
+            results.push({
+              type: 'tool_result',
+              toolCallId: call.id,
+              content: JSON.stringify({
+                ok: false,
+                error: 'Too many tool calls at once. Do them one step at a time.',
+              }),
+              isError: true,
+            });
+            continue;
+          }
+          const result = await tools.execute(
+            { id: newId('call'), name: call.name, arguments: call.arguments },
+            {
+              signal: source.signal,
+              language: toolLanguage,
+              conversationId,
+              onProgress: (progress) => upsertAction(toActionRecord(progress)),
+            },
+          );
+          const formatted = formatResultForModel(result);
+          results.push({
+            type: 'tool_result',
+            toolCallId: call.id,
+            content: formatted.content,
+            isError: formatted.isError,
+          });
+        }
+        messages.push({ role: 'user', content: results });
+        if (source.signal.aborted) throw new AllayaError('cancelled', { code: 'CANCELLED' });
+      }
+      if (limitHit) {
+        const note = `\n\n${localReply('toolLimit', toolLanguage, MAX_TOOL_ROUNDS)}`;
+        text += note;
+        pendingDelta += note;
       }
       flush();
-      metadata = { ...metadata, status: 'complete', finishReason };
+      metadata = {
+        ...metadata,
+        usage,
+        status: 'complete',
+        finishReason: limitHit ? 'length' : finishReason,
+      };
       this.publishStatus('completed');
     } catch (error) {
       flush();
@@ -438,25 +627,37 @@ export class ChatService {
     model: ModelInfo,
     history: AIMessage[],
     replyLanguage: ResolvedResponseLanguage,
+    tools?: ModelToolSpec[],
   ): AIRequest {
     const { settings, now } = this.deps;
     const system = buildSystemPrompt({
       responseLanguage: settings.get('language.response'),
       reply: replyLanguage,
       userName: settings.get('profile.displayName'),
-      toolsAvailable: false,
+      toolsAvailable: tools !== undefined && tools.length > 0,
       now: (now ?? (() => new Date()))(),
     });
     const maxOutput = Math.min(
       model.capabilities.maxOutputTokens ?? DEFAULT_MAX_OUTPUT,
       DEFAULT_MAX_OUTPUT,
     );
+    const toolTokens = tools ? estimateTokens(JSON.stringify(tools)) : 0;
     const budget = Math.max(
       1000,
-      model.capabilities.contextWindow - maxOutput - estimateTokens(system) - CONTEXT_SAFETY_MARGIN,
+      model.capabilities.contextWindow -
+        maxOutput -
+        estimateTokens(system) -
+        toolTokens -
+        CONTEXT_SAFETY_MARGIN,
     );
     const fitted = fitMessagesToBudget(history, budget);
-    return { model: model.modelId, system, messages: fitted.messages, maxTokens: maxOutput };
+    return {
+      model: model.modelId,
+      system,
+      messages: fitted.messages,
+      maxTokens: maxOutput,
+      ...(tools && tools.length > 0 ? { tools, toolChoice: 'auto' as const } : {}),
+    };
   }
 
   private publishStatus(
@@ -486,6 +687,43 @@ function parseAssistantMetadata(json: string | null): AssistantMetadata | undefi
     return parsed.success ? parsed.data : undefined;
   } catch {
     return undefined;
+  }
+}
+
+/** Maps engine progress to the compact record shown in (and saved with) a reply. */
+function toActionRecord(progress: ExecutionProgress): ActionRecord {
+  switch (progress.type) {
+    case 'started':
+      return {
+        callId: progress.callId,
+        tool: progress.tool,
+        summary: progress.summary,
+        status: 'running',
+        risk: progress.risk,
+      };
+    case 'awaiting_confirmation':
+      return {
+        callId: progress.callId,
+        tool: progress.tool,
+        summary: progress.summary,
+        status: 'awaiting_confirmation',
+        risk: progress.risk,
+      };
+    case 'running':
+      return { callId: progress.callId, tool: progress.tool, summary: '', status: 'running' };
+    case 'finished': {
+      const { result } = progress;
+      return {
+        callId: result.callId,
+        tool: result.tool,
+        summary: result.summary,
+        status: result.status,
+        ...(result.risk ? { risk: result.risk } : {}),
+        verification: result.verification,
+        ...(result.evidence ? { evidence: result.evidence } : {}),
+        ...(result.error ? { error: result.error.message } : {}),
+      };
+    }
   }
 }
 
@@ -533,5 +771,6 @@ export function toMessageView(row: MessageRow): MessageView {
     ...(meta?.routeReason ? { routeReason: meta.routeReason } : {}),
     ...(meta?.usage ? { usage: meta.usage } : {}),
     ...(meta?.error ? { error: meta.error } : {}),
+    ...(meta?.actions?.length ? { actions: meta.actions } : {}),
   };
 }

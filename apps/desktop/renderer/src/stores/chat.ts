@@ -13,7 +13,7 @@ interface ChatState {
   lastCompleted: MessageView | null;
   loadConversations: () => Promise<void>;
   select: (id: string | null) => Promise<void>;
-  send: (text: string, model?: ModelRefView) => Promise<void>;
+  send: (text: string, model?: ModelRefView, source?: 'text' | 'voice') => Promise<void>;
   cancel: () => Promise<void>;
   setLanguage: (id: string, language: 'auto' | 'bn' | 'en') => Promise<void>;
   remove: (id: string) => Promise<void>;
@@ -59,12 +59,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
-  async send(text, model) {
+  async send(text, model, source) {
     const { activeId } = get();
     const result = await invoke('chat:send', {
       text,
       ...(activeId ? { conversationId: activeId } : {}),
       ...(model ? { model } : {}),
+      ...(source ? { source } : {}),
     });
     set((s) => {
       const id = result.conversation.id;

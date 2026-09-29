@@ -2,6 +2,7 @@ import { sourceMigrationsFolder } from '@allaya/database';
 import type { FetchLike } from '@allaya/ai';
 import { MemorySink, StructuredLogger, type Logger } from '@allaya/shared';
 import type { AppInfo } from '@allaya/validation';
+import type { ToolDefinition } from '@allaya/tools';
 import { createContainer, type Container } from '@main/container';
 import { IpcDispatcher, type SenderInfo } from '@main/ipc/dispatcher';
 import { MemoryEventSink } from '@main/ipc/events';
@@ -31,6 +32,8 @@ export interface TestBackendOptions {
   /** Simulate a machine with no OS keyring. */
   cipherAvailable?: boolean;
   databasePath?: string;
+  extraTools?: ToolDefinition[];
+  confirmationTimeoutMs?: number;
 }
 
 export interface TestBackend {
@@ -62,6 +65,10 @@ export function createTestBackend(options: TestBackendOptions = {}): TestBackend
     getAppInfo: () => testAppInfo,
     cipher,
     strict: true,
+    ...(options.extraTools ? { extraTools: options.extraTools } : {}),
+    ...(options.confirmationTimeoutMs !== undefined
+      ? { confirmationTimeoutMs: options.confirmationTimeoutMs }
+      : {}),
     providerOptions: {
       ...(options.fetch ? { fetch: options.fetch } : {}),
       maxRetries: 0,

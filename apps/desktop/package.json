@@ -23,6 +23,7 @@
     "@allaya/shared": "workspace:*",
     "@allaya/types": "workspace:*",
     "@allaya/speech": "workspace:*",
+    "@allaya/tools": "workspace:*",
     "@allaya/validation": "workspace:*",
     "@allaya/voice": "workspace:*",
     "@tailwindcss/vite": "^4.3.3",

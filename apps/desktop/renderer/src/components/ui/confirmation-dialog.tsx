@@ -19,6 +19,9 @@ export interface ConfirmationDialogProps {
   onCancel: () => void;
   onReview?: () => void;
   confirmLabel?: string;
+  cancelLabel?: string;
+  /** Label for the optional third action (defaults to "Review files"). */
+  reviewLabel?: string;
 }
 
 /**
@@ -35,6 +38,8 @@ export function ConfirmationDialog({
   onCancel,
   onReview,
   confirmLabel,
+  cancelLabel,
+  reviewLabel,
 }: ConfirmationDialogProps) {
   const t = useT();
   const cancelRef = useRef<HTMLButtonElement>(null);
@@ -62,11 +67,11 @@ export function ConfirmationDialog({
       footer={
         <>
           <Button ref={cancelRef} variant="secondary" onClick={onCancel}>
-            {t.t('confirmation.cancel')}
+            {cancelLabel ?? t.t('confirmation.cancel')}
           </Button>
           {onReview && (
             <Button variant="outline" onClick={onReview}>
-              {t.t('confirmation.review')}
+              {reviewLabel ?? t.t('confirmation.review')}
             </Button>
           )}
           <Button variant={destructive ? 'danger' : 'primary'} onClick={onConfirm}>
