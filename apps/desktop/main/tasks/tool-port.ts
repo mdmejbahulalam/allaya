@@ -1,16 +1,22 @@
 import { RESERVED_TOOL_NAMES, type ToolFacts, type ToolPort } from '@allaya/agent';
 import { CHAT_ONLY_AUTOMATION_TOOLS } from '@allaya/automation';
+import { CHAT_ONLY_MEMORY_TOOLS } from '@allaya/memory';
 import type { ModelToolSpec } from '@allaya/tools';
 import type { PermissionMode, PermissionSubject } from '@allaya/types';
 import type { PermissionService } from '../services/permission-service';
 import type { ToolService } from '../services/tool-service';
 
 /**
- * Names the model must not be offered inside a task: the tool that starts a task and the tools that create
- * automations. Nothing that runs by itself (a task, an unattended automation run) may create more things that run
- * by themselves.
+ * Names the model must not be offered inside a task: the tool that starts a task, the tools that create
+ * automations, and the tools that change what is remembered. Nothing that runs by itself (a task, an unattended
+ * automation run) may create more things that run by themselves, and a task reads web pages and files, so it must
+ * not be able to write to the person's memory.
  */
-const CHAT_ONLY_TOOLS: ReadonlySet<string> = new Set(['start_task', ...CHAT_ONLY_AUTOMATION_TOOLS]);
+const CHAT_ONLY_TOOLS: ReadonlySet<string> = new Set([
+  'start_task',
+  ...CHAT_ONLY_AUTOMATION_TOOLS,
+  ...CHAT_ONLY_MEMORY_TOOLS,
+]);
 
 /**
  * The tool pipeline, as the orchestrator sees it. There is exactly one way to act on the computer — the same

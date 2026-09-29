@@ -25,6 +25,23 @@ export function revealInFileManager(path: string): void {
   shell.showItemInFolder(path);
 }
 
+/** The system "Save as" dialog, parented to the focused window. Returns the chosen path, or nothing if cancelled. */
+export async function pickSaveFileDialog(
+  title: string,
+  defaultName: string,
+): Promise<string | undefined> {
+  const parent = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
+  const options = {
+    title,
+    defaultPath: defaultName,
+    filters: [{ name: 'JSON', extensions: ['json'] }],
+  };
+  const result = parent
+    ? await dialog.showSaveDialog(parent, options)
+    : await dialog.showSaveDialog(options);
+  return result.canceled ? undefined : result.filePath;
+}
+
 /** The system folder picker, parented to the focused window so it appears in front of it. */
 export async function pickFolderDialog(title: string): Promise<string | undefined> {
   const parent = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];

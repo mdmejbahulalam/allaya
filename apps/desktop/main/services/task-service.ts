@@ -49,6 +49,8 @@ export interface TaskServiceDeps {
   now?: () => number;
   osLocale?: () => string;
   limits?: Partial<TaskLimits>;
+  /** What Allaya remembers. Omitted in tests that do not use it. */
+  memory?: { forPrompt(query: string): { text?: string | undefined } };
   /** Test seam: how long to wait before retrying a step. */
   backoffMs?: (attempt: number, code: ErrorCode | undefined) => number;
 }
@@ -129,6 +131,8 @@ export class TaskService {
   private readonly changedIds = new Set<string>();
   private flushScheduled = false;
   private readonly lastStatus = new Map<string, string>();
+  /** The memory block each task was given, worked out once per task (so a use is counted once, not per model call). */
+  private readonly memoryOf = new Map<string, string | undefined>();
   private readonly listeners = new Set<(task: TaskRecord) => void>();
 
   constructor(private readonly deps: TaskServiceDeps) {
@@ -150,6 +154,7 @@ export class TaskService {
       ...(deps.limits ? { limits: deps.limits } : {}),
       ...(deps.backoffMs ? { backoffMs: deps.backoffMs } : {}),
       userName: () => deps.settings.get('profile.displayName') || undefined,
+      memory: (task) => this.memoryFor(task),
       onChange: (taskId) => this.scheduleChanged(taskId),
       onEvent: (event) => this.onTaskEvent(event.taskId, event.type),
       onFinished: (task) => this.finished(task),
@@ -496,8 +501,17 @@ export class TaskService {
     });
   }
 
+  private memoryFor(task: TaskRecord): string | undefined {
+    if (!this.deps.memory) return undefined;
+    if (!this.memoryOf.has(task.id)) {
+      this.memoryOf.set(task.id, this.deps.memory.forPrompt(task.request).text);
+    }
+    return this.memoryOf.get(task.id);
+  }
+
   private finished(task: TaskRecord): void {
     this.lastStatus.delete(task.id);
+    this.memoryOf.delete(task.id);
     if (task.state === 'CANCELLED') return; // the person did that; no need to announce it
     const text =
       task.state === 'COMPLETED' ? task.resultSummary : (task.resultSummary ?? task.error?.message);

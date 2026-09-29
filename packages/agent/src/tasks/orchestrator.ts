@@ -87,6 +87,8 @@ export interface OrchestratorDeps {
   /** Called once when a task reaches a final state. */
   onFinished?: (task: TaskRecord) => void;
   userName?: () => string | undefined;
+  /** The remembered facts that bear on this task, as a fenced block for the prompts (or none). */
+  memory?: (task: TaskRecord) => string | undefined;
   /** How long to wait before retrying (default: back off for busy or unreachable models only). */
   backoffMs?: (attempt: number, code: ErrorCode | undefined) => number;
   /** Tasks that run at once. Default 1: two tasks must never fight over the mouse and keyboard. */
@@ -1323,6 +1325,7 @@ export class TaskOrchestrator {
       language: task.language,
       now: new Date(this.now()),
       userName: this.deps.userName?.(),
+      memory: this.deps.memory?.(task),
     };
   }
 

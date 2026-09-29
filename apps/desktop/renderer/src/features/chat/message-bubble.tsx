@@ -1,4 +1,4 @@
-import { Check, Copy, ListChecks, RotateCcw, Sparkles, KeyRound } from 'lucide-react';
+import { Brain, Check, Copy, ListChecks, RotateCcw, Sparkles, KeyRound } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { MessageView } from '@allaya/validation';
 import { useT } from '@renderer/lib/i18n';
@@ -104,6 +104,22 @@ export function AssistantBubble({
         )}
 
         {actions && <ActionTimeline actions={actions} />}
+
+        {message.memoriesUsed && message.memoriesUsed.length > 0 && !streaming && (
+          <p className="mt-2 flex flex-wrap items-center gap-x-2 text-caption text-muted">
+            <Brain aria-hidden size={12} />
+            <span data-testid="memory-used">
+              {t.t('chat.usedMemory', { items: message.memoriesUsed.map((m) => m.key).join(', ') })}
+            </span>
+            <button
+              type="button"
+              className="rounded text-accent-text underline-offset-2 hover:underline focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:outline-none"
+              onClick={() => useUiStore.getState().navigate('memory')}
+            >
+              {t.t('chat.openMemory')}
+            </button>
+          </p>
+        )}
 
         {message.taskId && !streaming && (
           <Button

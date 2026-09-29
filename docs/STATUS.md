@@ -390,8 +390,62 @@ creation denied inside tasks, STOP pauses, closing does not pause, no schedules 
 - The global (system-wide) emergency-stop shortcut is Phase 12/13; today STOP works from the app's window and by typing "stop".
 - Windows-only behaviour (sleep/resume ordering, what happens across a real logoff) is **unverified**; Phase 10 ran on Linux only.
 
+## Phase 11 — Memory 🧩 (verified against a scripted model, a real SQLite file and real Electron; no real AI provider, no Windows)
+
+`@allaya/memory` (Electron-free: the store port, the secret/rule guard, retrieval, the prompt block, the manager and the model's
+tools) + `DbMemoryStore` / IPC handlers in the main process + the Memory screen. Memory is **the person's notebook**: they can
+see, add, change, remove, save a copy of, and switch off every entry. The AI can only _suggest_ one, and nothing is stored
+without a yes on the screen.
+
+| Item                                                                                                                                                                                                                                                                                                                                      | State                                                     |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| Memory screen: entries with who added them (you / suggested by Allaya and approved by you), how often and when last used; category filter and search (Bengali included); add, edit, forget one, forget everything (each asks first); master switch; "Save a copy…" (a JSON file, chosen in a system dialog); the privacy promise in words | ✅ (renderer tests + E2E)                                 |
+| Storage in SQLite (migration `0004`: origin, use count, last used); 500 entries at most, 60-character titles, 500-character text; the same title in the same category is one entry (case and spacing ignored)                                                                                                                             | ✅ (unit + integration)                                   |
+| **Nothing the AI proposes is stored without a yes.** `remember` and `forget` are HIGH risk with no "always allow" to fall back on, so every use asks and shows exactly what will be kept, or removed (and what a new entry would replace)                                                                                                 | ✅ (unit + integration + security + E2E)                  |
+| **Secrets are never kept**: keys and tokens, JWTs, private keys, card numbers (checksum-verified, Bengali digits too), "password/PIN/OTP is …" in English and Bengali, long random strings. Refused before the person is asked, and refused for entries typed by hand too, with the reason shown                                          | ✅ (unit + integration + E2E; heuristic — see caveats)    |
+| **A memory cannot change how permission works.** Text that reads like an order about Allaya's own rules ("never ask", "always allow", "ignore the rules", English and Bengali) is refused when the AI proposes it; and _nothing_ stored can grant anything — deleting still asks, confirmations still appear                              | ✅ (unit + security; heuristic guard, structural defence) |
+| Standing instructions (category "Instructions") can only be written by the person, never by the AI                                                                                                                                                                                                                                        | ✅ (unit + integration; mutation-checked)                 |
+| What the AI is given: only entries that share a word with the message (plus the person's own "Instructions" and "Language" entries), at most 8 and about 1500 characters, as a fenced block that says it is information about the user, not orders; an entry cannot close the fence or fake a tag                                         | ✅ (unit + integration + security)                        |
+| Provenance: each reply records which memories it was given and shows "Used from memory: …" with a link to the screen; the screen shows use counts. Tasks get the same memory once per task (counted once), not shown on the task                                                                                                          | ✅ (integration + E2E)                                    |
+| Master switch off: nothing is given to the AI, nothing new is saved or forgotten by it, and what is already there stays until the person deletes it                                                                                                                                                                                       | ✅ (unit + integration + E2E)                             |
+| Tasks and unattended runs are **never offered** `remember` / `forget` (a task reads web pages and files) and are refused if they name them; `recall` (read-only) is available                                                                                                                                                             | ✅ (unit + integration + security; mutation-checked)      |
+| Privacy of the record: the audit trail says something was remembered, not what; memory text does not reach the logs or the audit rows                                                                                                                                                                                                     | ✅ (security)                                             |
+| IPC: strict schemas, sender check on every channel (including reads and the save-a-copy), the renderer cannot name a file path for the export                                                                                                                                                                                             | ✅ (security + integration)                               |
+
+**How it was tested:** `tests/unit/memory/*` (text, guard, retrieval, prompt block, manager, tools incl. the real pipeline),
+`tests/integration/memory.test.ts` (real pipeline, SQLite, chat and task engine with a scripted model, restart),
+`tests/security/memory.test.ts`, `tests/unit/renderer/memory-screen.test.tsx`, `tests/e2e/memory.spec.ts` (5 tests, real
+Electron, including a relaunch). Twenty rules were **mutation-checked** (each broken on purpose; a test failed): secret guard,
+rule guard, standing instructions for the AI, the AI's schema, HIGH risk, fence characters, memory-off (prompt and tools), tasks
+denied, standing entries always considered, no dumping of everything, once-per-task counting, audit keeps no content, ask
+after refusing, duplicates, the limit, the size budget, use counting, and the reply's record. One survived at first (a task
+counted a use on every model call) and led to a stronger test.
+
+**Caveats — read these**
+
+- **Retrieval is plain word matching**, not meaning. A memory is found only if it shares a word with the message (English
+  plurals and a short list of Bengali endings are handled; synonyms, other languages — an English question about a Bengali
+  entry — and paraphrases are missed). No embeddings, no model call, nothing sent anywhere to search. Only scripted messages were
+  tried; how often real conversations find the right memory is **unmeasured**.
+- **What is remembered is sent to your AI provider** inside the system prompt of the messages it matches (it must be, for the AI
+  to use it). Memory is stored in the local SQLite file **unencrypted** (only API keys are encrypted); anyone with access to the
+  user's profile folder can read it. The screen says the first; the second is documented here.
+- **The secret and rule guards are heuristics.** They catch common formats and phrasings, not everything: a short password
+  with no keyword, an unusual key format, or an order phrased in a way not listed will pass. They also refuse harmless text that
+  looks like a secret (a 32+ character token-like word). The defences that do not depend on them: the AI cannot save without a
+  yes, a memory is fenced as data, and permissions and confirmations are enforced by the app.
+- A stored memory **can still influence what the AI says or chooses** (it is text in the prompt); it cannot widen what it is
+  allowed to do. The person's own "Instructions" entries are trusted as the person's words.
+- **Only scripted models were used.** When a real model decides to suggest a memory (or to ignore the rules in the prompt) is
+  unverified; the app's checks do not rely on it behaving.
+- **Not built:** silent/automatic learning (Allaya never saves on its own), import from a file, a "why was this remembered"
+  history, confidence scores (the column exists and is unused), a `system` source (never produced), semantic search, syncing
+  between computers, quick voice/Banglish "remember that…" commands in the local intent parser (they go through the model).
+- The **Save a copy dialog** is Electron's; in tests it is replaced by a fixed path, so the real dialog is unverified, as is
+  everything Windows-specific.
+
 ## Not started
 
-Phases 11–15 (memory, security hardening, Windows polish, release). Anything that needs Windows UI Automation, the tray,
+Phases 12–15 (security hardening, Windows polish, release). Anything that needs Windows UI Automation, the tray,
 global hotkeys, the installer, or auto-update **cannot be verified in this Linux environment** and will be marked 🪟
 until run on Windows.

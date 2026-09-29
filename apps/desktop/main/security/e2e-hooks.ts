@@ -40,6 +40,9 @@ export const e2eFilesDir = (): string | undefined => process.env['ALLAYA_E2E_FIL
 /** In E2E the native folder picker cannot be driven, so it "picks" this folder instead. */
 export const e2ePickedFolder = (): string | undefined => process.env['ALLAYA_E2E_PICK_FOLDER'];
 
+/** In E2E the native "Save as" dialog cannot be driven, so it "picks" this file instead. */
+export const e2eSaveFile = (): string | undefined => process.env['ALLAYA_E2E_SAVE_FILE'];
+
 /** `ALLAYA_E2E_BROWSER_EXE`: the Chromium to drive in test runs (there is no Edge/Chrome in CI). */
 export const e2eBrowserExecutable = (): string | undefined => process.env['ALLAYA_E2E_BROWSER_EXE'];
 

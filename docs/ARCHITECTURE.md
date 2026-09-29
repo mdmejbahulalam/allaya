@@ -26,23 +26,24 @@ Operating system
 
 ## Packages
 
-| Package              | Responsibility                                                                                  |
-| -------------------- | ----------------------------------------------------------------------------------------------- |
-| `@allaya/shared`     | Result/errors, ids, clock, typed event bus, cancellation, redaction, logging                    |
-| `@allaya/types`      | Domain vocabulary (risk levels, task states, intents, …) as const tuples                        |
-| `@allaya/validation` | Zod schemas: IPC contract, settings registry, tool argument schemas                             |
-| `@allaya/database`   | Drizzle schema, migrations, SQLite connection, repositories                                     |
-| `@allaya/ai`         | Provider adapters, SSE, retry/cancel, model router, token estimates                             |
-| `@allaya/security`   | Credential vault (OS-encrypted, no plaintext fallback)                                          |
-| `@allaya/agent`      | Prompt policy, and the task engine: state machine, planner, orchestrator (Electron-free)        |
-| `@allaya/language`   | Bengali/Banglish/English detection, normaliser, intent parser, dates, replies                   |
-| `@allaya/speech`     | Pure voice logic: state machine, VAD, transcript safety gate, speech-text prep                  |
-| `@allaya/voice`      | Main-process STT/TTS providers (OpenAI-compatible)                                              |
-| `@allaya/tools`      | Tool registry, risk/permission policy, confirmation broker, execution pipeline                  |
-| `@allaya/computer`   | Computer control engine: adapters (Windows/host/memory), app catalog, input-safety rules, tools |
-| `@allaya/filesystem` | Scoped file operations: path policy, guarded ops, trash, undo journal, file tools               |
-| `@allaya/browser`    | Browser automation: URL policy, filtering proxy, page model, engine, Playwright session, tools  |
-| `@allaya/automation` | Schedule maths (local time, DST), the scheduler (Electron-free), `create_automation` tools      |
+| Package              | Responsibility                                                                                       |
+| -------------------- | ---------------------------------------------------------------------------------------------------- |
+| `@allaya/shared`     | Result/errors, ids, clock, typed event bus, cancellation, redaction, logging                         |
+| `@allaya/types`      | Domain vocabulary (risk levels, task states, intents, …) as const tuples                             |
+| `@allaya/validation` | Zod schemas: IPC contract, settings registry, tool argument schemas                                  |
+| `@allaya/database`   | Drizzle schema, migrations, SQLite connection, repositories                                          |
+| `@allaya/ai`         | Provider adapters, SSE, retry/cancel, model router, token estimates                                  |
+| `@allaya/security`   | Credential vault (OS-encrypted, no plaintext fallback)                                               |
+| `@allaya/agent`      | Prompt policy, and the task engine: state machine, planner, orchestrator (Electron-free)             |
+| `@allaya/language`   | Bengali/Banglish/English detection, normaliser, intent parser, dates, replies                        |
+| `@allaya/speech`     | Pure voice logic: state machine, VAD, transcript safety gate, speech-text prep                       |
+| `@allaya/voice`      | Main-process STT/TTS providers (OpenAI-compatible)                                                   |
+| `@allaya/tools`      | Tool registry, risk/permission policy, confirmation broker, execution pipeline                       |
+| `@allaya/computer`   | Computer control engine: adapters (Windows/host/memory), app catalog, input-safety rules, tools      |
+| `@allaya/filesystem` | Scoped file operations: path policy, guarded ops, trash, undo journal, file tools                    |
+| `@allaya/browser`    | Browser automation: URL policy, filtering proxy, page model, engine, Playwright session, tools       |
+| `@allaya/automation` | Schedule maths (local time, DST), the scheduler (Electron-free), `create_automation` tools           |
+| `@allaya/memory`     | Memory store port, secret/rule guard, retrieval, prompt block, manager, `remember`/`recall`/`forget` |
 
 More packages arrive with their phases (see STATUS.md).
 
@@ -102,6 +103,21 @@ and the `FileService`.
   `deniedTools` so a task cannot call the first even if asked to.
 - **Not built:** a node-graph workflow editor (the `automation_steps` table is unused), triggers from Windows events, running
   while Allaya is closed (tray/background arrives with Windows polish).
+
+## Memory
+
+`@allaya/memory` is what Allaya remembers about the person. A `MemoryManager` sits on a `MemoryStore` port (SQLite in the app via
+`DbMemoryStore`, in-memory in tests) and a master switch (`memory.enabled`). Three doors lead in, each with its own rules:
+
+- **The person** (Memory screen, IPC `memory:*`) — full control; the guard still refuses secrets.
+- **The model** (`remember` / `recall` / `forget` tools) — proposals only: arguments are checked before the person is asked,
+  saving and forgetting are HIGH risk (always a question), the "Instructions" category and rule-changing text are refused, and
+  tasks are denied the writing tools.
+- **The prompt** — `forPrompt(query)` ranks entries by word overlap (title 3, text 1, category 1; the person's "Instructions"
+  and "Language" entries always), keeps 8 / ~1500 characters, marks them used, and formats a fenced, inert block. Chat records
+  the used ids on the reply; the task service asks once per task and hands the block to the planner and step prompts.
+
+Nothing in `@allaya/memory` can widen a permission: it only produces text for prompts and rows for the screen.
 
 ## Data
 

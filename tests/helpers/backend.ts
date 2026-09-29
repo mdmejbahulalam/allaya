@@ -40,6 +40,7 @@ export interface TestBackendOptions {
   confirmationTimeoutMs?: number;
   tasks?: ContainerOptions['tasks'];
   automations?: ContainerOptions['automations'];
+  memory?: ContainerOptions['memory'];
 }
 
 export interface TestBackend {
@@ -75,6 +76,7 @@ export function createTestBackend(options: TestBackendOptions = {}): TestBackend
     ...(options.computer ? { computer: options.computer } : {}),
     ...(options.files ? { files: options.files } : {}),
     ...(options.browser ? { browser: options.browser } : {}),
+    ...(options.memory ? { memory: options.memory } : {}),
     ...(options.confirmationTimeoutMs !== undefined
       ? { confirmationTimeoutMs: options.confirmationTimeoutMs }
       : {}),

@@ -234,6 +234,10 @@ export const memories = sqliteTable(
     /** `user` | `inferred` | `system` */
     source: text('source').notNull().default('user'),
     confidence: real('confidence').notNull().default(1),
+    /** Where it came from: `screen` (typed on the Memory screen) or `chat` (offered by the AI, approved). */
+    origin: text('origin'),
+    useCount: integer('use_count').notNull().default(0),
+    lastUsedAt: integer('last_used_at'),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },

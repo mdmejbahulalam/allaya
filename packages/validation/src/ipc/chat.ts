@@ -32,6 +32,11 @@ export const messageViewSchema = z.object({
   actions: z.array(actionRecordSchema).optional(),
   /** The task this message reports on, when it does (opens the Tasks screen). */
   taskId: z.string().optional(),
+  /** The memories this reply was given (so the person can see what shaped it). */
+  memoriesUsed: z
+    .array(z.object({ id: z.string(), key: z.string() }))
+    .max(20)
+    .optional(),
 });
 export type MessageView = z.infer<typeof messageViewSchema>;
 

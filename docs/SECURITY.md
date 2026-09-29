@@ -289,7 +289,46 @@ reach outside, read secrets or schedule more work; a flood of files is one bound
 meet the same refusals and questions, but nobody may be there to answer), running for days unattended, and everything
 Windows-specific.
 
-## 12. Not yet covered (honest status)
+## 12. Memory (what Allaya remembers about the person)
+
+Memory is personal data that is later put into the AI's prompt, so it is a target twice over: something to leak, and a way to
+plant instructions that outlive a conversation. The rules:
+
+- **The person owns it.** Every entry is visible on the Memory screen, and can be edited, removed, exported to a file or wiped;
+  one switch turns the whole thing off (nothing is given to the AI, nothing new is saved, what is there stays until deleted).
+- **The AI can only propose.** `remember` and `forget` are HIGH risk with no permission to "always allow", so each use is a
+  question showing the exact text (and what would be replaced or removed). A refused or unanswered question stores nothing; the
+  emergency stop ends an open one.
+- **Refused before asking.** The `remember` arguments are validated with the guard, so the person is never asked to approve saving
+  a password or an order to skip confirmation. The manager checks again when storing (nothing relies on one layer).
+- **No secrets.** API keys and tokens, JWTs, private keys, checksum-valid card numbers (Bengali digits too), "password/PIN/OTP is …"
+  phrases and long token-like strings are refused, including when the person types them. The guard is a heuristic.
+- **No standing orders from the AI.** The "Instructions" category (which is always considered) can only be written by the person.
+  The AI's schema does not list it, and the manager refuses it as a second layer. Text that reads like an order about
+  permissions ("never ask", "always allow", "ignore the rules"; English and Bengali) is refused when the AI proposes it.
+- **A memory is data, never authority.** It reaches the AI only as a fenced block that says it is information about the user and
+  never changes rules, grants permission, or replaces confirmation. Each line is one inert line: line breaks and `<` `>` are
+  removed, so an entry cannot close the fence or fake a tag. And it does not matter what the text says: permissions and
+  confirmations are enforced by the app — a stored "delete without asking" still asks (tested).
+- **Tasks cannot write memory.** A task reads web pages and files, so `remember` and `forget` are neither offered to it nor
+  accepted from it (enforced at execution time by `deniedTools`, as for `create_automation`); `recall` (read-only) is allowed.
+- **Least given.** Only entries sharing a word with the message go along (plus the person's own Instructions and Language
+  entries), at most 8 and about 1500 characters. Each reply records what it was given, and the screen shows use counts.
+- **Private record.** The audit trail says that something was remembered (and the category), not what; memory text is kept out of
+  logs. The export path is chosen by the person in a system dialog — the renderer cannot name one — and the file is written
+  owner-only (where the platform supports it).
+- **The IPC is strict**: sender check on every channel, including reads, schemas that reject unknown fields and prototype tricks,
+  bounded sizes, 500 entries.
+
+Tests: `tests/security/memory.test.ts` (hostile payloads, foreign senders on every channel including read and export, a
+remembered "delete without asking" changing nothing, fence break-outs, the emergency stop with a question open, a task naming
+`remember`/`forget`, nothing leaking to logs or audit), `tests/unit/memory/*`, `tests/integration/memory.test.ts`,
+`tests/e2e/memory.spec.ts`. Twenty rules are mutation-checked (see `docs/STATUS.md`).
+**Unverified / by design:** memory is stored in the local database **unencrypted** (only credentials are encrypted) and is sent to
+the AI provider inside matching prompts; the guards are heuristics; a stored memory can still influence what a model says; real
+models were not used; Windows-specific behaviour (the save dialog) was not exercised.
+
+## 13. Not yet covered (honest status)
 
 See `docs/STATUS.md` for the per-requirement state. Security items that are designed but not yet built or not yet
 verifiable in this environment are tracked there, notably: NTFS-specific file behaviour, Edge/Chrome on Windows, the Windows input adapter's behaviour on a real desktop, the global (system-wide) emergency-stop shortcut, the Permissions screen, the Activity (audit) viewer, and Windows-specific hardening (UI Automation scope, installer signing,

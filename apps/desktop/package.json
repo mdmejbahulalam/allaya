@@ -23,6 +23,7 @@
     "@allaya/filesystem": "workspace:*",
     "@allaya/language": "workspace:*",
     "@allaya/localization": "workspace:*",
+    "@allaya/memory": "workspace:*",
     "@allaya/security": "workspace:*",
     "@allaya/shared": "workspace:*",
     "@allaya/speech": "workspace:*",

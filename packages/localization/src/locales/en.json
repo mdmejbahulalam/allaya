@@ -232,7 +232,9 @@
     "autonym": {
       "bn": "বাংলা",
       "en": "English"
-    }
+    },
+    "usedMemory": "Used from memory: {items}",
+    "openMemory": "Memory"
   },
   "tasks": {
     "title": "Tasks",
@@ -728,7 +730,51 @@
       "instructions": "Instructions",
       "facts": "Facts",
       "automation": "Automation"
-    }
+    },
+    "new": "Add a memory",
+    "edit": "Edit memory",
+    "list": "Memories",
+    "count": "{count} of {limit} kept",
+    "search": "Search what Allaya remembers",
+    "noMatch": "No memories match.",
+    "all": "All",
+    "toggle": "Let Allaya use and save memories",
+    "off": {
+      "title": "Memory is off",
+      "body": "Allaya is not using or saving anything. What is already here stays until you delete it."
+    },
+    "privacyTitle": "Yours, and kept on this computer",
+    "privacyBody": "Memories are stored only on this computer. The ones that fit a message are sent to your AI provider together with that message. Allaya never keeps passwords, keys or card numbers, and asks you before it saves anything it suggests.",
+    "usedCount_one": "Used once",
+    "usedCount_other": "Used {count} times",
+    "neverUsed": "Not used yet",
+    "lastUsed": "Last used {when}",
+    "form": {
+      "category": "Category",
+      "key": "Title",
+      "keyPlaceholder": "For example: preferred browser",
+      "value": "What should Allaya remember?",
+      "valuePlaceholder": "For example: Edge",
+      "instructionsHint": "Standing instructions are used in every reply. Only you can add these; Allaya can never save one itself.",
+      "needKey": "Give it a title.",
+      "needValue": "Say what to remember.",
+      "secret": "That looks like a password, key or card number. Allaya does not keep those.",
+      "duplicate": "You already have one with that title in this category."
+    },
+    "forget": "Forget this",
+    "forgetBody": "“{title}” will be forgotten.",
+    "forgotten": "Forgot “{title}”",
+    "forgetAll": "Forget everything",
+    "forgetAllBody": "All {count} memories will be deleted. This cannot be undone.",
+    "forgottenAll": "Forgot everything",
+    "by": {
+      "user": "Added by you",
+      "inferred": "Suggested by Allaya, approved by you",
+      "system": "Set by the system"
+    },
+    "export": "Save a copy…",
+    "exported": "Saved {count} memories",
+    "exportFailed": "Could not save the file"
   },
   "models": {
     "title": "Models",

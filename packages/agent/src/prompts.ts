@@ -5,6 +5,10 @@ export interface SystemPromptOptions {
   responseLanguage: ResponseLanguagePolicy;
   /** Display name for natural address; omitted if empty. */
   userName?: string;
+  /** The block of remembered facts (already fenced and sanitized), when any bear on the request. */
+  memory?: string;
+  /** How to use the memory tools, when they are offered. */
+  memoryRule?: string;
   /**
    * The language decision for *this* reply, made by the language engine from the conversation (an explicit
    * request, the latest message, or the running history). When present it replaces the generic policy text.
@@ -100,6 +104,8 @@ export function buildSystemPrompt(options: SystemPromptOptions): string {
   }
 
   if (options.userName?.trim()) lines.push(`The user's name is ${options.userName.trim()}.`);
+  if (options.memoryRule) lines.push(options.memoryRule);
+  if (options.memory) lines.push(options.memory);
   if (options.now) {
     lines.push(
       `Current local date and time: ${options.now.toLocaleString('en-CA', { hour12: false })}.`,

@@ -9,6 +9,7 @@ import {
   type ToolResultPart,
 } from '@allaya/ai';
 import { buildSystemPrompt } from '@allaya/agent';
+import { MEMORY_TOOL_RULE } from '@allaya/memory';
 import {
   MIN_DETECTION_CONFIDENCE,
   LanguageSession,
@@ -66,6 +67,11 @@ const assistantMetadataSchema = z.object({
   local: z.enum(['language', 'stop', 'cancel', 'confirmation', 'task']).optional(),
   /** What Allaya did on the computer while producing this reply. */
   actions: z.array(actionRecordSchema).optional(),
+  /** The memories this reply was given. */
+  memories: z
+    .array(z.object({ id: z.string(), key: z.string() }))
+    .max(20)
+    .optional(),
 });
 type AssistantMetadata = z.infer<typeof assistantMetadataSchema>;
 
@@ -141,6 +147,13 @@ export interface ChatServiceDeps {
   tools: ToolService;
   /** The task engine. Omitted in tests that do not use it (then the model is not offered `start_task`). */
   tasks?: TaskChatPort;
+  /** What Allaya remembers. Omitted in tests that do not use it (then nothing is added to the prompt). */
+  memory?: {
+    forPrompt(query: string): {
+      text?: string | undefined;
+      used: Array<{ id: string; key: string }>;
+    };
+  };
   events: EventPublisher;
   runs: RunRegistry;
   logger: Logger;
@@ -498,6 +511,17 @@ export class ChatService {
       };
       conversations.updateMessage(assistantId, { metadata });
 
+      // What Allaya remembers that bears on this message — worked out once per reply, and recorded on the reply so
+      // the person can see what shaped it.
+      const asked = [...history].reverse().find((m) => m.role === 'user');
+      const memoryUse = this.deps.memory?.forPrompt(
+        typeof asked?.content === 'string' ? asked.content : '',
+      ) ?? { used: [] };
+      if (memoryUse.used.length > 0) {
+        metadata = { ...metadata, memories: memoryUse.used };
+        conversations.updateMessage(assistantId, { metadata });
+      }
+
       const { tools } = this.deps;
       // Tools are offered only to a model that can use them, and only if any are registered.
       const canStartTasks = this.deps.tasks !== undefined && model.capabilities.tools;
@@ -534,6 +558,10 @@ export class ChatService {
           replyLanguage,
           modelTools,
           canStartTasks,
+          {
+            memory: memoryUse.text,
+            canRemember: modelTools?.some((t) => t.name === 'remember') ?? false,
+          },
         );
         const calls: ToolCall[] = [];
         let roundText = '';
@@ -747,6 +775,7 @@ export class ChatService {
     replyLanguage: ResolvedResponseLanguage,
     tools?: ModelToolSpec[],
     canStartTasks = false,
+    extras: { memory?: string | undefined; canRemember?: boolean } = {},
   ): AIRequest {
     const { settings, now } = this.deps;
     const system = buildSystemPrompt({
@@ -755,6 +784,8 @@ export class ChatService {
       userName: settings.get('profile.displayName'),
       toolsAvailable: tools !== undefined && tools.length > 0,
       canStartTasks,
+      ...(extras.memory ? { memory: extras.memory } : {}),
+      ...(extras.canRemember ? { memoryRule: MEMORY_TOOL_RULE } : {}),
       now: (now ?? (() => new Date()))(),
     });
     const maxOutput = Math.min(
@@ -892,6 +923,7 @@ export function toMessageView(row: MessageRow): MessageView {
     ...(meta?.usage ? { usage: meta.usage } : {}),
     ...(meta?.error ? { error: meta.error } : {}),
     ...(meta?.actions?.length ? { actions: meta.actions } : {}),
+    ...(meta?.memories?.length ? { memoriesUsed: meta.memories } : {}),
     ...(row.taskId ? { taskId: row.taskId } : {}),
   };
 }

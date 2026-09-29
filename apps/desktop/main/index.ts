@@ -19,6 +19,7 @@ import { AppTrash, type KnownFolderId } from '@allaya/filesystem';
 import {
   openWithDefaultProgram,
   pickFolderDialog,
+  pickSaveFileDialog,
   RecycleBin,
   revealInFileManager,
 } from './files/electron-files';
@@ -30,6 +31,7 @@ import {
   e2eBrowserHosts,
   e2eFilesDir,
   e2ePickedFolder,
+  e2eSaveFile,
 } from './security/e2e-hooks';
 import { createProbeTool } from './security/e2e-tools';
 import { SafeStorageCipher } from './security/safe-storage-cipher';
@@ -180,6 +182,9 @@ function bootstrapBackend(): Container {
     },
     files: fileAccess(),
     browser: browserAccess(),
+    memory: {
+      pickSaveFile: E2E ? () => Promise.resolve(e2eSaveFile()) : pickSaveFileDialog,
+    },
     cipher: E2E ? new InsecureTestCipher() : new SafeStorageCipher(),
     ...(E2E
       ? {

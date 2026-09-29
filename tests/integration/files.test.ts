@@ -133,7 +133,14 @@ describe('file tools through the agent loop', () => {
         .modelTools()
         .map((t) => t.name)
         .sort(),
-    ).toEqual(['create_automation', 'get_datetime', 'list_automations']);
+    ).toEqual([
+      'create_automation',
+      'forget',
+      'get_datetime',
+      'list_automations',
+      'recall',
+      'remember',
+    ]);
   });
 
   it('"Documents e todo.txt banao": write_file asks, creates the file, reads it back and is verified', async () => {

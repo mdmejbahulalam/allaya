@@ -7,3 +7,4 @@ export * from './file-operations';
 export * from './file-bookmarks';
 export * from './tasks';
 export * from './automations';
+export * from './memories';

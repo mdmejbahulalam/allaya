@@ -47,7 +47,7 @@ describe('the tools a task may use', () => {
           conversationId: 'conv_1',
           language: 'bn',
           // The chat-only tools are refused at execution too, not only left out of the offer.
-          deniedTools: new Set(['start_task', 'create_automation']),
+          deniedTools: new Set(['start_task', 'create_automation', 'remember', 'forget']),
         },
       },
       { options: { taskId: 'other', language: 'en' } },

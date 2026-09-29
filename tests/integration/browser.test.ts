@@ -147,7 +147,14 @@ describe('browser tools through the agent loop', () => {
         .modelTools()
         .map((t) => t.name)
         .sort(),
-    ).toEqual(['create_automation', 'get_datetime', 'list_automations']);
+    ).toEqual([
+      'create_automation',
+      'forget',
+      'get_datetime',
+      'list_automations',
+      'recall',
+      'remember',
+    ]);
     backend!.dispose();
     await rig();
     const names = backend!.container.tools.modelTools().map((t) => t.name);

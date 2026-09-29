@@ -52,6 +52,10 @@ import { registerAutomationHandlers } from './ipc/handlers/automations';
 import { AutomationService } from './services/automation-service';
 import { DbAutomationStore } from './automation/db-store';
 import { createAutomationTools } from '@allaya/automation';
+import { MemoryManager, createMemoryTools } from '@allaya/memory';
+import { MemoryRepository } from '@allaya/database';
+import { DbMemoryStore } from './memory/db-store';
+import { registerMemoryHandlers } from './ipc/handlers/memory';
 import { TaskService, type TaskServiceDeps } from './services/task-service';
 import { BrowserService, type BrowserLaunchState } from './services/browser-service';
 import { EventPublisher } from './ipc/events';
@@ -104,6 +108,10 @@ export interface ContainerOptions {
     pickFolder?: (title: string) => Promise<string | undefined>;
     reveal?: (absolutePath: string) => void;
   };
+  memory?: {
+    /** Asks the person where to save an export (a system dialog). Omitted: exporting is not offered. */
+    pickSaveFile?: (title: string, defaultName: string) => Promise<string | undefined>;
+  };
   /**
    * The browser Allaya may drive. Omitted in tests that do not browse (then the model is offered no browser tools).
    * The browser itself is started only when something first needs it.
@@ -148,6 +156,7 @@ export interface Container {
   browser: BrowserService;
   tasks: TaskService;
   automations: AutomationService;
+  memory: MemoryManager;
   permissions: PermissionService;
   runs: RunRegistry;
   events: EventPublisher;
@@ -303,6 +312,21 @@ export function createContainer(options: ContainerOptions): Container {
     get: (id) => automationService().summary(id),
     list: () => automationService().summaries(),
   });
+  // What Allaya remembers. Every change is announced so the Memory screen stays true.
+  const memory = new MemoryManager({
+    store: new DbMemoryStore(new MemoryRepository(database.db)),
+    enabled: () => settings.get('memory.enabled'),
+    onChange: () => {
+      try {
+        events.publish('memory:changed', {});
+      } catch (error) {
+        options.logger.child('memory').warn('Could not publish a memory change', {
+          error: String(error),
+        });
+      }
+    },
+  });
+  const memoryTools = createMemoryTools(memory);
   const tools = new ToolService({
     permissions,
     audit: new ToolAuditRepository(database.db),
@@ -313,6 +337,7 @@ export function createContainer(options: ContainerOptions): Container {
       ...fileTools,
       ...browserTools,
       ...automationTools,
+      ...memoryTools,
       ...(options.extraTools ?? []),
     ],
     ...(options.confirmationTimeoutMs !== undefined
@@ -345,6 +370,7 @@ export function createContainer(options: ContainerOptions): Container {
     settings,
     events,
     runs,
+    memory,
     logger: options.logger.child('tasks'),
     osLocale: () => options.getAppInfo().osLocale,
     ...(options.tasks?.limits ? { limits: options.tasks.limits } : {}),
@@ -369,6 +395,7 @@ export function createContainer(options: ContainerOptions): Container {
     settings,
     tools,
     tasks,
+    memory,
     events,
     runs,
     logger: options.logger.child('chat'),
@@ -396,6 +423,10 @@ export function createContainer(options: ContainerOptions): Container {
   registerBrowserHandlers(registry, browser);
   registerTaskHandlers(registry, tasks);
   registerAutomationHandlers(registry, automations);
+  registerMemoryHandlers(registry, memory, settings, {
+    changed: () => events.publish('memory:changed', {}),
+    ...(options.memory?.pickSaveFile ? { pickSaveFile: options.memory.pickSaveFile } : {}),
+  });
   registerAgentHandlers(registry, runs);
 
   return {
@@ -410,6 +441,7 @@ export function createContainer(options: ContainerOptions): Container {
     browser,
     tasks,
     automations,
+    memory,
     permissions,
     runs,
     events,

@@ -2,7 +2,7 @@ import { lazy } from 'react';
 import type { ComponentType } from 'react';
 import type { RouteId } from '@renderer/app/routes';
 import { EmptyScreen } from './placeholder';
-import { Activity, AppWindow, Brain, ShieldCheck } from 'lucide-react';
+import { Activity, AppWindow, ShieldCheck } from 'lucide-react';
 
 const lazyNamed = <T extends Record<string, ComponentType>>(
   loader: () => Promise<T>,
@@ -29,14 +29,7 @@ export const SCREENS: Record<RouteId, ComponentType> = {
   ),
   browser: lazyNamed(() => import('./browser/browser-screen'), 'BrowserScreen'),
   files: lazyNamed(() => import('./files/files-screen'), 'FilesScreen'),
-  memory: () => (
-    <EmptyScreen
-      icon={Brain}
-      titleKey="memory.title"
-      emptyTitleKey="memory.emptyTitle"
-      emptyBodyKey="memory.emptyBody"
-    />
-  ),
+  memory: lazyNamed(() => import('./memory/memory-screen'), 'MemoryScreen'),
   models: lazyNamed(() => import('./models/models-screen'), 'ModelsScreen'),
   activity: () => (
     <EmptyScreen

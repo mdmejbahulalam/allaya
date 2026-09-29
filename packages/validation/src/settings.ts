@@ -58,6 +58,8 @@ export const settingsSchemas = {
   'browser.headless': z.boolean(),
   // Automations. Set by the emergency stop: nothing scheduled starts until the person switches it back on.
   'automations.paused': z.boolean(),
+  // Memory. Off: nothing is remembered and nothing remembered is given to the AI.
+  'memory.enabled': z.boolean(),
   // Shortcuts
   'shortcuts.commandPalette': z.string().max(64),
   'shortcuts.newTask': z.string().max(64),
@@ -117,6 +119,7 @@ export const settingsDefaults: SettingsSnapshot = {
   'browser.blockedDomains': [],
   'browser.headless': false,
   'automations.paused': false,
+  'memory.enabled': true,
   'shortcuts.commandPalette': 'Ctrl+K',
   'shortcuts.newTask': 'Ctrl+N',
   'shortcuts.voice': 'Ctrl+Shift+V',
