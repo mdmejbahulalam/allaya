@@ -85,10 +85,21 @@ export function AppShell() {
     requestAnimationFrame(() => document.getElementById('home-ask')?.focus());
   }, [navigate, setComposerDraft]);
 
+  // One STOP silences everything: the microphone, speech, and every running task.
+  const stopEverything = useCallback(() => {
+    useVoiceStore.getState().interrupt();
+    void invoke('agent:stop').catch(() => undefined);
+  }, []);
+
   // ── Global keyboard shortcuts (configurable through settings).
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (
+      // The emergency stop is checked first and works from anywhere in the window, text fields included. (The
+      // operating system also holds the key system-wide; this covers the case where it could not be reserved.)
+      if (matchesShortcut(event, settings['shortcuts.emergencyStop'])) {
+        event.preventDefault();
+        stopEverything();
+      } else if (
         matchesShortcut(event, settings['shortcuts.commandPalette']) ||
         matchesShortcut(event, settings['shortcuts.search'])
       ) {
@@ -106,7 +117,7 @@ export function AppShell() {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [settings, setPaletteOpen, newTask]);
+  }, [settings, setPaletteOpen, newTask, stopEverything]);
 
   const items = useMemo<PaletteItem[]>(() => {
     const kw = (key: Parameters<typeof EN.t>[0]) => [EN.t(key), BN.t(key)];
@@ -185,11 +196,7 @@ export function AppShell() {
         onOpenPalette={() => setPaletteOpen(true)}
         onToggleContext={() => setContextOpen(!contextVisible)}
         onOpenSettings={() => navigate('settings')}
-        onStop={() => {
-          // One STOP silences everything: the microphone, speech, and every running task.
-          useVoiceStore.getState().interrupt();
-          void invoke('agent:stop').catch(() => undefined);
-        }}
+        onStop={stopEverything}
       />
 
       <div className="flex min-h-0 flex-1">

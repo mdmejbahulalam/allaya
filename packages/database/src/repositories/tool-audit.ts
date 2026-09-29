@@ -1,4 +1,4 @@
-import { desc, eq } from 'drizzle-orm';
+import { and, desc, eq, isNotNull, lt, or, sql, type SQL } from 'drizzle-orm';
 import type { AllayaDb } from '../connection';
 import { activityLogs, toolCalls, toolResults } from '../schema';
 
@@ -51,6 +51,8 @@ export class ToolAuditRepository {
     private readonly db: AllayaDb,
     private readonly now: () => number = Date.now,
     private readonly newId: () => string = () => crypto.randomUUID(),
+    /** Called after each call is recorded (so a screen showing the record can refresh). */
+    private readonly onRecorded?: () => void,
   ) {}
 
   begin(entry: ToolCallStart): void {
@@ -108,6 +110,11 @@ export class ToolAuditRepository {
         })
         .run();
     });
+    try {
+      this.onRecorded?.();
+    } catch {
+      /* a screen that cannot refresh must never fail the audit */
+    }
   }
 
   recentActivity(limit = 100): ActivityRow[] {
@@ -128,6 +135,75 @@ export class ToolAuditRepository {
       .orderBy(desc(activityLogs.timestamp), desc(activityLogs.id))
       .limit(limit)
       .all();
+  }
+
+  /**
+   * A page of the record, newest first, optionally narrowed. Asks for one more than `limit` to know whether there is
+   * more. Search words are matched literally (`%` and `_` in them are not wildcards).
+   */
+  activity(filter: {
+    limit: number;
+    before?: number | undefined;
+    result?: string | undefined;
+    risk?: string | undefined;
+    query?: string | undefined;
+  }): { entries: ActivityRow[]; hasMore: boolean } {
+    const conditions: SQL[] = [];
+    if (filter.before !== undefined) conditions.push(lt(activityLogs.timestamp, filter.before));
+    if (filter.result) conditions.push(eq(activityLogs.result, filter.result));
+    if (filter.risk) conditions.push(eq(activityLogs.risk, filter.risk));
+    const words = (filter.query ?? '').trim();
+    if (words) {
+      const pattern = `%${words.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+      const match = or(
+        sql`${activityLogs.action} like ${pattern} escape '\\'`,
+        sql`${activityLogs.tool} like ${pattern} escape '\\'`,
+      );
+      if (match) conditions.push(match);
+    }
+    const rows = this.db
+      .select({
+        id: activityLogs.id,
+        timestamp: activityLogs.timestamp,
+        actor: activityLogs.actor,
+        tool: activityLogs.tool,
+        action: activityLogs.action,
+        result: activityLogs.result,
+        risk: activityLogs.risk,
+        permission: activityLogs.permission,
+        error: activityLogs.error,
+        detailsJson: activityLogs.detailsJson,
+      })
+      .from(activityLogs)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(activityLogs.timestamp), desc(activityLogs.id))
+      .limit(filter.limit + 1)
+      .all();
+    return { entries: rows.slice(0, filter.limit), hasMore: rows.length > filter.limit };
+  }
+
+  /** Removes the whole record (activity lines and the call records behind them). Returns how many lines went. */
+  clear(): number {
+    return this.db.transaction((tx) => {
+      const removed = tx.delete(activityLogs).run().changes;
+      // Calls still in flight keep their rows: they are about to write their result against them.
+      tx.delete(toolCalls).where(isNotNull(toolCalls.completedAt)).run();
+      return removed;
+    });
+  }
+
+  /** Removes what is older than `cutoff` (epoch ms). Returns how many activity lines went. */
+  pruneOlderThan(cutoff: number): number {
+    return this.db.transaction((tx) => {
+      const removed = tx
+        .delete(activityLogs)
+        .where(lt(activityLogs.timestamp, cutoff))
+        .run().changes;
+      tx.delete(toolCalls)
+        .where(and(isNotNull(toolCalls.completedAt), lt(toolCalls.completedAt, cutoff)))
+        .run();
+      return removed;
+    });
   }
 
   getCall(id: string) {

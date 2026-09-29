@@ -14,5 +14,6 @@ export function registerToolHandlers(
       accepted: tools.respond(id, decision, 'ui').ok,
     }))
     .register('permissions:list', () => permissions.list())
-    .register('permissions:set', ({ subject, mode }) => permissions.set(subject, mode));
+    .register('permissions:set', ({ subject, mode }) => permissions.set(subject, mode))
+    .register('permissions:reset', () => permissions.resetAll());
 }

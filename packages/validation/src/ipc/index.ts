@@ -1,4 +1,5 @@
 import type { z } from 'zod';
+import { activityContract } from './activity';
 import { agentContract } from './agent';
 import { automationsContract } from './automations';
 import { appContract } from './app';
@@ -15,6 +16,7 @@ import type { ChannelSpec, IpcResult } from './common';
 
 export * from './common';
 export * from './app';
+export * from './activity';
 export * from './agent';
 export * from './providers';
 export * from './chat';
@@ -36,6 +38,7 @@ export * from './memory';
 export const ipcInvokeContract = {
   ...appContract.invoke,
   ...agentContract.invoke,
+  ...activityContract.invoke,
   ...providersContract.invoke,
   ...chatContract.invoke,
   ...voiceContract.invoke,
@@ -51,6 +54,7 @@ export const ipcInvokeContract = {
 export const ipcEventContract = {
   ...appContract.events,
   ...agentContract.events,
+  ...activityContract.events,
   ...providersContract.events,
   ...chatContract.events,
   ...voiceContract.events,

@@ -4,6 +4,8 @@ import { useT } from '@renderer/lib/i18n';
 import { toast } from '@renderer/stores/toasts';
 import { useAutomationsStore } from '@renderer/stores/automations';
 import { useMemoryStore } from '@renderer/stores/memory';
+import { useSafetyStore } from '@renderer/stores/safety';
+import { useVoiceStore } from '@renderer/stores/voice';
 import { useTasksStore } from '@renderer/stores/tasks';
 import { useUiStore } from '@renderer/stores/ui';
 import { useAgentStore } from '@renderer/stores/agent';
@@ -79,6 +81,14 @@ export function useBackendSync(): void {
             .load()
             .catch(() => undefined),
       ),
+      subscribe('activity:changed', () => useSafetyStore.getState().bumpActivity()),
+      subscribe('agent:safetyChanged', () => useSafetyStore.getState().bumpSafety()),
+      // The system-wide emergency-stop key was pressed, possibly while another program was in front.
+      subscribe('agent:stopped', () => {
+        // Main has stopped the runs; the microphone and speech live here, so silence them too.
+        useVoiceStore.getState().interrupt();
+        toast.info(translator.current.t('header.stoppedToast'));
+      }),
       subscribe(
         'memory:changed',
         () =>

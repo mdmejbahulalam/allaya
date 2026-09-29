@@ -848,7 +848,34 @@
       "allaya": "Allaya",
       "user": "You",
       "system": "System"
-    }
+    },
+    "retention": "Kept for {days} days on this computer, then removed.",
+    "search": "Search activity",
+    "list": "Activity",
+    "resultLabel": "Result",
+    "allResults": "All results",
+    "riskLabel": "Risk",
+    "allRisks": "Any risk",
+    "results": {
+      "success": "Done",
+      "failure": "Failed",
+      "denied": "Refused",
+      "cancelled": "Stopped",
+      "pending": "In progress",
+      "info": "Note"
+    },
+    "permission": {
+      "allowed": "Allowed by your settings",
+      "allowed_by_user": "You allowed it",
+      "denied": "Blocked by your settings",
+      "denied_by_user": "You said no",
+      "not_required": "No permission needed"
+    },
+    "loadMore": "Show older",
+    "noMatch": "Nothing matches.",
+    "clear": "Clear activity",
+    "clearBody": "The whole record of what Allaya did will be deleted from this computer. This can't be undone.",
+    "cleared": "Activity cleared"
   },
   "permissions": {
     "title": "Permissions",
@@ -873,6 +900,44 @@
       "install_software": "Install software",
       "administrator_commands": "Administrator commands",
       "external_communication": "External communication"
+    },
+    "intro": "Decide what Allaya may do without asking. Anything risky still asks first, and the most dangerous things (like paying, or creating automations) always need a click on the screen, whatever is set here.",
+    "reset": "Reset to defaults",
+    "resetBody": "Every permission goes back to its cautious default: Allaya asks first, and the camera and administrator commands stay off.",
+    "resetDone": "Permissions reset",
+    "isDefault": "Default",
+    "changed": "Changed",
+    "sensitiveNote": "These are always asked about, and can't be set to always allow.",
+    "list": "Permissions",
+    "setting": "Setting for {name}",
+    "about": {
+      "computer_control": "Move the mouse, type, press keys, switch windows.",
+      "file_access": "Read, create, move and rename files in the folders you allowed.",
+      "browser_automation": "Open websites and click or type in them.",
+      "application_launch": "Open and close programs.",
+      "clipboard": "Read or change what you copied.",
+      "microphone": "Listen when you turn voice on.",
+      "camera": "Use the camera. Off unless you switch it on.",
+      "network": "Reach the internet for a task.",
+      "delete_files": "Move files to the Recycle Bin.",
+      "send_email": "Send an email for you.",
+      "install_software": "Install programs.",
+      "administrator_commands": "Run things as administrator. Off unless you switch it on.",
+      "external_communication": "Send messages or data to other people or services."
+    },
+    "stop": {
+      "title": "Emergency stop",
+      "ok": "{keys} stops everything from anywhere, even when Allaya is hidden or another program is in front.",
+      "in_use": "{keys} could not be reserved, because another program is using it. The STOP button, and this key while Allaya's window is in front, still work. Choose another key in Settings.",
+      "invalid": "“{keys}” is not a key combination the system accepts. The STOP button still works. Choose another key in Settings.",
+      "unavailable": "The system-wide key is not active. The STOP button, and {keys} while Allaya's window is in front, still work.",
+      "change": "Change the key",
+      "now": "Stop everything now"
+    },
+    "linksTitle": "Also under your control",
+    "links": {
+      "files": "Folders Allaya may use",
+      "browser": "Websites Allaya may open"
     }
   },
   "settings": {

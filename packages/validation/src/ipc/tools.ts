@@ -67,6 +67,8 @@ export const toolsContract = {
       z.object({ subject: permissionSubjectSchema, mode: permissionModeSchema }),
       z.array(permissionEntrySchema),
     ),
+    /** Puts every permission back to its cautious default. */
+    'permissions:reset': spec(noPayload, z.array(permissionEntrySchema)),
   },
   events: {
     'tools:confirmationRequested': confirmationViewSchema,

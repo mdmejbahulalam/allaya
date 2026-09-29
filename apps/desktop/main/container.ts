@@ -14,7 +14,7 @@ import {
 import { CredentialVault, type Cipher, type CredentialStore } from '@allaya/security';
 import { AllayaError, RunRegistry, newId, type Logger } from '@allaya/shared';
 import type { ProviderId } from '@allaya/types';
-import type { AppInfo } from '@allaya/validation';
+import type { AppInfo, EmergencyStopStatus } from '@allaya/validation';
 import type { ProviderFactoryOptions } from '@allaya/ai';
 import {
   CompositeAdapter,
@@ -61,6 +61,7 @@ import { BrowserService, type BrowserLaunchState } from './services/browser-serv
 import { EventPublisher } from './ipc/events';
 import { HandlerRegistry } from './ipc/registry';
 import { registerAgentHandlers } from './ipc/handlers/agent';
+import { ACTIVITY_RETENTION_DAYS, registerActivityHandlers } from './ipc/handlers/activity';
 import { registerAppHandlers } from './ipc/handlers/app';
 import { registerChatHandlers } from './ipc/handlers/chat';
 import { registerProviderHandlers } from './ipc/handlers/providers';
@@ -108,6 +109,8 @@ export interface ContainerOptions {
     pickFolder?: (title: string) => Promise<string | undefined>;
     reveal?: (absolutePath: string) => void;
   };
+  /** The state of the system-wide emergency-stop key (only the running app can register one). */
+  emergencyStop?: () => EmergencyStopStatus;
   memory?: {
     /** Asks the person where to save an export (a system dialog). Omitted: exporting is not offered. */
     pickSaveFile?: (title: string, defaultName: string) => Promise<string | undefined>;
@@ -327,9 +330,25 @@ export function createContainer(options: ContainerOptions): Container {
     },
   });
   const memoryTools = createMemoryTools(memory);
+  // The record of what Allaya did. The Activity screen is told whenever a call is recorded.
+  let auditNotified = false;
+  const audit = new ToolAuditRepository(database.db, undefined, undefined, () => {
+    if (auditNotified) return;
+    auditNotified = true;
+    queueMicrotask(() => {
+      auditNotified = false;
+      events.publish('activity:changed', {});
+    });
+  });
+  // Old entries go at start-up; the person can also clear everything from the screen.
+  try {
+    audit.pruneOlderThan(Date.now() - ACTIVITY_RETENTION_DAYS * 86_400_000);
+  } catch (error) {
+    options.logger.child('audit').warn('Could not remove old activity', { error: String(error) });
+  }
   const tools = new ToolService({
     permissions,
-    audit: new ToolAuditRepository(database.db),
+    audit,
     events,
     logger: options.logger.child('tools'),
     tools: [
@@ -427,7 +446,15 @@ export function createContainer(options: ContainerOptions): Container {
     changed: () => events.publish('memory:changed', {}),
     ...(options.memory?.pickSaveFile ? { pickSaveFile: options.memory.pickSaveFile } : {}),
   });
-  registerAgentHandlers(registry, runs);
+  registerActivityHandlers(registry, audit, () => events.publish('activity:changed', {}));
+  registerAgentHandlers(registry, runs, {
+    emergencyStop: () =>
+      options.emergencyStop?.() ?? {
+        accelerator: settings.get('shortcuts.emergencyStop'),
+        registered: false,
+        reason: 'unavailable' as const,
+      },
+  });
 
   return {
     database,

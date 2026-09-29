@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, type IpcMainInvokeEvent } from 'electron';
+import { app, BrowserWindow, globalShortcut, ipcMain, type IpcMainInvokeEvent } from 'electron';
 import { release } from 'node:os';
 import type { AppInfo } from '@allaya/validation';
 import { join } from 'node:path';
@@ -34,6 +34,7 @@ import {
   e2eSaveFile,
 } from './security/e2e-hooks';
 import { createProbeTool } from './security/e2e-tools';
+import { EmergencyStopShortcut } from './security/emergency-shortcut';
 import { SafeStorageCipher } from './security/safe-storage-cipher';
 import { resolveAppPaths } from './paths';
 import { APP_INDEX_URL, installAppProtocol, registerAppScheme } from './security/app-protocol';
@@ -67,6 +68,7 @@ const { logger, file: fileLogSink } = createLogger({
 
 let container: Container | undefined;
 let mainWindow: BrowserWindow | undefined;
+let emergencyShortcut: EmergencyStopShortcut | undefined;
 
 const security = {
   ...(devServerUrl ? { devServerUrl } : {}),
@@ -182,6 +184,12 @@ function bootstrapBackend(): Container {
     },
     files: fileAccess(),
     browser: browserAccess(),
+    emergencyStop: () =>
+      emergencyShortcut?.status() ?? {
+        accelerator: 'Ctrl+Shift+Escape',
+        registered: false,
+        reason: 'unavailable',
+      },
     memory: {
       pickSaveFile: E2E ? () => Promise.resolve(e2eSaveFile()) : pickSaveFileDialog,
     },
@@ -224,6 +232,31 @@ function bootstrapBackend(): Container {
   return c;
 }
 
+/**
+ * The system-wide emergency-stop key: it stops everything exactly as the STOP button does, even when the window is
+ * hidden or unfocused. It follows the "Emergency stop" shortcut setting and is given back on quit.
+ */
+function bindEmergencyStop(c: Container): void {
+  const shortcut = new EmergencyStopShortcut({
+    registrar: globalShortcut,
+    accelerator: () => c.settings.get('shortcuts.emergencyStop'),
+    onStop: () => {
+      const cancelled = c.runs.cancelAll('emergency stop');
+      c.events.publish('agent:stopped', { cancelled, via: 'shortcut' });
+    },
+    logger: logger.child('emergency-stop'),
+  });
+  emergencyShortcut = shortcut;
+  shortcut.apply();
+  let last = c.settings.get('shortcuts.emergencyStop');
+  c.settings.events.on('changed', (snapshot) => {
+    if (snapshot['shortcuts.emergencyStop'] === last) return;
+    last = snapshot['shortcuts.emergencyStop'];
+    shortcut.apply();
+    c.events.publish('agent:safetyChanged', {});
+  });
+}
+
 function openMainWindow(): void {
   if (mainWindow && !mainWindow.isDestroyed()) {
     if (mainWindow.isMinimized()) mainWindow.restore();
@@ -256,6 +289,7 @@ if (!gotLock) {
     installAppProtocol({ rendererRoot: paths.rendererRoot, logger: logger.child('protocol') });
     container = bootstrapBackend();
     bindTheme(container.settings, () => BrowserWindow.getAllWindows());
+    bindEmergencyStop(container);
 
     openMainWindow();
 
@@ -269,6 +303,7 @@ if (!gotLock) {
   });
 
   app.on('will-quit', () => {
+    emergencyShortcut?.release();
     container?.dispose();
     void fileLogSink.flush();
   });

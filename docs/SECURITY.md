@@ -328,9 +328,41 @@ remembered "delete without asking" changing nothing, fence break-outs, the emerg
 the AI provider inside matching prompts; the guards are heuristics; a stored memory can still influence what a model says; real
 models were not used; Windows-specific behaviour (the save dialog) was not exercised.
 
-## 13. Not yet covered (honest status)
+## 13. Safety controls the person can see and use
+
+- **Permissions screen.** Every permission is visible and changeable in one place, with what it means. The cautious defaults are
+  the ones in the policy engine (everything that changes something asks; the camera and administrator commands are off).
+  Sensitive actions (deleting files, sending email, installing software, administrator commands, external communication) cannot
+  be set to "always allow" — the screen does not offer it and the backend refuses it. CRITICAL actions ignore these settings and
+  always need an on-screen click. "Reset to defaults" puts everything back at once.
+- **Emergency stop.** One action stops everything: model streams, running and queued tasks, the running action, an open
+  confirmation, the microphone, and (by pausing them) every schedule. It can be triggered by the STOP button, by typing "stop", by
+  the in-window key (works from text fields), and by a **system-wide key** registered with the operating system so it works when
+  Allaya is hidden. The key is re-registered when the setting changes and released on quit. If the system refuses it, the
+  Permissions screen says why; nothing else depends on it.
+- **Activity record.** Each tool call — allowed, refused, failed or stopped — is recorded with its risk and how permission was
+  settled, and shown on the Activity screen without the stored structured details. Typed text, file contents, clipboard text and
+  memory text are kept out of it; arguments go through secret redaction. Entries older than 90 days are removed at start-up; the
+  person can clear the record (after a question). No tool can clear it, and clearing keeps rows for calls still in flight.
+- **The renderer → main surface is a fixed, reviewed list.** A test walks every channel automatically: each refuses any page
+  that is not the app's own protocol and any sub-frame; each refuses payloads of the wrong kind and prototype tricks; unknown
+  fields are refused or stripped; and no channel may take a path, address, command or script unless it is on a reviewed list (the
+  file channels, which go through the file policy, and the browser window, which goes through the URL policy). A new channel that
+  does is caught until someone reviews it.
+- **The window is not a browser.** No popups, navigation away is blocked, outside connections are blocked by the CSP (observed
+  in real Electron), webviews are disabled, one window.
+- **Dependencies.** `pnpm audit --prod` reports nothing; the one advisory in the full tree is dev-only (a build tool used to make
+  migrations) and is not shipped.
+
+Tests: `tests/security/ipc-surface.test.ts`, `tests/integration/activity.test.ts` and `safety.test.ts`,
+`tests/unit/emergency-shortcut.test.ts`, `tests/unit/renderer/safety-screens.test.tsx`, `tests/e2e/safety.spec.ts`.
+**Unverified / by design:** the system-wide key on Windows (Ctrl+Shift+Esc is also Task Manager's shortcut there — it may be
+refused; the screen would say so), key delivery was checked once by hand on X11; the Activity record is a convenience log, not
+tamper-proof; no third-party review or penetration test has been done.
+
+## 14. Not yet covered (honest status)
 
 See `docs/STATUS.md` for the per-requirement state. Security items that are designed but not yet built or not yet
-verifiable in this environment are tracked there, notably: NTFS-specific file behaviour, Edge/Chrome on Windows, the Windows input adapter's behaviour on a real desktop, the global (system-wide) emergency-stop shortcut, the Permissions screen, the Activity (audit) viewer, and Windows-specific hardening (UI Automation scope, installer signing,
+verifiable in this environment are tracked there, notably: NTFS-specific file behaviour, Edge/Chrome on Windows, the Windows input adapter's behaviour on a real desktop, the system-wide emergency-stop key on Windows, and Windows-specific hardening (UI Automation scope, installer signing,
 auto-update signature verification). Those require the corresponding phases and, for the Windows-specific items,
 a real Windows machine.

@@ -444,8 +444,53 @@ counted a use on every model call) and led to a stronger test.
 - The **Save a copy dialog** is Electron's; in tests it is replaced by a fixed path, so the real dialog is unverified, as is
   everything Windows-specific.
 
+## Phase 12 — Security hardening 🪟 (verified on Linux against real Electron; the system-wide key was verified on X11 only, Windows not at all)
+
+Phase 12 closes the gaps between "the app is safe" and "the person can see and steer that it is safe": the Permissions screen, the
+Activity (audit) screen, a real system-wide emergency-stop key, an automatic review of the whole renderer→main surface, and
+extra hardening checks in real Electron.
+
+| Item                                                                                                                                                                                                                                                                                                                   | State                                                                           |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| **Permissions screen**: every capability and sensitive action with what it allows, its setting (Always allow / Ask / Never), whether it is the default or changed, and "Reset to defaults" (asks first). Sensitive actions are not even offered "Always allow" (and the backend refuses it too)                        | ✅ (renderer + integration + E2E incl. a relaunch)                              |
+| The screen says that the most dangerous actions (paying, creating automations) always need an on-screen click whatever is set, and points to the folder and website lists that live on the Files and Browser screens                                                                                                   | ✅ (renderer)                                                                   |
+| **System-wide emergency-stop key** (default Ctrl+Shift+Esc): registered with the operating system, works when Allaya is hidden or another program is in front, follows the shortcut setting (old key released, new one taken), released on quit; stops exactly what the STOP button stops                              | ✅ (unit; registered on X11 in E2E; a real key press verified once — see below) |
+| It is **never silent when it cannot work**: another program holding the key, an invalid combination, or no shortcut support each show a plain message on the Permissions screen; the STOP button and an in-window key keep working regardless (the in-window key works from text fields)                               | ✅ (unit + renderer + E2E)                                                      |
+| **Activity screen**: what Allaya did, when, how risky, how permission was settled ("you allowed it", "you said no", "blocked by your settings"…), what went wrong; filter by result and risk, search (matched literally), newest first with "Show older", refreshes when something is recorded; clear all (asks first) | ✅ (renderer + integration + E2E)                                               |
+| The record shows only what is safe to show: never the stored structured details; unknown values in a damaged row degrade instead of breaking the screen; audit text stays free of typed text, file contents and memory text (unchanged from earlier phases)                                                            | ✅ (integration + security)                                                     |
+| Old entries are removed at start-up (90 days); clearing never breaks a call that is still running (its row is kept so its result can be written)                                                                                                                                                                       | ✅ (integration; both mutation-checked)                                         |
+| **The whole IPC surface is checked automatically**, channel by channel: every channel refuses a foreign page, a sub-frame of the app, wrong-kind payloads and prototype tricks; unknown fields are refused or stripped; no channel takes a path, address, command or script unless it has been reviewed                | ✅ (security; a new channel is covered the moment it is added)                  |
+| Real-Electron hardening checks: no popups, no navigating away, no outside connections (CSP violation observed), one window — on top of the existing isolation, CSP, nonce and app-protocol checks                                                                                                                      | ✅ (E2E)                                                                        |
+| Dependency review: `pnpm audit --prod` finds nothing; the full audit finds one **dev-only** moderate advisory (esbuild ≤0.24.2 via `drizzle-kit`, used only to generate migrations, never shipped)                                                                                                                     | ✅ (run once, on the day; not automated)                                        |
+
+**How it was tested:** `tests/unit/emergency-shortcut.test.ts`, `tests/integration/activity.test.ts` and `safety.test.ts`,
+`tests/security/ipc-surface.test.ts` (the whole surface), `tests/unit/renderer/safety-screens.test.tsx`,
+`tests/e2e/safety.spec.ts` (5 tests, real Electron). Thirteen rules were **mutation-checked** (each broken on purpose; a test failed):
+wildcard-free search, clearing keeps running calls, retention, sensitive never "always allow", reset, old key released, no
+silent failure to register, a failing stop is contained, unknown result values, page size limit, sub-frame refusal, the setting
+is followed, and the in-window key. The global key was also pressed **at operating-system level** (a synthetic X11 key press
+through the X server) in a one-off run: it stopped a reply in progress. That run is not part of the suite.
+
+**Caveats — read these**
+
+- **Windows was not used.** The system-wide key uses Electron's `globalShortcut`, which behaves differently per platform: on
+  Windows some combinations are reserved by the system or other software, and Ctrl+Shift+Esc is Windows' own Task Manager
+  shortcut — **it may well be refused there** (the screen would then say so, and the in-window key and STOP button still work).
+  Consider a different default on Windows once it can be tried; nothing here proves it works there. On Wayland a global key may
+  not be possible at all.
+- **The synthetic key press is not the suite.** Delivery of a real global key press is verified once, manually, on X11; the
+  automated tests check registration and the handler.
+- The security review is **automated where it can be and otherwise by reading**: the IPC surface test proves refusals and shapes,
+  not that each handler is free of logic errors. It is not a penetration test, and no third party has reviewed the app.
+- **The Activity record is a convenience log, not tamper-proof evidence.** It lives in the same local database Allaya writes
+  to; anything able to edit that file can change it, and the person can clear it. Entries are not signed or chained.
+- The Permissions screen edits Allaya's own permission settings; it cannot revoke what the operating system has granted
+  (for example the microphone at Windows level).
+- Activity has no export and no per-task view yet (a task's own actions are on the task); retention (90 days) is fixed.
+- `pnpm audit` was run once, on the day, with network access; it is not part of CI here.
+
 ## Not started
 
-Phases 12–15 (security hardening, Windows polish, release). Anything that needs Windows UI Automation, the tray,
-global hotkeys, the installer, or auto-update **cannot be verified in this Linux environment** and will be marked 🪟
+Phases 13–15 (Windows polish, testing pass, release). Anything that needs Windows UI Automation, the tray,
+global hotkeys on Windows, the installer, or auto-update **cannot be verified in this Linux environment** and will be marked 🪟
 until run on Windows.

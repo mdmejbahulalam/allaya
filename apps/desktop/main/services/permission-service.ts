@@ -39,6 +39,12 @@ export class PermissionService {
     });
   }
 
+  /** Puts every permission back to its cautious default. */
+  resetAll(): PermissionEntry[] {
+    for (const subject of PERMISSION_SUBJECTS) this.repo.reset(subject);
+    return this.list();
+  }
+
   set(subject: PermissionSubject, mode: PermissionMode): PermissionEntry[] {
     // Deleting files, sending email, installing software and admin commands must be asked about every time.
     if (SENSITIVE.has(subject) && mode === 'always_allow') {

@@ -119,6 +119,18 @@ and the `FileService`.
 
 Nothing in `@allaya/memory` can widen a permission: it only produces text for prompts and rows for the screen.
 
+## Safety controls
+
+Three small pieces sit on top of the tool pipeline so the person can see and steer it:
+
+- **Permissions** — `PermissionService` (defaults from `@allaya/tools`, sensitive actions never "always allow") behind
+  `permissions:*`; the Permissions screen also shows the emergency-stop key's status (`agent:getSafety`).
+- **Emergency stop** — `RunRegistry.cancelAll` is the one implementation. The STOP button, the in-window key and the system-wide
+  key (`EmergencyStopShortcut` over Electron's `globalShortcut`, registered in the main process and re-applied when the setting
+  changes) all end in it; the registry's `stopped` event pauses schedules, ends open questions and silences voice.
+- **Activity** — `ToolAuditRepository` records every call; `activity:list` pages it (filters are parameterised, search is
+  literal), `activity:clear` empties it, start-up prunes it, and `activity:changed` tells the screen when to look again.
+
 ## Data
 
 SQLite (better-sqlite3, WAL, foreign keys on) with Drizzle migrations. JSON payload columns are validated
