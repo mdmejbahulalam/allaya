@@ -1,0 +1,41 @@
+name: Windows installer
+
+# Builds the Windows installer exactly as docs/PACKAGING.md describes, on a real Windows machine,
+# and keeps it as a downloadable artifact. It does not sign or publish anything.
+on:
+  push:
+    branches: [claude/sleepy-ramanujan-y0byjo]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  installer:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build the installer
+        run: pnpm --filter @allaya/desktop dist
+      - name: List what was built
+        shell: pwsh
+        run: Get-ChildItem apps/desktop/release | Select-Object Name, Length
+      - uses: actions/upload-artifact@v4
+        with:
+          name: allaya-windows-installer
+          path: |
+            apps/desktop/release/*.exe
+            apps/desktop/release/latest.yml
+            apps/desktop/release/*.blockmap
+          if-no-files-found: error
+      - name: Smoke-test the packaged program
+        env:
+          ALLAYA_PACKAGED_EXE: ${{ github.workspace }}\apps\desktop\release\win-unpacked\Allaya.exe
+        run: pnpm test:packaged
