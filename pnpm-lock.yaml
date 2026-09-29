@@ -129,6 +129,9 @@ importers:
       '@allaya/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@allaya/filesystem':
+        specifier: workspace:*
+        version: link:../../packages/filesystem
       '@allaya/language':
         specifier: workspace:*
         version: link:../../packages/language
@@ -238,6 +241,21 @@ importers:
       '@types/better-sqlite3':
         specifier: ^9.6.0
         version: 9.6.0
+
+  packages/filesystem:
+    dependencies:
+      '@allaya/shared':
+        specifier: workspace:*
+        version: link:../shared
+      '@allaya/tools':
+        specifier: workspace:*
+        version: link:../tools
+      '@allaya/types':
+        specifier: workspace:*
+        version: link:../types
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
 
   packages/language:
     dependencies:

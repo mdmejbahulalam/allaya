@@ -198,6 +198,11 @@ export function createComputerTools(
         requires: ['clipboard'],
         describe: (_a, l) => pick(l, 'Read the clipboard', 'ক্লিপবোর্ড পড়া হচ্ছে'),
         auditSummary: (_a, l) => pick(l, 'Read the clipboard', 'ক্লিপবোর্ড পড়া হয়েছে'),
+        // The audit trail records that the clipboard was read, never what was on it.
+        auditOutput: (o: { characters: number; truncated: boolean }) => ({
+          characters: o.characters,
+          truncated: o.truncated,
+        }),
         async execute() {
           const text = await engine.getClipboardText();
           return {

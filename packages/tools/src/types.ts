@@ -53,6 +53,11 @@ export interface ToolDefinition<S extends z.ZodType = z.ZodType, O = unknown> {
   verify?(args: z.output<S>, output: O, context: ToolContext): Promise<VerificationResult>;
   /** Arguments as they may be stored in the audit log. Defaults to generic secret redaction. */
   redactArgs?(args: z.output<S>): unknown;
+  /**
+   * The output as it may be stored in the audit log, when the real output holds private content (a file's text,
+   * the clipboard). The model still receives the full output; the audit trail keeps only this.
+   */
+  auditOutput?(output: O): unknown;
 }
 
 /** Preserves argument/output types at the call site; the registry stores the erased form. */
@@ -90,6 +95,8 @@ export interface ExecutionResult {
   summary: string;
   /** Privacy-preserving version of `summary` for the audit log, when the tool provides one. */
   auditSummary?: string;
+  /** Privacy-preserving version of `output` for the audit log, when the tool provides one. */
+  auditOutput?: unknown;
   startedAt: number;
   durationMs: number;
 }

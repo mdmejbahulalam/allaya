@@ -149,10 +149,40 @@ Tests: `tests/unit/tools/*` (policy invariants, broker, executor with mutation-c
   locally and never sent to a provider.
 - **Honesty**: input tools report their effect as _unverified_ rather than claiming success.
 
-## 8. Not yet covered (honest status)
+## 8. File access
+
+- **One guard for everything.** The model's file tools and the Files screen both call `FileManager`, which resolves every path
+  through `PathPolicy` first. There is no second, looser path.
+- **Scope.** Only the known folders and folders the user added with the system picker. A path must begin with such a folder's
+  name or lie inside one. `..` is refused (not normalised). After resolving links on disk the result must _still_ be inside
+  the folder, so a shortcut placed in Documents cannot lead to `C:\Windows` or to Allaya's own data. Network, device,
+  alternate-data-stream, reserved-name, 8.3 short-name and text-direction-spoofing names are refused.
+- **Secrets and system files.** Names that usually hold credentials (`.ssh`, `.env*`, keys, password databases, browser
+  profiles) can't be read, listed, searched, copied or changed; system-managed names can't be changed. Allaya's own data
+  folder can't be reached from either side. Folders that would expose these (a drive, the user profile, `AppData`, the app
+  data folder) can't be added.
+- **No programs.** Allaya never creates, renames to, or opens `.exe/.bat/.ps1/.js/.lnk/…`, so it cannot be talked into
+  planting something the user might double-click.
+- **Non-destructive by construction.** Create/copy/move/rename refuse an existing name. Replacing a file needs an explicit flag,
+  is HIGH risk (always asks), and keeps the old version. Delete only moves to the trash: a file is HIGH, a folder is CRITICAL
+  (on-screen click only). Roots can't be moved, renamed or deleted. Every change is verified afterwards and journaled.
+- **Undo never destroys the user's work.** It re-validates paths against the current folders and refuses if the file changed
+  since Allaya's change (size or timestamp).
+- **Privacy.** Reading a file asks first and says the text goes to the AI provider; the audit log records that a file was read
+  or written and how large it was, never its content. The prompt tells the model that file contents are data, not orders.
+- **Bounded.** Reads, searches and copies have fixed limits; long operations honour STOP.
+- **Same pipeline from the screen.** Changes made in the Files screen run through the tool executor (permission, confirmation,
+  verification, audit) and are cancelled by the emergency stop. Switching `file_access` off blocks both the tools and the screen.
+
+Tests: `tests/unit/filesystem/*` (real temp directories, `EXDEV` simulated, ten mutation-checked properties),
+`tests/security/filesystem.test.ts` (hostile-input battery and a generated-path property test),
+`tests/integration/files.test.ts` (model and screen paths, audit contents, restart), `tests/e2e/files.spec.ts` (real Electron).
+**Unverified:** NTFS junction/short-name/case behaviour, the Recycle Bin, and the race between checking a path and using it.
+
+## 9. Not yet covered (honest status)
 
 See `docs/STATUS.md` for the per-requirement state. Security items that are designed but not yet built or not yet
-verifiable in this environment are tracked there, notably: the real file/browser tools and their path and scope
-restrictions, the Windows input adapter's behaviour on a real desktop, the global (system-wide) emergency-stop shortcut, the Permissions screen, and Windows-specific hardening (UI Automation scope, installer signing,
+verifiable in this environment are tracked there, notably: the browser tools and their domain restrictions, NTFS-specific file
+behaviour, the Windows input adapter's behaviour on a real desktop, the global (system-wide) emergency-stop shortcut, the Permissions screen, and Windows-specific hardening (UI Automation scope, installer signing,
 auto-update signature verification). Those require the corresponding phases and, for the Windows-specific items,
 a real Windows machine.

@@ -446,6 +446,26 @@ export const fileBookmarks = sqliteTable(
   (t) => [uniqueIndex('file_bookmarks_path_uq').on(t.path)],
 );
 
+/** What the file tools changed, with what is needed to reverse it (see `@allaya/filesystem`'s undo journal). */
+export const fileOperations = sqliteTable(
+  'file_operations',
+  {
+    id: text('id').primaryKey(),
+    /** `create_file` | `create_folder` | `overwrite` | `copy` | `move` | `trash` */
+    kind: text('kind').notNull(),
+    /** The path as shown to the user (`Documents/report.txt`). */
+    label: text('label').notNull(),
+    target: text('target'),
+    undoable: integer('undoable', { mode: 'boolean' }).notNull(),
+    note: text('note'),
+    /** The absolute paths needed to undo; re-validated against the allowed folders before use. */
+    dataJson: text('data_json'),
+    createdAt: createdAt(),
+    undoneAt: integer('undone_at', { mode: 'number' }),
+  },
+  (t) => [index('file_operations_created_idx').on(t.createdAt)],
+);
+
 // Composite-key helper table used for schema-version bookkeeping of seed data.
 export const seedState = sqliteTable(
   'seed_state',

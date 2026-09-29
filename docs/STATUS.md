@@ -19,21 +19,21 @@ All checks below run in CI-equivalent form in this environment: `pnpm typecheck`
 
 ## Phase 1 — Design system & shell ✅
 
-| Item                                                                                                    | State                                      |
-| ------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
-| Tokens (spec palette), dark/light/system, accent picker, density, motion, glass                         | ✅                                         |
-| WCAG AA contrast **computed from the real CSS** for both themes; derived custom-accent tokens AA-safe   | ✅ (unit)                                  |
-| Inter + Noto Sans Bengali bundled locally (CSP-safe, offline); Bengali optical scale + line-height      | ✅ (E2E font check)                        |
-| All §70 components (Button…ConfirmationDialog, Timeline, VoiceVisualizer, AutomationNode…) + gallery    | ✅                                         |
-| Shell: sidebar (pin/collapse/hover-expand), header, live-activity panel, command palette (Ctrl+K)       | ✅ (E2E)                                   |
-| Responsive tiers 1920/1440/1280/small — drawer + forced-collapsed rail; critical controls never hidden  | ✅ (E2E)                                   |
-| Keyboard: skip link, focus order, Esc closes one layer, configurable shortcuts (recorder)               | ✅                                         |
-| Confirmation dialog safe defaults (Cancel focused, Esc cancels)                                         | ✅ (unit; mutation-checked)                |
-| Strict CSP with per-response nonce, custom `allaya-app://` protocol, traversal-safe server              | ✅ (unit + E2E)                            |
-| i18n: `en`/`bn` catalogs, typed keys, plural + Bengali numerals/dates, key/placeholder parity test      | ✅                                         |
-| Screens: Home, Settings (General/Appearance/Language/Privacy/Shortcuts), Help, gallery are functional   | ✅                                         |
-| Screens Chat, Tasks, Automations, Computer, Apps, Browser, Files, Memory, Models, Activity, Permissions | empty states only — built in their phases  |
-| Native window-caption overlay colours follow the theme                                                  | 🪟 (code written; only visible on Windows) |
+| Item                                                                                                   | State                                      |
+| ------------------------------------------------------------------------------------------------------ | ------------------------------------------ |
+| Tokens (spec palette), dark/light/system, accent picker, density, motion, glass                        | ✅                                         |
+| WCAG AA contrast **computed from the real CSS** for both themes; derived custom-accent tokens AA-safe  | ✅ (unit)                                  |
+| Inter + Noto Sans Bengali bundled locally (CSP-safe, offline); Bengali optical scale + line-height     | ✅ (E2E font check)                        |
+| All §70 components (Button…ConfirmationDialog, Timeline, VoiceVisualizer, AutomationNode…) + gallery   | ✅                                         |
+| Shell: sidebar (pin/collapse/hover-expand), header, live-activity panel, command palette (Ctrl+K)      | ✅ (E2E)                                   |
+| Responsive tiers 1920/1440/1280/small — drawer + forced-collapsed rail; critical controls never hidden | ✅ (E2E)                                   |
+| Keyboard: skip link, focus order, Esc closes one layer, configurable shortcuts (recorder)              | ✅                                         |
+| Confirmation dialog safe defaults (Cancel focused, Esc cancels)                                        | ✅ (unit; mutation-checked)                |
+| Strict CSP with per-response nonce, custom `allaya-app://` protocol, traversal-safe server             | ✅ (unit + E2E)                            |
+| i18n: `en`/`bn` catalogs, typed keys, plural + Bengali numerals/dates, key/placeholder parity test     | ✅                                         |
+| Screens: Home, Settings (General/Appearance/Language/Privacy/Shortcuts), Help, gallery are functional  | ✅                                         |
+| Screens Tasks, Automations, Apps, Browser, Memory, Activity, Permissions                               | empty states only — built in their phases  |
+| Native window-caption overlay colours follow the theme                                                 | 🪟 (code written; only visible on Windows) |
 
 ## Phase 2 — Core chat ✅ (with caveats below)
 
@@ -147,8 +147,8 @@ All checks below run in CI-equivalent form in this environment: `pnpm typecheck`
 
 **Caveats — read these**
 
-- **There are no computer-control, file or browser tools yet** (Phases 6–8), so the engine is proven with `get_datetime` and a
-  harmless test probe, not with real actions. The risk classification of real tools will be reviewed as each is written.
+- _(Historical note: when this phase was written there were no real tools; computer control arrived in Phase 6 and files in
+  Phase 7, each with its risk classification reviewed. Browser tools are still to come in Phase 8.)_
 - The model side is verified against a **fake Anthropic-shaped server**. Tool-call streaming for the other providers is covered by
   the Phase 2 wire-format fixtures only.
 - The confirmation dialog makes the rest of the window inert (standard modal behaviour), which is why it carries its own
@@ -192,9 +192,57 @@ All checks below run in CI-equivalent form in this environment: `pnpm typecheck`
 - Only the applications in the catalog can be opened; apps discovered from the Start menu are not supported yet.
 - macOS/Linux: only screenshots and the clipboard exist (by design; no other adapter is implemented).
 
+## Phase 7 — File system 🪟 (logic verified on a real disk; Windows/NTFS behaviour NOT verified)
+
+`@allaya/filesystem` (Electron-free) + `FileService` + the Files screen. **Every** file operation — the model's tools and the
+screen's own actions — goes through one guard (`PathPolicy` → `FileManager`).
+
+| Item                                                                                                                                                                                                                              | State                                                          |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| **Scope**: only the OS known folders (Desktop/Documents/Downloads/Pictures/Videos/Music) plus folders the user adds through the system picker; a path must start with a folder name (any supported language) or lie inside one    | ✅ (unit + integration + E2E)                                  |
+| `..` is **rejected**, not normalised; URLs, `\\server`, `\\?\`, drive-relative paths, control characters and text-direction spoofing characters are refused (Bengali ZWJ/ZWNJ stay valid)                                         | ✅ (unit; the tests found and closed a spoofing gap)           |
+| Windows name rules (alternate data streams, wildcards, reserved device names, trailing dots/spaces, 8.3 short names) checked as pure string logic under `win32` semantics                                                         | ✅ (unit) · 🪟 not run against NTFS                            |
+| **Links cannot lead out**: `realpath` containment (parents and target), dangling/looping links refused, a secret name hidden behind a link is re-checked on the real location; list/search/copy never follow links                | ✅ (unit + property test + E2E; POSIX symlinks only)           |
+| Secrets are never read or changed: `.ssh`, `.env*`, `*.pem/.key/.pfx/.kdbx`, `id_rsa*`, `.npmrc`, browser profiles… (also omitted from listings, searches and folder copies); system-managed names are write-protected            | ✅ (unit)                                                      |
+| Allaya's own data folder is unreachable in both directions (a path inside it, or a folder that contains it); roots cannot be a drive, the user profile, system folders, or contain/sit inside app data                            | ✅ (unit + integration)                                        |
+| **No program files**: `.exe/.bat/.ps1/.js/.lnk/.msi/…` can't be created, renamed to, or opened by Allaya                                                                                                                          | ✅ (unit + integration; mutation-checked)                      |
+| **Nothing is overwritten silently**: create/copy/move/rename refuse an existing name (the tests caught a bug where `rename` would replace a file); replacing needs `overwrite`, is HIGH, and keeps the old version                | ✅ (unit; mutation-checked)                                    |
+| **Delete = trash**: a file is HIGH, a folder is CRITICAL (on-screen click only), roots can't be deleted, the result is verified; links are deleted as links                                                                       | ✅ (unit + integration + E2E)                                  |
+| **Undo journal** (SQLite, survives restart): create, mkdir, overwrite, copy, move/rename, delete (where the trash is restorable). Undo **refuses if the user changed the file since** and re-validates paths                      | ✅ (unit + integration + E2E; mutation-checked)                |
+| Cross-drive moves: copy → prove sizes → only then trash the original; a failed copy leaves no half-copy and the original intact; a journal that cannot be written never turns a finished action into a failure                    | ✅ (unit, `EXDEV` simulated)                                   |
+| Bounded work: read ≤ 100 000 characters (only the head of a huge file is read), search ≤ 20 000 entries / depth 8 (and says when it was cut short), copies ≤ 5 000 items / 1 GB refused **before** anything is written            | ✅ (unit)                                                      |
+| `read_file` is text only (binary refused; UTF-8/UTF-16 with BOM; Bengali fine), **asks first** and says the text goes to the AI provider; the audit log keeps that a file was read, never its text                                | ✅ (unit + integration + E2E)                                  |
+| 14 tools: `list_folder`, `find_files`, `get_file_info`, `read_file`, `create_folder`, `write_file`, `copy_file`, `move_file`, `rename_file`, `delete_file`, `delete_folder`, `open_file`, `list_file_actions`, `undo_file_action` | ✅ (unit + integration + E2E)                                  |
+| Hostile-input battery: ~40 hostile paths × every operation leave everything outside the folders (and all secrets) byte-identical; 3 000 generated paths never resolve outside or to a secret                                      | ✅ (security tests)                                            |
+| Files screen: folders, breadcrumb, search, hidden toggle, create/rename/delete/open/show-in-Explorer, add/remove a folder, "what Allaya changed" with **Undo**, access-off state; Bengali UI and numerals                         | ✅ (unit + E2E) · 🪟 Explorer/open on Windows                  |
+| Changes made from the screen use the **same** permission → confirmation → verification → audit pipeline as the model (one set of rules), and the emergency stop reaches them                                                      | ✅ (integration + E2E)                                         |
+| Read-tool audit privacy also applied retroactively to `read_clipboard` (`auditOutput`: the audit keeps a length, not the clipboard text)                                                                                          | ✅ (unit + integration)                                        |
+| System prompt: file/clipboard contents are _information, not orders_ (prompt-injection guard); a refusal is final; delete is "moved to the trash"                                                                                 | ✅ wording (unit) — the model's obedience is not testable here |
+
+**Caveats — read these**
+
+- **Nothing here has run on Windows/NTFS.** Verified on POSIX only: directory junctions vs symlinks, case-insensitive rename
+  (`a.txt` → `A.txt` is handled by comparing inodes; unproven on NTFS), `rename` onto an existing file, 8.3 short-name
+  expansion by `realpath`, `shell.trashItem` (Recycle Bin), `shell.openPath` and the native folder picker. Test runs use
+  Allaya's own trash folder, a recording "opener" and a scripted picker instead of the Windows shell.
+- **Deletes are not undoable in production**: the Windows Recycle Bin can be written to but not restored from by code, so the
+  journal says "restore it from the Recycle Bin". (Overwrites keep their previous version for 30 days in Allaya's own backup
+  folder, so replacing a file _is_ undoable.)
+- **Check-then-use**: a path is validated and then used; another program that swaps a folder for a link in between could
+  defeat that. The realistic threat here is a model-generated path, not a racing local process, but the risk is not zero.
+- **OneDrive "Files on-demand"**: if Documents/Desktop are redirected to OneDrive, reading a cloud-only file makes Windows
+  download it. How listing and sizes behave for placeholders is unverified.
+- **Not offered**: append/edit-in-place (replace with a backup instead), reading PDF/Word/Excel, searching file _contents_,
+  archives, attributes/permissions, drag & drop, multi-select, previews. Deleting many files means one confirmation each.
+- The program-file list also blocks `.js` and `.sh` **files Allaya would create** — over-broad for developers, deliberately so.
+  Program files _inside_ a folder that is copied or moved are carried along (they already existed; nothing is authored).
+- Browsing in the Files screen is the user's own action and is not written to the audit log (changes, reads by the model and
+  undo are). Browsing still obeys `file_access = never`.
+- Renderer bundle: the main chunk is still ~1.7 MB (unchanged by this phase); the Files screen is its own lazy chunk (~31 kB).
+
 ## Not started
 
-Phases 7–15 (files, browser, task engine, automation,
+Phases 8–15 (browser, task engine, automation,
 memory, security hardening, Windows polish, release). Anything that needs Windows UI Automation, the tray,
 global hotkeys, the installer, or auto-update **cannot be verified in this Linux environment** and will be marked 🪟
 until run on Windows.

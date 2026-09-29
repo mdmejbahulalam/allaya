@@ -14,7 +14,21 @@ import { FolderScreenshotStore } from './computer/screenshot-store';
 import { IpcDispatcher } from './ipc/dispatcher';
 import type { EventSink } from './ipc/events';
 import { createLogger } from './logging';
-import { E2E, InsecureTestCipher, e2eBaseUrls } from './security/e2e-hooks';
+import { appendFileSync } from 'node:fs';
+import { AppTrash, type KnownFolderId } from '@allaya/filesystem';
+import {
+  openWithDefaultProgram,
+  pickFolderDialog,
+  RecycleBin,
+  revealInFileManager,
+} from './files/electron-files';
+import {
+  E2E,
+  InsecureTestCipher,
+  e2eBaseUrls,
+  e2eFilesDir,
+  e2ePickedFolder,
+} from './security/e2e-hooks';
 import { createProbeTool } from './security/e2e-tools';
 import { SafeStorageCipher } from './security/safe-storage-cipher';
 import { resolveAppPaths } from './paths';
@@ -71,6 +85,53 @@ function getAppInfo(): AppInfo {
   };
 }
 
+/** The folders Allaya may use by default. Tests point them at a sandbox; otherwise they are the user's own. */
+function knownFolders(): Partial<Record<KnownFolderId, string>> {
+  // A test build never reaches the real profile: without a sandbox it gets folders that do not exist.
+  const sandbox = E2E
+    ? (e2eFilesDir() ?? join(app.getPath('temp'), 'allaya-e2e-no-files'))
+    : undefined;
+  if (sandbox) {
+    return {
+      desktop: join(sandbox, 'Desktop'),
+      documents: join(sandbox, 'Documents'),
+      downloads: join(sandbox, 'Downloads'),
+      pictures: join(sandbox, 'Pictures'),
+      videos: join(sandbox, 'Videos'),
+      music: join(sandbox, 'Music'),
+    };
+  }
+  return {
+    desktop: app.getPath('desktop'),
+    documents: app.getPath('documents'),
+    downloads: app.getPath('downloads'),
+    pictures: app.getPath('pictures'),
+    videos: app.getPath('videos'),
+    music: app.getPath('music'),
+  };
+}
+
+function fileAccess() {
+  return {
+    knownFolders: knownFolders(),
+    // Allaya's own database, vault ciphertext, logs and backups are never reachable through the file tools.
+    protectedPaths: [paths.userData],
+    home: app.getPath('home'),
+    backupsFolder: join(paths.userData, 'file-backups'),
+    // The Windows Recycle Bin in production. Test runs have no desktop trash, so they use a folder Allaya can restore from.
+    trash: E2E ? new AppTrash(join(paths.userData, 'trash')) : new RecycleBin(),
+    // Test runs must not launch real programs: they record what would have been opened.
+    opener: E2E
+      ? (path: string) => {
+          appendFileSync(join(paths.userData, 'e2e-opened.txt'), `${path}\n`);
+          return Promise.resolve();
+        }
+      : openWithDefaultProgram,
+    pickFolder: E2E ? () => Promise.resolve(e2ePickedFolder()) : pickFolderDialog,
+    reveal: E2E ? () => undefined : revealInFileManager,
+  };
+}
+
 function bootstrapBackend(): Container {
   const c = createContainer({
     databasePath: paths.database,
@@ -92,6 +153,7 @@ function bootstrapBackend(): Container {
         E2E ? join(paths.userData, 'screenshots') : join(app.getPath('pictures'), 'Allaya'),
       ),
     },
+    files: fileAccess(),
     cipher: E2E ? new InsecureTestCipher() : new SafeStorageCipher(),
     ...(E2E
       ? {

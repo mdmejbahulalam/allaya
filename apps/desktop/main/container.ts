@@ -1,5 +1,7 @@
 import {
   ConversationRepository,
+  FileBookmarkRepository,
+  FileOperationRepository,
   PermissionRepository,
   ToolAuditRepository,
   openDatabase,
@@ -8,7 +10,7 @@ import {
   type DatabaseHandle,
 } from '@allaya/database';
 import { CredentialVault, type Cipher, type CredentialStore } from '@allaya/security';
-import { RunRegistry, type Logger } from '@allaya/shared';
+import { RunRegistry, newId, type Logger } from '@allaya/shared';
 import type { ProviderId } from '@allaya/types';
 import type { AppInfo } from '@allaya/validation';
 import type { ProviderFactoryOptions } from '@allaya/ai';
@@ -18,7 +20,19 @@ import {
   createComputerTools,
   type ScreenshotStore,
 } from '@allaya/computer';
+import {
+  AppTrash,
+  FileManager,
+  PathPolicy,
+  createFileTools,
+  type KnownFolderId,
+  type TrashProvider,
+} from '@allaya/filesystem';
 import type { ToolDefinition } from '@allaya/tools';
+import { DbJournal } from './files/db-journal';
+import { FolderRoots } from './files/folder-roots';
+import { FileService } from './services/file-service';
+import { registerFileHandlers } from './ipc/handlers/files';
 import { EventPublisher } from './ipc/events';
 import { HandlerRegistry } from './ipc/registry';
 import { registerAgentHandlers } from './ipc/handlers/agent';
@@ -36,6 +50,8 @@ import { SettingsService } from './services/settings-service';
 import { ToolService } from './services/tool-service';
 import { VoiceService } from './services/voice-service';
 
+const BACKUP_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
+
 export interface ContainerOptions {
   databasePath: string;
   migrationsFolder: string;
@@ -49,6 +65,24 @@ export interface ContainerOptions {
   providerOptions?: Partial<Omit<ProviderFactoryOptions, 'getApiKey'>>;
   /** Computer control for this machine. Omitted in tests that do not touch the desktop (then none is offered). */
   computer?: { engine: ComputerEngine; screenshots?: ScreenshotStore & { folder?: string } };
+  /**
+   * File access. Omitted in tests that do not touch files (then the model is offered no file tools). Everything
+   * that needs Electron (the Recycle Bin, opening, the folder picker) is passed in, so this stays testable.
+   */
+  files?: {
+    /** Where the OS's known folders are. Only these, plus folders the user adds, are ever reachable. */
+    knownFolders: Partial<Record<KnownFolderId, string>>;
+    /** Allaya's own data folder, and anything else that must never be touched. */
+    protectedPaths: string[];
+    home: string;
+    /** Holds previous versions of overwritten files. */
+    backupsFolder: string;
+    /** Where deletes go. */
+    trash: TrashProvider;
+    opener?: (absolutePath: string) => Promise<void>;
+    pickFolder?: (title: string) => Promise<string | undefined>;
+    reveal?: (absolutePath: string) => void;
+  };
   /** Extra tools to register (each later phase supplies its own; E2E adds harmless test tools). */
   extraTools?: ToolDefinition[];
   /** How long an unanswered confirmation stays open. Tests shorten it. */
@@ -67,6 +101,7 @@ export interface Container {
   voice: VoiceService;
   tools: ToolService;
   computer: ComputerService;
+  files: FileService;
   permissions: PermissionService;
   runs: RunRegistry;
   events: EventPublisher;
@@ -116,15 +151,60 @@ export function createContainer(options: ContainerOptions): Container {
     ...(options.computer?.screenshots ? { screenshots: options.computer.screenshots } : {}),
     logger: options.logger.child('computer'),
   });
+  // File access: known folders + user-added folders, one guard for the model and for the Files screen.
+  let fileManager: FileManager | undefined;
+  let fileTools: ToolDefinition[] = [];
+  let folderRoots: FolderRoots | undefined;
+  const bookmarks = new FileBookmarkRepository(database.db);
+  if (options.files) {
+    const files = options.files;
+    folderRoots = new FolderRoots(files.knownFolders, bookmarks);
+    const roots = folderRoots;
+    const journal = new DbJournal(new FileOperationRepository(database.db), (entry) => {
+      events.publish('files:changed', {});
+      const shown = entry?.target ?? entry?.label;
+      if (entry && entry.kind !== 'trash' && shown) {
+        bookmarks.touchRecent(newId('rec'), shown.split('/').at(-1) ?? shown, shown);
+      }
+    });
+    const backups = new AppTrash(files.backupsFolder);
+    // Previous versions of overwritten files are kept for a month, then removed.
+    void backups.purge(BACKUP_RETENTION_MS).catch(() => undefined);
+    fileManager = new FileManager({
+      policy: new PathPolicy({ roots: () => roots.list(), protectedPaths: files.protectedPaths }),
+      trash: files.trash,
+      backups,
+      journal,
+      warn: (message, error) =>
+        options.logger.child('files').warn(message, { error: String(error) }),
+      ...(files.opener ? { opener: files.opener } : {}),
+    });
+    fileTools = createFileTools(fileManager);
+  }
   const tools = new ToolService({
     permissions,
     audit: new ToolAuditRepository(database.db),
     events,
     logger: options.logger.child('tools'),
-    tools: [...computerTools, ...(options.extraTools ?? [])],
+    tools: [...computerTools, ...fileTools, ...(options.extraTools ?? [])],
     ...(options.confirmationTimeoutMs !== undefined
       ? { confirmationTimeoutMs: options.confirmationTimeoutMs }
       : {}),
+  });
+
+  const fileService = new FileService({
+    manager: fileManager,
+    roots: folderRoots,
+    bookmarks,
+    tools,
+    permissions,
+    runs,
+    settings,
+    osLocale: () => options.getAppInfo().osLocale,
+    logger: options.logger.child('files'),
+    home: options.files?.home ?? '',
+    ...(options.files?.pickFolder ? { pickFolder: options.files.pickFolder } : {}),
+    ...(options.files?.reveal ? { reveal: options.files.reveal } : {}),
   });
 
   const chat = new ChatService({
@@ -155,6 +235,7 @@ export function createContainer(options: ContainerOptions): Container {
   registerVoiceHandlers(registry, voice);
   registerToolHandlers(registry, tools, permissions);
   registerComputerHandlers(registry, computer);
+  registerFileHandlers(registry, fileService);
   registerAgentHandlers(registry, runs);
 
   return {
@@ -165,6 +246,7 @@ export function createContainer(options: ContainerOptions): Container {
     voice,
     tools,
     computer,
+    files: fileService,
     permissions,
     runs,
     events,

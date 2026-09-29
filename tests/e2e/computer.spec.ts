@@ -118,13 +118,29 @@ test('the model is offered only the tools that work on this machine', async () =
   const names = (chatRequests()[0]!.body as { tools: Array<{ name: string }> }).tools
     .map((t) => t.name)
     .sort();
-  expect(names).toEqual([
-    'e2e_probe',
-    'get_datetime',
-    'read_clipboard',
-    'take_screenshot',
-    'write_clipboard',
-  ]);
+  expect(names).toEqual(
+    [
+      'copy_file',
+      'create_folder',
+      'delete_file',
+      'delete_folder',
+      'e2e_probe',
+      'find_files',
+      'get_datetime',
+      'get_file_info',
+      'list_file_actions',
+      'list_folder',
+      'move_file',
+      'open_file',
+      'read_clipboard',
+      'read_file',
+      'rename_file',
+      'take_screenshot',
+      'undo_file_action',
+      'write_clipboard',
+      'write_file',
+    ].sort(),
+  );
 });
 
 test('copying text to the clipboard asks first, shows exactly what will be copied, then verifies by reading it back', async () => {

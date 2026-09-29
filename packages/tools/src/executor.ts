@@ -101,6 +101,7 @@ export class ToolExecutor {
     const base = { callId: call.id, tool: call.name, startedAt };
     /** Set once the tool is known; carried on every result so the audit log never sees sensitive text. */
     let auditSummary: string | undefined;
+    let auditOutputOf: ((output: unknown) => unknown) | undefined;
     const finish = (
       partial: Omit<ExecutionResult, 'callId' | 'tool' | 'startedAt' | 'durationMs'>,
     ): ExecutionResult => {
@@ -108,6 +109,9 @@ export class ToolExecutor {
         ...base,
         ...partial,
         ...(auditSummary !== undefined ? { auditSummary } : {}),
+        ...(partial.output !== undefined && auditOutputOf
+          ? { auditOutput: safeAuditOutput(auditOutputOf, partial.output) }
+          : {}),
         durationMs: this.now().getTime() - startedAt,
       };
       options.onProgress?.({ type: 'finished', result });
@@ -225,6 +229,7 @@ export class ToolExecutor {
     } catch {
       auditSummary = tool.name;
     }
+    if (tool.auditOutput) auditOutputOf = (output) => tool.auditOutput?.(output);
     const redacted = tool.redactArgs ? auditArguments(tool.redactArgs(args)) : auditArguments(args);
     const recorded = record({
       callId: call.id,
@@ -417,6 +422,15 @@ export class ToolExecutor {
       ...(evidence ? { evidence } : {}),
       summary,
     });
+  }
+}
+
+/** A broken `auditOutput` must never leak the real output into the log, so the fallback withholds it. */
+function safeAuditOutput(convert: (output: unknown) => unknown, output: unknown): unknown {
+  try {
+    return convert(output);
+  } catch {
+    return '[output withheld]';
   }
 }
 

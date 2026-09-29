@@ -40,6 +40,7 @@ Operating system
 | `@allaya/voice`      | Main-process STT/TTS providers (OpenAI-compatible)                                              |
 | `@allaya/tools`      | Tool registry, risk/permission policy, confirmation broker, execution pipeline                  |
 | `@allaya/computer`   | Computer control engine: adapters (Windows/host/memory), app catalog, input-safety rules, tools |
+| `@allaya/filesystem` | Scoped file operations: path policy, guarded ops, trash, undo journal, file tools               |
 
 More packages arrive with their phases (see STATUS.md).
 

@@ -142,7 +142,9 @@ export class ToolService {
             status: result.status,
             ok: result.ok,
             outputJson:
-              result.output === undefined ? undefined : clip(JSON.stringify(redact(result.output))),
+              result.output === undefined
+                ? undefined
+                : clip(JSON.stringify(redact(result.auditOutput ?? result.output))),
             verificationJson: JSON.stringify({
               state: result.verification,
               evidence: result.evidence,

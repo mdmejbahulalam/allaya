@@ -4,7 +4,7 @@ import { MemorySink, StructuredLogger, type Logger } from '@allaya/shared';
 import type { AppInfo } from '@allaya/validation';
 import type { ToolDefinition } from '@allaya/tools';
 import type { ComputerEngine, ScreenshotStore } from '@allaya/computer';
-import { createContainer, type Container } from '@main/container';
+import { createContainer, type Container, type ContainerOptions } from '@main/container';
 import { IpcDispatcher, type SenderInfo } from '@main/ipc/dispatcher';
 import { MemoryEventSink } from '@main/ipc/events';
 import { FakeCipher } from './cipher';
@@ -35,6 +35,7 @@ export interface TestBackendOptions {
   databasePath?: string;
   extraTools?: ToolDefinition[];
   computer?: { engine: ComputerEngine; screenshots?: ScreenshotStore & { folder?: string } };
+  files?: ContainerOptions['files'];
   confirmationTimeoutMs?: number;
 }
 
@@ -69,6 +70,7 @@ export function createTestBackend(options: TestBackendOptions = {}): TestBackend
     strict: true,
     ...(options.extraTools ? { extraTools: options.extraTools } : {}),
     ...(options.computer ? { computer: options.computer } : {}),
+    ...(options.files ? { files: options.files } : {}),
     ...(options.confirmationTimeoutMs !== undefined
       ? { confirmationTimeoutMs: options.confirmationTimeoutMs }
       : {}),

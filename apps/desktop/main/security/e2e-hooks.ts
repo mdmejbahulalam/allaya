@@ -30,3 +30,12 @@ export function e2eBaseUrls(): Partial<Record<ProviderId, string>> {
     return {};
   }
 }
+
+/**
+ * `ALLAYA_E2E_FILES_DIR` gives the known folders (Desktop, Documents…) a sandbox to live in, so tests never touch
+ * the real profile. It must be outside the user-data folder, which the file tools refuse to touch.
+ */
+export const e2eFilesDir = (): string | undefined => process.env['ALLAYA_E2E_FILES_DIR'];
+
+/** In E2E the native folder picker cannot be driven, so it "picks" this folder instead. */
+export const e2ePickedFolder = (): string | undefined => process.env['ALLAYA_E2E_PICK_FOLDER'];

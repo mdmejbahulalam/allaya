@@ -1,0 +1,19 @@
+{
+  "name": "@allaya/filesystem",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Scoped, verified file operations: path policy (known folders only, symlink-proof), guarded operations, trash, undo journal and the file tools the model may call. Electron-free.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@allaya/shared": "workspace:*",
+    "@allaya/tools": "workspace:*",
+    "@allaya/types": "workspace:*",
+    "zod": "^4.6.5"
+  }
+}

@@ -18,6 +18,7 @@
     "@allaya/ai": "workspace:*",
     "@allaya/computer": "workspace:*",
     "@allaya/database": "workspace:*",
+    "@allaya/filesystem": "workspace:*",
     "@allaya/language": "workspace:*",
     "@allaya/localization": "workspace:*",
     "@allaya/security": "workspace:*",
