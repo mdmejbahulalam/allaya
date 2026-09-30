@@ -29,6 +29,8 @@ export interface AutomationsPort {
 }
 
 const createParameters = automationInputSchema
+  // A workflow is made by the person on the screen; the model can only ever make the one-instruction kind.
+  .omit({ workflow: true })
   .extend({ instruction: z.string().trim().min(1).max(MAX_TOOL_INSTRUCTION_CHARS) })
   .strict();
 

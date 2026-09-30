@@ -12,6 +12,7 @@ export function registerAutomationHandlers(
     .register('automations:update', ({ id, changes }) => automations.update(id, changes))
     .register('automations:setEnabled', ({ id, enabled }) => automations.setEnabled(id, enabled))
     .register('automations:runNow', ({ id }) => automations.runNow(id))
+    .register('automations:decide', ({ runId, approve }) => automations.decide(runId, approve))
     .register('automations:delete', ({ id }) => {
       automations.remove(id);
       return { ok: true as const };

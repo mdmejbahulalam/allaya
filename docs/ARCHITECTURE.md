@@ -101,8 +101,19 @@ and the `FileService`.
   `automations.paused`; the scheduler does nothing while it is set, except a manual "Run now".
 - **The model's tools** — `create_automation` (CRITICAL) and `list_automations` are chat-only: `ToolServicePort` passes
   `deniedTools` so a task cannot call the first even if asked to.
-- **Not built:** a node-graph workflow editor (the `automation_steps` table is unused), triggers from Windows events, running
-  while Allaya is closed (tray/background arrives with Windows polish).
+- **Workflows** — an automation may hold several steps instead of one instruction (built on the screen, never by the model:
+  the `create_automation` tool takes no workflow). The saved definition is a bounded tree — _do something_, _if_ (two
+  lanes), _repeat_ (a number of times, or once per new file), _ask me first_, _stop_ — checked when it is saved
+  (`compileWorkflow`: at most 30 steps, 3 levels, a "for each file" loop only when a folder starts the run) and compiled to
+  a short flat program. A `WorkflowEngine` runs it one step at a time, starting an ordinary task for each action and waiting
+  for it; **all of its state (position, loop counters, the last answer, what it waits for) is stored with the run**, so it can
+  wait for a person for days and carry on after Allaya is closed, and the end of a task is handled exactly once. Every
+  decision is made by the app from facts it knows (how the last task ended, what it said as text, the day, the time) — never
+  by asking a model. Consequences: a step can never do more than a chat message could; an approval is only ever answered from
+  the screen (`automations:decide`) and is ended by the emergency stop; one run may start at most 50 tasks however loops
+  multiply; a step gets the previous answer only if the person chose that, fenced as data.
+- **Not built:** a free-form node-graph canvas (the editor is a top-to-bottom flow with lanes; the `automation_steps` table is
+  still unused), triggers from Windows events, running while Allaya is closed (tray/background arrives with Windows polish).
 
 ## Memory
 

@@ -7,6 +7,7 @@ export interface AutomationRow {
   name: string;
   description: string | null;
   instruction: string;
+  workflowJson: string | null;
   enabled: boolean;
   triggerType: string;
   triggerJson: string;
@@ -25,6 +26,7 @@ export interface AutomationRunRow {
   triggeredBy: string;
   note: string | null;
   taskId: string | null;
+  workflowStateJson: string | null;
   error: string | null;
   startedAt: number;
   completedAt: number | null;
@@ -35,6 +37,7 @@ const automationColumns = {
   name: automations.name,
   description: automations.description,
   instruction: automations.instruction,
+  workflowJson: automations.workflowJson,
   enabled: automations.enabled,
   triggerType: automations.triggerType,
   triggerJson: automations.triggerJson,
@@ -53,6 +56,7 @@ const runColumns = {
   triggeredBy: automationRuns.triggeredBy,
   note: automationRuns.note,
   taskId: automationRuns.taskId,
+  workflowStateJson: automationRuns.workflowStateJson,
   error: automationRuns.error,
   startedAt: automationRuns.startedAt,
   completedAt: automationRuns.completedAt,

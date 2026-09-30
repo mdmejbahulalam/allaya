@@ -335,6 +335,8 @@ export const automations = sqliteTable(
     triggerJson: text('trigger_json').notNull().default('{}'),
     /** What to do each time, in the person's own words (a run is a task with this as its request). */
     instruction: text('instruction').notNull().default(''),
+    /** Several steps instead of one instruction (a validated tree), or `null` for a single instruction. */
+    workflowJson: text('workflow_json'),
     /** `{ missed, planFirst }`. */
     optionsJson: text('options_json').notNull().default('{}'),
     /** Bookkeeping that is not queried on: names seen in a watched folder, a problem, failures in a row. */
@@ -383,6 +385,8 @@ export const automationRuns = sqliteTable(
     note: text('note'),
     taskId: text('task_id').references(() => tasks.id, { onDelete: 'set null' }),
     logJson: text('log_json').notNull().default('[]'),
+    /** A workflow run's whole state (program, position, loop counts, what it waits for), or `null`. */
+    workflowStateJson: text('workflow_state_json'),
     error: text('error'),
     startedAt: integer('started_at', { mode: 'number' }).notNull(),
     completedAt: integer('completed_at', { mode: 'number' }),

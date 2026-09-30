@@ -40,6 +40,11 @@ export class MemoryAutomationStore implements AutomationStore {
     this.runsList.push(structuredClone(run));
   }
 
+  getRun(id: string): RunRecord | undefined {
+    const found = this.runsList.find((run) => run.id === id);
+    return found ? structuredClone(found) : undefined;
+  }
+
   updateRun(id: string, patch: Partial<Omit<RunRecord, 'id' | 'automationId'>>): RunRecord {
     const index = this.runsList.findIndex((run) => run.id === id);
     if (index === -1) throw new AllayaError('Run not found', { code: 'NOT_FOUND' });

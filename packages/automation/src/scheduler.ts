@@ -6,8 +6,11 @@ import {
   type AutomationInput,
   type AutomationOptions,
   type AutomationTrigger,
+  type Workflow,
 } from '@allaya/validation';
 import { nextRun, nextRunAfterFiring, normalizeTrigger, triggerProblem } from './schedule';
+import { WorkflowEngine } from './workflow-engine';
+import { compileWorkflow, type WorkflowRunState } from './workflow';
 
 /** Late by more than this means Allaya was closed (or asleep) when the moment came: the run was missed. */
 export const MISSED_AFTER_MS = 2 * 60_000;
@@ -29,13 +32,28 @@ export type AutomationProblem = 'cannot_watch' | 'too_many_failures';
 
 /** Why a run did not go ahead, or how it ended, as a code the screen turns into words. */
 export type RunNote =
-  'missed' | 'still_running' | 'failed_to_start' | 'partial' | 'needs_you' | 'paused';
+  | 'missed'
+  | 'still_running'
+  | 'failed_to_start'
+  | 'partial'
+  | 'needs_you'
+  | 'paused'
+  // Workflows: waiting for an approval, the person said no, a stop step ended it, the emergency stop ended it while
+  // it waited, it hit the limit on tasks, or Allaya was closed between two steps.
+  | 'approval'
+  | 'declined'
+  | 'ended_early'
+  | 'stopped'
+  | 'step_limit'
+  | 'interrupted';
 
 export interface AutomationRecord {
   id: string;
   name: string;
   description?: string | undefined;
   instruction: string;
+  /** Several steps instead of one instruction. Every step that acts is still an ordinary task. */
+  workflow?: Workflow | undefined;
   enabled: boolean;
   trigger: AutomationTrigger;
   options: AutomationOptions;
@@ -57,6 +75,8 @@ export interface RunRecord {
   taskId?: string | undefined;
   note?: RunNote | undefined;
   error?: string | undefined;
+  /** A workflow run's whole state: where it is, what the last step said, loop counts, what it waits for. */
+  workflow?: WorkflowRunState | undefined;
   startedAt: number;
   completedAt?: number | undefined;
 }
@@ -68,6 +88,7 @@ export interface AutomationStore {
   update(id: string, patch: Partial<Omit<AutomationRecord, 'id' | 'createdAt'>>): AutomationRecord;
   remove(id: string): void;
   addRun(run: RunRecord): void;
+  getRun(id: string): RunRecord | undefined;
   updateRun(id: string, patch: Partial<Omit<RunRecord, 'id' | 'automationId'>>): RunRecord;
   /** Newest first. */
   runs(automationId: string, limit: number): RunRecord[];
@@ -91,6 +112,8 @@ export interface TaskSnapshot {
   state: TaskState;
   outcome?: 'achieved' | 'partial' | undefined;
   error?: string | undefined;
+  /** What the task said it did, for a workflow's conditions (compared as text, never obeyed). */
+  summary?: string | undefined;
 }
 
 /** The names of what is in a folder, through the file tools' own path policy. */
@@ -157,9 +180,20 @@ export class AutomationScheduler {
   private readonly now: () => number;
   private timer: ReturnType<typeof setInterval> | undefined;
   private ticking = false;
+  private readonly workflows: WorkflowEngine;
 
   constructor(private readonly deps: SchedulerDeps) {
     this.now = deps.now ?? Date.now;
+    this.workflows = new WorkflowEngine({
+      store: deps.store,
+      launcher: deps.launcher,
+      now: this.now,
+      finished: (automationId, outcome) => {
+        if (outcome === 'failed') this.failed(automationId);
+        else this.deps.store.update(automationId, { consecutiveFailures: 0 });
+      },
+      changed: () => this.changed(),
+    });
   }
 
   // ── commands ──────────────────────────────────────────────────────────────
@@ -174,6 +208,7 @@ export class AutomationScheduler {
     const at = this.now();
     const trigger = normalizeTrigger(input.trigger);
     this.check(trigger, at);
+    this.checkWhatToDo(input, trigger);
     const seen = await this.snapshot(trigger);
     const enabled = input.enabled ?? true;
     const record: AutomationRecord = {
@@ -181,6 +216,7 @@ export class AutomationScheduler {
       name: input.name,
       description: input.description || undefined,
       instruction: input.instruction,
+      workflow: input.workflow,
       enabled,
       trigger,
       options: automationOptionsSchema.parse(input.options ?? {}),
@@ -200,6 +236,7 @@ export class AutomationScheduler {
     const at = this.now();
     const trigger = normalizeTrigger(input.trigger);
     this.check(trigger, at);
+    this.checkWhatToDo(input, trigger);
     const sameWatch =
       trigger.kind === 'new_file' &&
       current.trigger.kind === 'new_file' &&
@@ -209,6 +246,8 @@ export class AutomationScheduler {
       name: input.name,
       description: input.description || undefined,
       instruction: input.instruction,
+      // An explicit `undefined` turns a workflow back into a single instruction.
+      workflow: input.workflow,
       trigger,
       options: automationOptionsSchema.parse({ ...current.options, ...(input.options ?? {}) }),
       nextRunAt: current.enabled ? nextRun(trigger, at) : undefined,
@@ -246,6 +285,20 @@ export class AutomationScheduler {
     const automation = this.require(id);
     this.reconcile();
     return this.fire(automation, 'manual', undefined, true)!;
+  }
+
+  /** The person's answer to a workflow's approval step: go on, or end the run. */
+  decide(runId: string, approve: boolean): RunRecord {
+    const run = this.deps.store.getRun(runId);
+    if (!run) throw new AllayaError('Run not found', { code: 'NOT_FOUND' });
+    const result = this.workflows.decide(run, approve);
+    this.changed();
+    return result;
+  }
+
+  /** Ends every run that is only waiting for an approval. The emergency stop leaves nothing open. */
+  cancelApprovals(): void {
+    this.workflows.cancelApprovals();
   }
 
   // ── the clock ─────────────────────────────────────────────────────────────
@@ -333,6 +386,8 @@ export class AutomationScheduler {
         automation,
         'event',
         requestWithFiles(automation.instruction, trigger.folder, fresh),
+        false,
+        fresh,
       );
     }
   }
@@ -343,6 +398,7 @@ export class AutomationScheduler {
     triggeredBy: RunTrigger,
     request?: string,
     announceBusy = false,
+    files: readonly string[] = [],
   ): RunRecord | undefined {
     if (this.activeRun(automation.id)) {
       // A scheduled moment that finds the last run still going is recorded; an event just waits (see above).
@@ -361,12 +417,16 @@ export class AutomationScheduler {
     this.deps.store.addRun(run);
     let result = run;
     try {
-      const { taskId } = this.deps.launcher.launch({
-        automation,
-        runId: run.id,
-        request: request ?? automation.instruction,
-      });
-      result = this.deps.store.updateRun(run.id, { taskId });
+      if (automation.workflow) {
+        result = this.workflows.begin(automation, run, files);
+      } else {
+        const { taskId } = this.deps.launcher.launch({
+          automation,
+          runId: run.id,
+          request: request ?? automation.instruction,
+        });
+        result = this.deps.store.updateRun(run.id, { taskId });
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       result = this.deps.store.updateRun(run.id, {
@@ -414,6 +474,8 @@ export class AutomationScheduler {
   taskChanged(taskId: string, task: TaskSnapshot): void {
     const run = this.deps.store.runByTask(taskId);
     if (!run) return;
+    // A workflow run follows its current task step by step; the engine decides what each end means.
+    if (this.workflows.taskChanged(run, taskId, task)) return;
     const at = this.now();
     let patch: Partial<Omit<RunRecord, 'id' | 'automationId'>> | undefined;
     if (task.state === 'COMPLETED') {
@@ -454,6 +516,10 @@ export class AutomationScheduler {
   /** Brings runs whose task ended while nobody was listening (or was removed) up to date. */
   reconcile(): void {
     for (const run of this.deps.store.unfinishedRuns()) {
+      if (run.workflow) {
+        this.workflows.reconcile(run);
+        continue;
+      }
       if (!run.taskId) {
         this.deps.store.updateRun(run.id, {
           status: 'failed',
@@ -486,6 +552,21 @@ export class AutomationScheduler {
   }
 
   // ── helpers ───────────────────────────────────────────────────────────────
+  /** Something to do: an instruction or a workflow that can work with this trigger. */
+  private checkWhatToDo(
+    input: { instruction: string; workflow?: Workflow | undefined },
+    trigger: AutomationTrigger,
+  ): void {
+    if (input.workflow) {
+      compileWorkflow(input.workflow, trigger); // throws WorkflowError (INVALID_INPUT) with the reason
+    } else if (!input.instruction.trim()) {
+      throw new AllayaError('There is nothing to do', {
+        code: 'INVALID_INPUT',
+        details: { reason: 'nothing_to_do' },
+      });
+    }
+  }
+
   private check(trigger: AutomationTrigger, at: number): void {
     if (triggerProblem(trigger, at)) {
       throw new AllayaError('That time has already passed', {

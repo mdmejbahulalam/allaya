@@ -5,6 +5,7 @@ import {
   automationOptionsSchema,
   automationTriggerSchema,
 } from '../automation';
+import { workflowSchema } from '../workflow';
 import { idSchema, noPayload, okSchema, spec } from './common';
 
 export const automationRunSchema = z.object({
@@ -14,8 +15,25 @@ export const automationRunSchema = z.object({
   taskId: z.string().optional(),
   /** Why nothing started, or a remark on how it ended — a code the screen turns into words. */
   note: z
-    .enum(['missed', 'still_running', 'failed_to_start', 'partial', 'needs_you', 'paused'])
+    .enum([
+      'missed',
+      'still_running',
+      'failed_to_start',
+      'partial',
+      'needs_you',
+      'paused',
+      'approval',
+      'declined',
+      'ended_early',
+      'stopped',
+      'step_limit',
+      'interrupted',
+    ])
     .optional(),
+  /** A workflow run: how many tasks it has started, and the step it is on. */
+  progress: z.object({ steps: z.number(), current: z.string().optional() }).optional(),
+  /** A workflow run waiting for the person to approve a step (what they are asked). */
+  approval: z.object({ message: z.string() }).optional(),
   /** What went wrong, when something did. */
   error: z.string().optional(),
   startedAt: z.number(),
@@ -28,12 +46,16 @@ export const automationSchema = z.object({
   name: z.string(),
   description: z.string().optional(),
   instruction: z.string(),
+  /** Several steps instead of one instruction. */
+  workflow: workflowSchema.optional(),
   enabled: z.boolean(),
   trigger: automationTriggerSchema,
   options: automationOptionsSchema,
   nextRunAt: z.number().optional(),
   lastRunAt: z.number().optional(),
   lastRun: automationRunSchema.optional(),
+  /** A workflow run waiting for the person to approve a step (whichever run it is, not only the newest). */
+  awaiting: automationRunSchema.optional(),
   /** Runs in a row that failed; three in a row switch the automation off. */
   consecutiveFailures: z.number(),
   /** Something the person should know: the folder cannot be read, or it kept failing and switched itself off. */
@@ -74,6 +96,11 @@ export const automationsContract = {
     ),
     /** Starts a run now, whatever the schedule says (and even if the automation is switched off). */
     'automations:runNow': spec(automationId, automationRunSchema),
+    /** The person's answer to an approval step in a workflow run: go on, or end the run. */
+    'automations:decide': spec(
+      z.object({ runId: idSchema, approve: z.boolean() }),
+      automationRunSchema,
+    ),
     'automations:delete': spec(automationId, okSchema),
     /** Lets schedules start things again after the emergency stop paused them. */
     'automations:setPaused': spec(z.object({ paused: z.boolean() }), okSchema),

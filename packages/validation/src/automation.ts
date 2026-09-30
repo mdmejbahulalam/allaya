@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { workflowSchema } from './workflow';
 
 /**
  * What starts an automation. Times are the computer's local time. Kept in one place so the scheduler, the tools the
@@ -67,8 +68,13 @@ export const automationInputSchema = z
   .object({
     name: z.string().trim().min(1).max(80),
     description: z.string().trim().max(300).optional(),
-    /** What to do each time, in the person's own words. It runs as a task with the person's permissions. */
-    instruction: z.string().trim().min(1).max(MAX_INSTRUCTION_CHARS),
+    /**
+     * What to do each time, in the person's own words. It runs as a task with the person's permissions. May be empty
+     * when there is a workflow (which is checked where the automation is saved).
+     */
+    instruction: z.string().trim().max(MAX_INSTRUCTION_CHARS),
+    /** Several steps instead of one instruction: conditions, loops and approvals. Made on the screen, never by the model. */
+    workflow: workflowSchema.optional(),
     trigger: automationTriggerSchema,
     options: automationOptionsSchema.partial().optional(),
   })

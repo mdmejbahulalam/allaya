@@ -1,3 +1,4 @@
+import { workflowRunStateSchema } from '@allaya/automation';
 import type {
   AutomationRecord,
   AutomationStore,
@@ -10,6 +11,7 @@ import { AUTOMATION_RUN_STATUSES } from '@allaya/types';
 import {
   automationOptionsSchema,
   automationTriggerSchema,
+  workflowSchema,
   z,
   type AutomationTrigger,
 } from '@allaya/validation';
@@ -28,6 +30,12 @@ const NOTES = [
   'partial',
   'needs_you',
   'paused',
+  'approval',
+  'declined',
+  'ended_early',
+  'stopped',
+  'step_limit',
+  'interrupted',
 ] as const;
 const TRIGGERS = ['schedule', 'manual', 'event'] as const;
 
@@ -53,8 +61,14 @@ export function rowToAutomation(row: AutomationRow): AutomationRecord {
     name: row.name,
     description: row.description ?? undefined,
     instruction: row.instruction,
+    // A workflow that no longer validates (a damaged row) is dropped, and the automation falls back to its
+    // instruction; with none, it has nothing to do and is switched off.
+    workflow: row.workflowJson ? parse(row.workflowJson, workflowSchema) : undefined,
     // Without a readable trigger it must not run by itself, whatever the flag says.
-    enabled: trigger ? row.enabled : false,
+    enabled:
+      trigger && (row.instruction || (row.workflowJson && parse(row.workflowJson, workflowSchema)))
+        ? row.enabled
+        : false,
     trigger: trigger ?? MANUAL,
     options,
     nextRunAt: trigger ? (row.nextRunAt ?? undefined) : undefined,
@@ -73,6 +87,7 @@ function toRow(record: AutomationRecord): AutomationRow {
     name: record.name,
     description: record.description ?? null,
     instruction: record.instruction,
+    workflowJson: record.workflow ? JSON.stringify(record.workflow) : null,
     enabled: record.enabled,
     triggerType:
       record.trigger.kind === 'manual'
@@ -105,6 +120,9 @@ export function rowToRun(row: AutomationRunRow): RunRecord {
       ? (row.triggeredBy as RunTrigger)
       : 'manual',
     taskId: row.taskId ?? undefined,
+    workflow: row.workflowStateJson
+      ? parse(row.workflowStateJson, workflowRunStateSchema)
+      : undefined,
     note: (NOTES as readonly string[]).includes(row.note ?? '') ? (row.note as RunNote) : undefined,
     error: row.error ?? undefined,
     startedAt: row.startedAt,
@@ -119,6 +137,7 @@ const runToRow = (run: RunRecord): AutomationRunRow => ({
   triggeredBy: run.triggeredBy,
   note: run.note ?? null,
   taskId: run.taskId ?? null,
+  workflowStateJson: run.workflow ? JSON.stringify(run.workflow) : null,
   error: run.error ?? null,
   startedAt: run.startedAt,
   completedAt: run.completedAt ?? null,
@@ -150,6 +169,7 @@ export class DbAutomationStore implements AutomationStore {
       name: next.name,
       description: next.description,
       instruction: next.instruction,
+      workflowJson: next.workflowJson,
       enabled: next.enabled,
       triggerType: next.triggerType,
       triggerJson: next.triggerJson,
@@ -170,6 +190,11 @@ export class DbAutomationStore implements AutomationStore {
     this.repo.insertRun(runToRow(run));
   }
 
+  getRun(id: string): RunRecord | undefined {
+    const row = this.repo.getRun(id);
+    return row ? rowToRun(row) : undefined;
+  }
+
   updateRun(id: string, patch: Partial<Omit<RunRecord, 'id' | 'automationId'>>): RunRecord {
     const row = this.repo.getRun(id);
     if (!row) throw new Error(`run ${id} not found`);
@@ -179,6 +204,7 @@ export class DbAutomationStore implements AutomationStore {
       triggeredBy: next.triggeredBy,
       note: next.note,
       taskId: next.taskId,
+      workflowStateJson: next.workflowStateJson,
       error: next.error,
       startedAt: next.startedAt,
       completedAt: next.completedAt,

@@ -407,7 +407,13 @@
       "failed_to_start": "It could not start",
       "partial": "Only partly done",
       "needs_you": "Waiting for you",
-      "paused": "Paused"
+      "paused": "Paused",
+      "approval": "Waiting for your approval",
+      "declined": "You said no",
+      "ended_early": "Ended early, as planned",
+      "stopped": "Ended by STOP",
+      "step_limit": "Stopped: too many steps in one run",
+      "interrupted": "Interrupted"
     },
     "by": {
       "schedule": "On schedule",
@@ -494,6 +500,115 @@
       "someDays": "Every {days} at {time}",
       "monthly": "On day {day} of every month at {time}",
       "newFile": "When a new file appears in “{folder}”"
+    },
+    "workflow": {
+      "invalid": "Something in the steps needs fixing.",
+      "mode": {
+        "label": "How should it work?",
+        "single": "One instruction",
+        "workflow": "Several steps"
+      },
+      "hint": "Steps run one after another. Each step that does something runs as a task with your permissions, so anything risky still asks you.",
+      "title": "Steps",
+      "empty": "No steps yet. Add the first one below.",
+      "add": {
+        "label": "Add a step",
+        "action": "Do something",
+        "condition": "If…",
+        "loop": "Repeat",
+        "approval": "Ask me first",
+        "stop": "Stop here"
+      },
+      "step": {
+        "action": "Do something",
+        "condition": "If",
+        "loop": "Repeat",
+        "approval": "Ask me first",
+        "stop": "Stop here"
+      },
+      "stepLabel": "Step {n}: {type}",
+      "moveUp": "Move step {n} up",
+      "moveDown": "Move step {n} down",
+      "remove": "Remove step {n}",
+      "field": {
+        "label": "Name (optional)",
+        "instruction": "What should Allaya do?",
+        "keepGoing": "Keep going if this step fails",
+        "usePrevious": "Give this step what the previous step reported",
+        "message": "What should Allaya ask you?",
+        "messagePlaceholder": "Send the report now?",
+        "contains": "Text to look for",
+        "from": "From",
+        "to": "To",
+        "repeat": "Repeat",
+        "times": "How many times"
+      },
+      "approvalHint": "The run waits here until you say yes or no. If you say no, it ends.",
+      "stopHint": "The run ends here, as a success.",
+      "cond": {
+        "kind": "Look at",
+        "previous": "How the previous step ended",
+        "summary": "What the previous step said",
+        "weekday": "The day of the week",
+        "time_between": "The time of day",
+        "is": "It",
+        "succeeded": "succeeded",
+        "failed": "failed"
+      },
+      "lane": {
+        "then": "Then",
+        "otherwise": "Otherwise",
+        "thenFor": "Steps to do if step {n} is met",
+        "otherwiseFor": "Steps to do if step {n} is not met",
+        "insideFor": "Steps inside step {n}"
+      },
+      "loop": {
+        "times": "A number of times",
+        "files": "Once for each new file"
+      },
+      "limits": {
+        "steps": "A workflow can have up to {count} steps.",
+        "depth": "Steps can be nested only {count} levels deep.",
+        "filesNeedFolder": "“Once for each new file” works when the automation starts on a new file in a folder."
+      },
+      "problem": {
+        "too_many_steps": "There are too many steps.",
+        "too_deep": "Steps are nested too deeply.",
+        "duplicate_id": "Two steps share the same identity. Remove one and add it again.",
+        "no_previous_step": "This needs a step before it to look at.",
+        "files_loop_needs_folder": "“Once for each new file” only works when the automation starts on a new file in a folder.",
+        "nothing_to_do": "Add at least one “Do something” step.",
+        "empty_condition": "Add something to do under “Then” or “Otherwise”.",
+        "empty_text": "Fill this in.",
+        "empty_body": "Add a step inside the repeat."
+      },
+      "badge": "Steps",
+      "stepCount": "{count} steps",
+      "condText": {
+        "previous": {
+          "succeeded": "the previous step succeeded",
+          "failed": "the previous step failed"
+        },
+        "summary": "the previous step said “{text}”",
+        "weekday": "it is {days}",
+        "time": "the time is between {from} and {to}"
+      },
+      "outline": {
+        "approval": "Ask me: {message}",
+        "stop": "Stop here",
+        "if": "If {cond}",
+        "otherwise": "Otherwise",
+        "eachFile": "For each new file",
+        "repeat": "Repeat {count} times"
+      },
+      "progress": "Step {n}: {current}",
+      "approved": "Approved. “{name}” is going on.",
+      "declined": "Declined. “{name}” was ended.",
+      "approval": {
+        "title": "Waiting for your OK",
+        "approve": "Approve",
+        "decline": "Decline"
+      }
     }
   },
   "computer": {

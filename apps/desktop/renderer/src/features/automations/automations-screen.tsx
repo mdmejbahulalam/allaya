@@ -19,7 +19,8 @@ import { IconButton } from '@renderer/components/ui/icon-button';
 import { Skeleton } from '@renderer/components/ui/skeleton';
 import { Switch } from '@renderer/components/ui/switch';
 import { AutomationForm } from './automation-form';
-import { emptyForm, formFrom, whenText, type FormState } from './automation-utils';
+import { emptyForm, formFrom, outline, whenText, type FormState } from './automation-utils';
+import { countSteps } from './workflow-edit';
 
 const STATUS_TONE = {
   running: 'accent',
@@ -67,6 +68,14 @@ function RunHistory({ id, refreshKey }: { id: string; refreshKey: string }) {
             {t.formatDate(run.startedAt, { dateStyle: 'medium', timeStyle: 'short' })}
           </span>
           <span className="text-muted">{t.t(`automations.by.${run.triggeredBy}`)}</span>
+          {run.progress && run.progress.steps > 0 && (
+            <span className="text-muted">
+              {t.t('automations.workflow.progress', {
+                n: run.progress.steps,
+                current: run.progress.current ?? '',
+              })}
+            </span>
+          )}
           {run.note && <span className="text-muted">— {t.t(`automations.note.${run.note}`)}</span>}
           {run.error && <span className="min-w-0 break-words text-danger-text">{run.error}</span>}
           {run.taskId && (
@@ -87,14 +96,65 @@ function RunHistory({ id, refreshKey }: { id: string; refreshKey: string }) {
   );
 }
 
+/** A workflow run is waiting for the person to approve a step: what it asks, and the two answers. */
+function ApprovalAsk({
+  run,
+  name,
+  onDone,
+}: {
+  run: AutomationRunView;
+  name: string;
+  onDone: () => void;
+}) {
+  const t = useT();
+  const explain = useExplain();
+  const [busy, setBusy] = useState(false);
+  const decide = async (approve: boolean) => {
+    setBusy(true);
+    try {
+      await invoke('automations:decide', { runId: run.id, approve });
+      toast.info(
+        t.t(approve ? 'automations.workflow.approved' : 'automations.workflow.declined', { name }),
+      );
+      onDone();
+    } catch (error) {
+      toast.error(explain(error));
+      onDone();
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div
+      role="group"
+      aria-label={t.t('automations.workflow.approval.title')}
+      className="flex flex-col gap-2 rounded-lg border border-warning/40 bg-warning/8 p-3"
+      data-testid="approval-ask"
+    >
+      <p className="text-small font-medium text-fg">{t.t('automations.workflow.approval.title')}</p>
+      <p className="text-body break-words text-fg">{run.approval?.message}</p>
+      <div className="flex gap-2">
+        <Button size="sm" variant="primary" loading={busy} onClick={() => void decide(true)}>
+          {t.t('automations.workflow.approval.approve')}
+        </Button>
+        <Button size="sm" variant="secondary" disabled={busy} onClick={() => void decide(false)}>
+          {t.t('automations.workflow.approval.decline')}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function AutomationCard({
   automation,
   onEdit,
   onDelete,
+  onDecided,
 }: {
   automation: AutomationView;
   onEdit: () => void;
   onDelete: () => void;
+  onDecided: () => void;
 }) {
   const t = useT();
   const explain = useExplain();
@@ -133,9 +193,32 @@ function AutomationCard({
         />
       </div>
 
-      <p className="max-h-20 overflow-auto text-small whitespace-pre-wrap text-muted">
-        {automation.instruction}
-      </p>
+      {automation.workflow ? (
+        <details className="text-small">
+          <summary className="cursor-pointer text-muted">
+            <Badge tone="info">{t.t('automations.workflow.badge')}</Badge>{' '}
+            {t.t('automations.workflow.stepCount', {
+              count: countSteps(automation.workflow.steps),
+            })}
+          </summary>
+          <ol className="mt-2 flex max-h-56 flex-col gap-0.5 overflow-auto text-muted">
+            {outline(automation.workflow.steps, t).map((line, i) => (
+              <li key={i} style={{ paddingInlineStart: `${line.depth * 1.25}rem` }}>
+                {line.depth > 0 ? '↳ ' : ''}
+                {line.text}
+              </li>
+            ))}
+          </ol>
+        </details>
+      ) : (
+        <p className="max-h-20 overflow-auto text-small whitespace-pre-wrap text-muted">
+          {automation.instruction}
+        </p>
+      )}
+
+      {automation.awaiting?.approval && (
+        <ApprovalAsk run={automation.awaiting} name={automation.name} onDone={onDecided} />
+      )}
 
       <dl className="flex flex-wrap gap-x-5 gap-y-1 text-small">
         <div className="text-fg">{whenText(automation.trigger, t)}</div>
@@ -336,6 +419,7 @@ export function AutomationsScreen() {
                   automation={automation}
                   onEdit={() => setForm({ automation, initial: formFrom(automation, Date.now()) })}
                   onDelete={() => setDeleting(automation)}
+                  onDecided={() => void load()}
                 />
               </li>
             ))}

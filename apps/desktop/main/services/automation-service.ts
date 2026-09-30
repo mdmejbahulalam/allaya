@@ -54,7 +54,12 @@ export class AutomationService {
       taskState: (taskId) => {
         const task = deps.tasks.snapshot(taskId);
         return task
-          ? { state: task.state, outcome: task.outcome, error: task.error?.message }
+          ? {
+              state: task.state,
+              outcome: task.outcome,
+              error: task.error?.message,
+              summary: task.resultSummary,
+            }
           : undefined;
       },
     };
@@ -74,12 +79,15 @@ export class AutomationService {
         state: task.state,
         outcome: task.outcome,
         error: task.error?.message,
+        summary: task.resultSummary,
       });
     });
     // The emergency stop (or a typed "stop") also stops schedules from starting things, until the person says so.
     // Closing the app is not a stop: nothing is paused for it.
     deps.runs.events.on('stopped', ({ reason }) => {
       if (reason === 'shutdown') return;
+      // A workflow that is only waiting for an approval ends too: the stop leaves nothing open.
+      this.scheduler.cancelApprovals();
       if (deps.store.list().some((a) => a.enabled && a.trigger.kind !== 'manual')) {
         try {
           deps.settings.set({ key: 'automations.paused', value: true });
@@ -132,6 +140,10 @@ export class AutomationService {
     return toRunView(this.scheduler.runNow(id));
   }
 
+  decide(runId: string, approve: boolean): AutomationRunView {
+    return toRunView(this.scheduler.decide(runId, approve));
+  }
+
   remove(id: string): void {
     this.scheduler.remove(id);
   }
@@ -158,17 +170,22 @@ export class AutomationService {
   // ── plumbing ──────────────────────────────────────────────────────────────
   private view(record: AutomationRecord): AutomationView {
     const last = this.deps.store.runs(record.id, 1)[0];
+    const awaiting = this.deps.store
+      .unfinishedRuns()
+      .find((run) => run.automationId === record.id && run.workflow?.pending);
     return {
       id: record.id,
       name: record.name,
       ...(record.description ? { description: record.description } : {}),
       instruction: record.instruction,
+      ...(record.workflow ? { workflow: record.workflow } : {}),
       enabled: record.enabled,
       trigger: record.trigger,
       options: record.options,
       ...(record.nextRunAt !== undefined ? { nextRunAt: record.nextRunAt } : {}),
       ...(record.lastRunAt !== undefined ? { lastRunAt: record.lastRunAt } : {}),
       ...(last ? { lastRun: toRunView(last) } : {}),
+      ...(awaiting ? { awaiting: toRunView(awaiting) } : {}),
       consecutiveFailures: record.consecutiveFailures,
       ...(record.problem ? { problem: record.problem } : {}),
       createdAt: record.createdAt,
@@ -202,7 +219,7 @@ const toSummary = (record: AutomationRecord): AutomationSummary => ({
   name: record.name,
   enabled: record.enabled,
   trigger: record.trigger,
-  instruction: record.instruction,
+  instruction: record.instruction || record.name,
   nextRunAt: record.nextRunAt,
 });
 
@@ -213,6 +230,15 @@ const toRunView = (run: RunRecord): AutomationRunView => ({
   ...(run.taskId ? { taskId: run.taskId } : {}),
   ...(run.note ? { note: run.note } : {}),
   ...(run.error ? { error: run.error } : {}),
+  ...(run.workflow
+    ? {
+        progress: {
+          steps: run.workflow.started,
+          ...(run.workflow.current ? { current: run.workflow.current } : {}),
+        },
+        ...(run.workflow.pending ? { approval: { message: run.workflow.pending.message } } : {}),
+      }
+    : {}),
   startedAt: run.startedAt,
   ...(run.completedAt !== undefined ? { completedAt: run.completedAt } : {}),
 });

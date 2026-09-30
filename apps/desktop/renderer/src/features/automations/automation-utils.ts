@@ -1,6 +1,13 @@
 import type { TranslationKey, Translator } from '@allaya/localization';
-import type { AutomationInput, AutomationTrigger, AutomationView } from '@allaya/validation';
-import { MAX_INTERVAL_MINUTES, MIN_INTERVAL_MINUTES } from '@allaya/validation';
+import type {
+  AutomationInput,
+  AutomationTrigger,
+  AutomationView,
+  WorkflowCondition,
+  WorkflowStep,
+} from '@allaya/validation';
+import { MAX_INTERVAL_MINUTES, MIN_INTERVAL_MINUTES, workflowSchema } from '@allaya/validation';
+import { checkWorkflow, tidy, type FoundProblem } from './workflow-edit';
 
 export const TRIGGER_KINDS = [
   'manual',
@@ -16,7 +23,10 @@ export type IntervalUnit = 'minutes' | 'hours' | 'days';
 
 export interface FormState {
   name: string;
+  /** One instruction, or several steps (a workflow). */
+  mode: 'single' | 'workflow';
   instruction: string;
+  steps: WorkflowStep[];
   kind: TriggerKind;
   /** `datetime-local` value, in the computer's own time. */
   onceAt: string;
@@ -42,7 +52,9 @@ export const toLocalInput = (ms: number): string => {
 export function emptyForm(now: number): FormState {
   return {
     name: '',
+    mode: 'single',
     instruction: '',
+    steps: [],
     kind: 'daily',
     onceAt: toLocalInput(now + 60 * 60_000),
     everyValue: '30',
@@ -61,7 +73,9 @@ export function formFrom(automation: AutomationView, now: number): FormState {
   const form: FormState = {
     ...emptyForm(now),
     name: automation.name,
+    mode: automation.workflow ? 'workflow' : 'single',
     instruction: automation.instruction,
+    steps: structuredClone(automation.workflow?.steps ?? []),
     kind: automation.trigger.kind,
     missed: automation.options.missed,
     planFirst: automation.options.planFirst,
@@ -100,11 +114,16 @@ export function formFrom(automation: AutomationView, now: number): FormState {
 }
 
 export type FormField =
-  'name' | 'instruction' | 'onceAt' | 'every' | 'days' | 'day' | 'folder' | 'time';
+  'name' | 'instruction' | 'onceAt' | 'every' | 'days' | 'day' | 'folder' | 'time' | 'workflow';
 
 export type FormResult =
   | { ok: true; input: AutomationInput }
-  | { ok: false; errors: Partial<Record<FormField, TranslationKey>> };
+  | {
+      ok: false;
+      errors: Partial<Record<FormField, TranslationKey>>;
+      /** For a workflow: the step to point at. */
+      problem?: FoundProblem | undefined;
+    };
 
 const CLOCK = /^([01]\d|2[0-3]):[0-5]\d$/;
 
@@ -114,7 +133,8 @@ export function buildInput(form: FormState, now: number): FormResult {
   const name = form.name.trim();
   const instruction = form.instruction.trim();
   if (!name) errors.name = 'automations.form.needName';
-  if (!instruction) errors.instruction = 'automations.form.needInstruction';
+  if (form.mode === 'single' && !instruction)
+    errors.instruction = 'automations.form.needInstruction';
 
   let trigger: AutomationTrigger = { kind: 'manual' };
   switch (form.kind) {
@@ -163,12 +183,23 @@ export function buildInput(form: FormState, now: number): FormResult {
       break;
     }
   }
-  if (Object.keys(errors).length > 0) return { ok: false, errors };
+  let problem: FoundProblem | undefined;
+  let steps: WorkflowStep[] = [];
+  if (form.mode === 'workflow') {
+    steps = tidy(form.steps);
+    problem = checkWorkflow(steps, form.kind);
+    if (problem) errors.workflow = 'automations.workflow.invalid';
+    else if (!workflowSchema.safeParse({ steps }).success)
+      errors.workflow = 'automations.workflow.invalid';
+  }
+  if (Object.keys(errors).length > 0) return { ok: false, errors, problem };
   return {
     ok: true,
     input: {
       name,
-      instruction,
+      // A workflow is the whole of what to do; an instruction typed earlier is left out of it.
+      instruction: form.mode === 'workflow' ? '' : instruction,
+      ...(form.mode === 'workflow' ? { workflow: { steps } } : {}),
       trigger,
       options: { missed: form.missed, planFirst: form.planFirst },
     },
@@ -211,4 +242,70 @@ export function whenText(trigger: AutomationTrigger, t: Translator): string {
     case 'new_file':
       return t.t('automations.when.newFile', { folder: trigger.folder });
   }
+}
+
+/** The condition of a step, in words, in the interface language. */
+export function conditionText(condition: WorkflowCondition, t: Translator): string {
+  switch (condition.kind) {
+    case 'previous':
+      return t.t(`automations.workflow.condText.previous.${condition.is}` as TranslationKey);
+    case 'summary':
+      return t.t('automations.workflow.condText.summary', { text: condition.contains });
+    case 'weekday':
+      return t.t('automations.workflow.condText.weekday', {
+        days: condition.days
+          .map((d) => t.t(`automations.day.long.${d}` as TranslationKey))
+          .join(', '),
+      });
+    case 'time_between':
+      return t.t('automations.workflow.condText.time', { from: condition.from, to: condition.to });
+  }
+}
+
+export interface OutlineLine {
+  depth: number;
+  text: string;
+}
+
+/** A workflow as short indented lines, for the automation's card. */
+export function outline(steps: readonly WorkflowStep[], t: Translator, depth = 0): OutlineLine[] {
+  const lines: OutlineLine[] = [];
+  for (const step of steps) {
+    switch (step.type) {
+      case 'action':
+        lines.push({ depth, text: step.label || step.instruction });
+        break;
+      case 'approval':
+        lines.push({
+          depth,
+          text: t.t('automations.workflow.outline.approval', { message: step.message }),
+        });
+        break;
+      case 'stop':
+        lines.push({ depth, text: t.t('automations.workflow.outline.stop') });
+        break;
+      case 'condition':
+        lines.push({
+          depth,
+          text: t.t('automations.workflow.outline.if', { cond: conditionText(step.if, t) }),
+        });
+        lines.push(...outline(step.then, t, depth + 1));
+        if (step.else.length > 0) {
+          lines.push({ depth, text: t.t('automations.workflow.outline.otherwise') });
+          lines.push(...outline(step.else, t, depth + 1));
+        }
+        break;
+      case 'loop':
+        lines.push({
+          depth,
+          text:
+            step.over.kind === 'files'
+              ? t.t('automations.workflow.outline.eachFile')
+              : t.t('automations.workflow.outline.repeat', { count: step.over.times }),
+        });
+        lines.push(...outline(step.body, t, depth + 1));
+        break;
+    }
+  }
+  return lines;
 }

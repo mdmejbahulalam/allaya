@@ -1,5 +1,5 @@
 import { useId, useMemo, useRef, useState } from 'react';
-import type { AutomationInput, AutomationView } from '@allaya/validation';
+import type { AutomationInput, AutomationView, WorkflowStep } from '@allaya/validation';
 import type { TranslationKey } from '@allaya/localization';
 import { IpcError } from '@renderer/lib/api';
 import { useT } from '@renderer/lib/i18n';
@@ -17,6 +17,8 @@ import {
   type FormState,
   type IntervalUnit,
 } from './automation-utils';
+import { WorkflowBuilder } from './workflow-builder';
+import { newStep, type FoundProblem } from './workflow-edit';
 
 /** What the form holds while it is closed (never shown). */
 const BLANK: FormState = emptyForm(0);
@@ -50,6 +52,8 @@ export function AutomationForm({
   const [form, setForm] = useState<FormState>(initial ?? BLANK);
   const [errors, setErrors] = useState<Partial<Record<FormField, TranslationKey>>>({});
   const [serverError, setServerError] = useState<string | undefined>();
+  const [problem, setProblem] = useState<FoundProblem | undefined>();
+  const [focusId, setFocusId] = useState<string | undefined>();
   const [seed, setSeed] = useState(initial);
   // Start afresh each time the dialog opens (adjusting state while rendering, not in an effect).
   if (initial !== seed) {
@@ -58,6 +62,8 @@ export function AutomationForm({
       setForm(initial);
       setErrors({});
       setServerError(undefined);
+      setProblem(undefined);
+      setFocusId(undefined);
     }
   }
   const nameRef = useRef<HTMLInputElement>(null);
@@ -76,9 +82,11 @@ export function AutomationForm({
     const result = buildInput(form, Date.now());
     if (!result.ok) {
       setErrors(result.errors);
+      setProblem(result.problem);
       return;
     }
     setErrors({});
+    setProblem(undefined);
     setServerError(undefined);
     try {
       await onSubmit(result.input);
@@ -86,7 +94,10 @@ export function AutomationForm({
       if (error instanceof IpcError) {
         const reason = error.details?.['reason'];
         if (reason === 'in_the_past') setErrors({ onceAt: 'automations.form.past' });
-        else if (error.code === 'LIMIT_EXCEEDED')
+        else if (typeof reason === 'string' && t.has(`automations.workflow.problem.${reason}`)) {
+          setProblem({ problem: reason as FoundProblem['problem'] });
+          setErrors({ workflow: 'automations.workflow.invalid' });
+        } else if (error.code === 'LIMIT_EXCEEDED')
           setServerError(t.t('automations.limit', { count: 20 }));
         else if (
           error.code === 'PATH_NOT_ALLOWED' ||
@@ -110,7 +121,7 @@ export function AutomationForm({
       open={open}
       onOpenChange={(next) => !next && onCancel()}
       title={t.t(automation ? 'automations.edit' : 'automations.new')}
-      size="md"
+      size={form.mode === 'workflow' ? 'lg' : 'md'}
       initialFocusRef={nameRef}
       footer={
         <>
@@ -147,27 +158,100 @@ export function AutomationForm({
           {fieldError('name')}
         </div>
 
-        <div>
-          <label
-            htmlFor={`${ids}-instruction`}
-            className="mb-1.5 block text-small font-medium text-fg"
-          >
-            {t.t('automations.form.instruction')}
-          </label>
-          <Textarea
-            id={`${ids}-instruction`}
-            autoGrow
-            rows={3}
-            maxRows={8}
-            maxLength={2000}
-            value={form.instruction}
-            placeholder={t.t('automations.form.instructionPlaceholder')}
-            invalid={Boolean(errors.instruction)}
-            onChange={(event) => set('instruction', event.target.value)}
-          />
-          {fieldError('instruction')}
-          <p className="mt-1 text-caption text-muted">{t.t('automations.form.instructionHint')}</p>
-        </div>
+        <fieldset>
+          <legend className="mb-1.5 text-small font-medium text-fg">
+            {t.t('automations.workflow.mode.label')}
+          </legend>
+          <div role="radiogroup" className="flex flex-wrap gap-1.5">
+            {(['single', 'workflow'] as const).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                role="radio"
+                aria-checked={form.mode === mode}
+                onClick={() => {
+                  if (mode === form.mode) return;
+                  setForm((current) => {
+                    // Switching to steps starts from what was typed, so nothing is lost.
+                    const seeded: WorkflowStep[] =
+                      mode === 'workflow' && current.steps.length === 0
+                        ? [
+                            {
+                              ...newStep('action', []),
+                              instruction: current.instruction,
+                            } as WorkflowStep,
+                          ]
+                        : current.steps;
+                    return { ...current, mode, steps: seeded };
+                  });
+                  setErrors({});
+                  setProblem(undefined);
+                }}
+                className={cn(
+                  'h-9 rounded-control border px-3 text-small font-medium transition-colors',
+                  form.mode === mode
+                    ? 'border-accent bg-accent/15 text-accent-text'
+                    : 'border-line text-muted hover:border-line-strong hover:text-fg',
+                )}
+              >
+                {t.t(`automations.workflow.mode.${mode}` as TranslationKey)}
+              </button>
+            ))}
+          </div>
+        </fieldset>
+
+        {form.mode === 'single' ? (
+          <div>
+            <label
+              htmlFor={`${ids}-instruction`}
+              className="mb-1.5 block text-small font-medium text-fg"
+            >
+              {t.t('automations.form.instruction')}
+            </label>
+            <Textarea
+              id={`${ids}-instruction`}
+              autoGrow
+              rows={3}
+              maxRows={8}
+              maxLength={2000}
+              value={form.instruction}
+              placeholder={t.t('automations.form.instructionPlaceholder')}
+              invalid={Boolean(errors.instruction)}
+              onChange={(event) => set('instruction', event.target.value)}
+            />
+            {fieldError('instruction')}
+            <p className="mt-1 text-caption text-muted">
+              {t.t('automations.form.instructionHint')}
+            </p>
+          </div>
+        ) : (
+          <div>
+            <p className="mb-2 text-caption text-muted">{t.t('automations.workflow.hint')}</p>
+            <WorkflowBuilder
+              steps={form.steps}
+              triggerKind={form.kind}
+              problem={problem}
+              focusId={focusId}
+              onChange={(steps, added) => {
+                set('steps', steps);
+                setFocusId(added);
+                if (errors.workflow) {
+                  setErrors({});
+                  setProblem(undefined);
+                }
+              }}
+            />
+            {errors.workflow && (
+              <p role="alert" className="mt-2 text-small text-danger-text">
+                {t.t(
+                  problem && !problem.stepId
+                    ? (`automations.workflow.problem.${problem.problem}` as TranslationKey)
+                    : errors.workflow,
+                )}
+              </p>
+            )}
+          </div>
+        )}
 
         <div>
           <label htmlFor={`${ids}-kind`} className="mb-1.5 block text-small font-medium text-fg">
