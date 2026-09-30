@@ -19,3 +19,10 @@ export {
   toGeminiBody,
   toGeminiContents,
 } from './providers/google';
+export * from './endpoint';
+export {
+  OpenAICompatibleVendor,
+  VENDORS,
+  modelEntries,
+  type VendorSpec,
+} from './providers/vendors';

@@ -1,6 +1,8 @@
 import {
   createProviderRegistry,
   ModelRouter,
+  VENDORS,
+  requireEndpointUrl,
   type AIProvider,
   type ConnectionTestResult,
   type ModelInfo,
@@ -13,6 +15,7 @@ import type { AudioEndpoint } from '@allaya/voice';
 import { type CredentialVault } from '@allaya/security';
 import { AllayaError, toSerializedError, TypedEventBus, type Logger } from '@allaya/shared';
 import {
+  ENDPOINT_PROVIDER_IDS,
   PROVIDER_IDS,
   ROUTING_PURPOSES,
   type ProviderId,
@@ -21,12 +24,18 @@ import {
 import { z, type ModelView, type ProviderView, type RoutingView } from '@allaya/validation';
 import type { SettingsService } from './settings-service';
 
-const PROVIDER_NAMES: Record<ProviderId, string> = {
+const PROVIDER_NAMES = {
   anthropic: 'Anthropic',
   openai: 'OpenAI',
   google: 'Google',
   openrouter: 'OpenRouter',
-};
+  ...Object.fromEntries(VENDORS.map((v) => [v.id, v.name])),
+} as Record<ProviderId, string>;
+
+/** Stored in place of a key for a server that needs none, so "connected" has one meaning for every provider. */
+const NO_KEY = 'no-key-needed';
+const isEndpointProvider = (id: ProviderId): boolean =>
+  (ENDPOINT_PROVIDER_IDS as readonly string[]).includes(id);
 
 /** Shape persisted in `models.capabilities_json` (capabilities plus the metadata the table has no column for). */
 const storedCapabilitiesSchema = z.object({
@@ -97,6 +106,8 @@ export class ProviderService {
     this.registry = createProviderRegistry({
       ...deps.providerOptions,
       getApiKey: async (id) => deps.vault.get(id),
+      getBaseUrl: (id) =>
+        isEndpointProvider(id) ? (deps.repo.get(id)?.baseUrl ?? undefined) : undefined,
     });
     this.router = new ModelRouter(
       () => this.availableModels(),
@@ -139,11 +150,18 @@ export class ProviderService {
     const row = this.deps.repo.get(id);
     const models = this.modelsFor(id).map((m) => this.toModelView(m));
     const status = (row?.status ?? 'not_configured') as ProviderView['status'];
+    const endpoint = isEndpointProvider(id);
+    const keyless = endpoint && this.deps.vault.has(id) && this.storedKey(id) === NO_KEY;
     return {
       id,
       name: PROVIDER_NAMES[id],
       status,
-      ...(this.deps.vault.has(id) ? { maskedKey: this.deps.vault.maskedHint(id)! } : {}),
+      setup: endpoint ? 'endpoint' : 'key',
+      ...(this.deps.vault.has(id) && !keyless
+        ? { maskedKey: this.deps.vault.maskedHint(id)! }
+        : {}),
+      ...(keyless ? { keyless: true } : {}),
+      ...(endpoint && row?.baseUrl ? { baseUrl: row.baseUrl } : {}),
       models,
       ...(row?.lastCheckedAt ? { lastCheckedAt: row.lastCheckedAt } : {}),
       ...(status === 'error' && row?.lastError ? { errorMessage: row.lastError } : {}),
@@ -181,6 +199,9 @@ export class ProviderService {
    *  - provider unreachable → key kept, status `error` (the user may simply be offline)
    */
   async setKey(id: ProviderId, apiKey: string, signal?: AbortSignal): Promise<ProviderView> {
+    if (isEndpointProvider(id)) {
+      throw new AllayaError('This provider is set up with an address', { code: 'INVALID_INPUT' });
+    }
     const { warning } = this.deps.vault.set(id, apiKey);
     const outcome = await this.probe(id, signal);
     if (!outcome.result.ok && outcome.errorCode === 'PROVIDER_AUTH_FAILED') {
@@ -196,8 +217,52 @@ export class ProviderService {
     return this.view(id, warning ? { keyWarning: warning } : {});
   }
 
+  /**
+   * Points Ollama or a custom service at an address (and an optional key), then checks it the way a key is checked:
+   * refused credentials undo everything; an unreachable server is kept, in an error state, since it may just be off.
+   */
+  async setEndpoint(
+    id: ProviderId,
+    baseUrl: string,
+    apiKey: string | undefined,
+    signal?: AbortSignal,
+  ): Promise<ProviderView> {
+    if (!isEndpointProvider(id)) {
+      throw new AllayaError('This provider is set up with a key', { code: 'INVALID_INPUT' });
+    }
+    const url = requireEndpointUrl(baseUrl);
+    this.deps.vault.set(id, apiKey?.trim() || NO_KEY);
+    this.deps.repo.setBaseUrl(id, url);
+    const outcome = await this.probe(id, signal);
+    if (!outcome.result.ok && outcome.errorCode === 'PROVIDER_AUTH_FAILED') {
+      this.clear(id);
+      this.emitChanged();
+      throw new AllayaError(outcome.result.errorMessage ?? 'The key was rejected', {
+        code: 'PROVIDER_AUTH_FAILED',
+      });
+    }
+    this.emitChanged();
+    return this.view(id);
+  }
+
+  private storedKey(id: ProviderId): string | undefined {
+    try {
+      return this.deps.vault.get(id);
+    } catch {
+      return undefined;
+    }
+  }
+
+  private clear(id: ProviderId): void {
+    this.deps.vault.remove(id);
+    this.deps.repo.deleteModels(id);
+    this.deps.repo.setStatus(id, 'not_configured');
+    if (isEndpointProvider(id)) this.deps.repo.setBaseUrl(id, null);
+  }
+
   removeKey(id: ProviderId): ProviderView {
     this.deps.vault.remove(id);
+    if (isEndpointProvider(id)) this.deps.repo.setBaseUrl(id, null);
     this.deps.repo.deleteModels(id);
     this.deps.repo.setStatus(id, 'not_configured');
     this.deps.repo.clearRoutingFor(id);

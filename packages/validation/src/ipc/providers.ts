@@ -1,8 +1,9 @@
-import { PROVIDER_IDS, ROUTING_PURPOSES } from '@allaya/types';
+import { ENDPOINT_PROVIDER_IDS, PROVIDER_IDS, ROUTING_PURPOSES } from '@allaya/types';
 import { z } from 'zod';
 import { noPayload, spec } from './common';
 
 export const providerIdSchema = z.enum(PROVIDER_IDS);
+export const endpointProviderIdSchema = z.enum(ENDPOINT_PROVIDER_IDS);
 
 export const modelCapabilitiesSchema = z.object({
   vision: z.boolean(),
@@ -28,8 +29,14 @@ export const providerViewSchema = z.object({
   id: providerIdSchema,
   name: z.string(),
   status: z.enum(['connected', 'not_configured', 'error']),
+  /** How it is set up: with a key, or with an address (a model server on this computer, or any compatible service). */
+  setup: z.enum(['key', 'endpoint']),
   /** Masked hint only (e.g. `sk-…a1b2`). The full key never leaves the main process. */
   maskedKey: z.string().optional(),
+  /** Set up with an address and no key. */
+  keyless: z.boolean().optional(),
+  /** The address the person chose (`setup: 'endpoint'` only). Never contains a user name, password or query. */
+  baseUrl: z.string().optional(),
   models: z.array(modelViewSchema),
   lastCheckedAt: z.number().optional(),
   errorCode: z.string().optional(),
@@ -77,6 +84,15 @@ export const providersContract = {
     'providers:list': spec(noPayload, z.array(providerViewSchema)),
     'providers:setKey': spec(
       z.object({ providerId: providerIdSchema, apiKey: apiKeyInputSchema }),
+      providerViewSchema,
+    ),
+    /** Points Ollama or a custom service at an address. The key is optional (a local server needs none). */
+    'providers:setEndpoint': spec(
+      z.object({
+        providerId: endpointProviderIdSchema,
+        baseUrl: z.string().trim().min(1).max(300),
+        apiKey: apiKeyInputSchema.optional(),
+      }),
       providerViewSchema,
     ),
     'providers:removeKey': spec(z.object({ providerId: providerIdSchema }), providerViewSchema),

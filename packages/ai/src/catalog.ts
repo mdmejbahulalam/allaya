@@ -20,7 +20,9 @@ export function isChatModel(providerId: ProviderId, modelId: string): boolean {
       return /^(gpt|o\d|chatgpt)/i.test(modelId);
     case 'google':
       return /^gemini/i.test(modelId) || /^gemma/i.test(modelId);
-    case 'openrouter':
+    default:
+      // Other vendors list only what they offer; the name filter above already removed speech, image and embedding
+      // models, and the person can choose from what is left.
       return true;
   }
 }
@@ -96,6 +98,14 @@ const CONSERVATIVE_CONTEXT: Record<ProviderId, number> = {
   openai: 128_000,
   google: 128_000,
   openrouter: 32_000,
+  groq: 32_000,
+  mistral: 32_000,
+  deepseek: 64_000,
+  xai: 128_000,
+  together: 32_000,
+  // A model on this computer or at an address the person chose: the size is unknown, so assume a small one.
+  ollama: 8_000,
+  custom: 8_000,
 };
 
 function inferReasoning(modelId: string): boolean {

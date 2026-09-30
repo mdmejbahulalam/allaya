@@ -42,7 +42,10 @@ export abstract class BaseProvider implements AIProvider {
   }
 
   protected get baseUrl(): string {
-    return (this.context.baseUrl ?? this.defaultBaseUrl).replace(/\/+$/, '');
+    return (this.context.getBaseUrl?.() ?? this.context.baseUrl ?? this.defaultBaseUrl).replace(
+      /\/+$/,
+      '',
+    );
   }
 
   protected abstract readonly defaultBaseUrl: string;

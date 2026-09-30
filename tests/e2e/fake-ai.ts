@@ -121,6 +121,30 @@ export class FakeAi {
       ...(upload ? { uploadBytes: upload.uploadBytes, fields: upload.fields } : {}),
     });
 
+    // A server the person points Allaya at (`/custom/v1/…`): the OpenAI format, with no key required.
+    if (req.url?.startsWith('/custom/v1/')) {
+      if (req.method === 'GET' && req.url === '/custom/v1/models') {
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ data: [{ id: 'qwen2.5:7b' }, { id: 'llama3.2:3b' }] }));
+        return;
+      }
+      if (req.method === 'POST' && req.url === '/custom/v1/chat/completions') {
+        const messages =
+          (body as { messages?: Array<{ role: string; content: unknown }> }).messages ?? [];
+        const last = [...messages].reverse().find((m) => m.role === 'user');
+        const text = typeof last?.content === 'string' ? last.content : '';
+        res.writeHead(200, { 'content-type': 'text/event-stream' });
+        const data = (chunk: unknown) => res.write(`data: ${JSON.stringify(chunk)}\n\n`);
+        data({ choices: [{ delta: { content: 'Custom says: ' } }] });
+        data({ choices: [{ delta: { content: text }, finish_reason: 'stop' }] });
+        res.end('data: [DONE]\n\n');
+        return;
+      }
+      res.writeHead(404, { 'content-type': 'application/json' });
+      res.end('{}');
+      return;
+    }
+
     // Google-style endpoints: the model list and speech, authenticated with a header.
     if (req.headers['x-goog-api-key'] !== undefined) {
       if (req.headers['x-goog-api-key'] !== FakeAi.GOOGLE_KEY) {

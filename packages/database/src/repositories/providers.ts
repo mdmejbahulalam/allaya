@@ -5,6 +5,7 @@ import { apiCredentials, modelRouting, models, providers } from '../schema';
 export interface ProviderRow {
   id: string;
   name: string;
+  baseUrl: string | null;
   status: string;
   lastCheckedAt: number | null;
   lastError: string | null;
@@ -42,6 +43,7 @@ export class ProviderRepository {
       .select({
         id: providers.id,
         name: providers.name,
+        baseUrl: providers.baseUrl,
         status: providers.status,
         lastCheckedAt: providers.lastCheckedAt,
         lastError: providers.lastError,
@@ -49,6 +51,15 @@ export class ProviderRepository {
       .from(providers)
       .where(eq(providers.id, id))
       .get();
+  }
+
+  /** The address of a provider the person points at a server (`null` clears it). */
+  setBaseUrl(id: string, baseUrl: string | null): void {
+    this.db
+      .update(providers)
+      .set({ baseUrl, updatedAt: this.now() })
+      .where(eq(providers.id, id))
+      .run();
   }
 
   setStatus(id: string, status: string, lastError: string | null = null): void {

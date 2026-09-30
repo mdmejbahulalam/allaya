@@ -32,7 +32,7 @@ export const useProvidersStore = create<ProvidersState>((set) => ({
 
 export function connectionState(providers: ProviderView[]): ConnectionState {
   if (providers.some((p) => p.status === 'connected')) return 'online';
-  if (providers.some((p) => p.maskedKey)) return 'ai_offline';
+  if (providers.some((p) => p.maskedKey || p.keyless)) return 'ai_offline';
   return 'not_configured';
 }
 

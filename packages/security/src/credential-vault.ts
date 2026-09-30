@@ -35,6 +35,14 @@ const EXPECTED_PREFIX: Record<ProviderId, string> = {
   openai: 'sk-',
   openrouter: 'sk-or-',
   google: 'AIza',
+  groq: 'gsk_',
+  deepseek: 'sk-',
+  xai: 'xai-',
+  // These have no fixed format, so any key is accepted without a warning.
+  mistral: '',
+  together: '',
+  ollama: '',
+  custom: '',
 };
 
 /**

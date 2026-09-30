@@ -18,6 +18,8 @@ export interface ProviderContext {
   getApiKey(): Promise<string>;
   fetch?: FetchLike;
   baseUrl?: string;
+  /** For a provider whose address the person sets: read at request time, so a change applies at once. */
+  getBaseUrl?: () => string | undefined;
   timeoutMs?: number;
   maxRetries?: number;
   backoffMs?: number;

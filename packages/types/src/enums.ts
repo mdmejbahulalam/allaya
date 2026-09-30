@@ -169,8 +169,27 @@ export const RESPONSE_LANGUAGES = ['bn', 'en'] as const;
 export type ResponseLanguage = (typeof RESPONSE_LANGUAGES)[number];
 
 // ── AI ──────────────────────────────────────────────────────────────────────
-export const PROVIDER_IDS = ['anthropic', 'openai', 'google', 'openrouter'] as const;
+export const PROVIDER_IDS = [
+  'anthropic',
+  'openai',
+  'google',
+  'openrouter',
+  'groq',
+  'mistral',
+  'deepseek',
+  'xai',
+  'together',
+  'ollama',
+  'custom',
+] as const;
 export type ProviderId = (typeof PROVIDER_IDS)[number];
+
+/**
+ * Providers set up with an address rather than only a key: a model server on this computer (Ollama, LM Studio…)
+ * or any service that speaks the OpenAI format. The key is optional for them.
+ */
+export const ENDPOINT_PROVIDER_IDS = ['ollama', 'custom'] as const;
+export type EndpointProviderId = (typeof ENDPOINT_PROVIDER_IDS)[number];
 
 export const ROUTING_PURPOSES = [
   'general',

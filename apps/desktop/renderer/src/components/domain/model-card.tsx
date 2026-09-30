@@ -1,4 +1,4 @@
-import { KeyRound, PlugZap, Trash2 } from 'lucide-react';
+import { Globe, KeyRound, PlugZap, Trash2 } from 'lucide-react';
 import { useT } from '@renderer/lib/i18n';
 import { Badge } from '@renderer/components/ui/badge';
 import { Button } from '@renderer/components/ui/button';
@@ -10,6 +10,8 @@ export interface ProviderSummary {
   connected: boolean;
   /** e.g. `sk-…a1b2` — never the full key. */
   maskedKey?: string;
+  /** Set up with an address instead of a key (a model server, or any compatible service). */
+  endpoint?: { url?: string; keyless: boolean };
   models: string[];
   capabilities: string[];
   error?: string;
@@ -54,18 +56,28 @@ export function ModelCard({
       {provider.models.length > 0 && (
         <p className="text-small text-muted">{provider.models.slice(0, 3).join(' · ')}</p>
       )}
-      <div className="flex items-center gap-2 rounded-control border border-line bg-bg-2 px-3 py-2 text-small">
-        <KeyRound aria-hidden size={14} className="text-muted" />
-        <span className="text-muted">{t.t('models.apiKey')}</span>
-        <span className="ms-auto font-mono text-fg">{provider.maskedKey ?? '—'}</span>
-      </div>
+      {provider.endpoint ? (
+        <div className="flex items-center gap-2 rounded-control border border-line bg-bg-2 px-3 py-2 text-small">
+          <Globe aria-hidden size={14} className="shrink-0 text-muted" />
+          <span className="shrink-0 text-muted">{t.t('models.endpoint.address')}</span>
+          <span className="ms-auto min-w-0 truncate font-mono text-fg" dir="ltr">
+            {provider.endpoint.url ?? '—'}
+          </span>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2 rounded-control border border-line bg-bg-2 px-3 py-2 text-small">
+          <KeyRound aria-hidden size={14} className="text-muted" />
+          <span className="text-muted">{t.t('models.apiKey')}</span>
+          <span className="ms-auto font-mono text-fg">{provider.maskedKey ?? '—'}</span>
+        </div>
+      )}
       {provider.error && (
         <p role="alert" className="text-small text-danger-text">
           {provider.error}
         </p>
       )}
       <div className="flex flex-wrap gap-2">
-        {provider.maskedKey ? (
+        {provider.maskedKey || provider.endpoint?.keyless ? (
           <>
             <Button
               size="sm"
@@ -82,9 +94,18 @@ export function ModelCard({
               leftIcon={<Trash2 size={14} />}
               onClick={() => onRemove?.(provider)}
             >
-              {t.t('models.removeKey')}
+              {provider.endpoint ? t.t('models.endpoint.disconnect') : t.t('models.removeKey')}
             </Button>
+            {provider.endpoint && (
+              <Button size="sm" variant="ghost" onClick={() => onConfigure?.(provider)}>
+                {t.t('models.endpoint.change')}
+              </Button>
+            )}
           </>
+        ) : provider.endpoint ? (
+          <Button size="sm" variant="primary" onClick={() => onConfigure?.(provider)}>
+            {t.t('models.endpoint.setUp')}
+          </Button>
         ) : (
           <Button size="sm" variant="primary" onClick={() => onConfigure?.(provider)}>
             {t.t('common.add')} {t.t('models.apiKey')}

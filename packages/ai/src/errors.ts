@@ -33,13 +33,38 @@ export function parseRetryAfter(
  * Maps a failed HTTP response to a typed error. Messages are passed through secret redaction so a
  * provider echoing back part of a key can never reach logs or the UI.
  */
+/**
+ * Removes the exact secrets a request carried from a piece of text. Pattern redaction cannot know a key whose
+ * format it has never seen (many services use plain random strings); a service that echoes the key back in an
+ * error message must still not put it on screen or in a log.
+ */
+export function scrubSecrets(text: string, secrets: readonly string[] = []): string {
+  let out = text;
+  for (const secret of secrets) if (secret.length >= 8) out = out.split(secret).join('[REDACTED]');
+  return out;
+}
+
+/** The credentials in a request's headers (`Authorization: Bearer …`, `x-api-key`, `x-goog-api-key`). */
+export function secretsIn(headers: Record<string, string>): string[] {
+  const out: string[] = [];
+  for (const [name, value] of Object.entries(headers)) {
+    if (!/^(authorization|x-api-key|x-goog-api-key)$/i.test(name)) continue;
+    out.push(value.replace(/^Bearer\s+/i, '').trim());
+  }
+  return out.filter((v) => v.length >= 8);
+}
+
 export function httpError(
   provider: ProviderId,
   status: number,
   body: unknown,
   retryAfterMs?: number,
+  secrets: readonly string[] = [],
 ): AllayaError {
-  const detail = redactString(extractProviderMessage(body) ?? `HTTP ${status}`);
+  const detail = scrubSecrets(
+    redactString(extractProviderMessage(body) ?? `HTTP ${status}`),
+    secrets,
+  );
   let code: ErrorCode;
   let retryable = false;
   if (status === 401 || status === 403) code = 'PROVIDER_AUTH_FAILED';
@@ -59,12 +84,19 @@ export function httpError(
   });
 }
 
-export function networkError(provider: ProviderId, cause: unknown): AllayaError {
+export function networkError(
+  provider: ProviderId,
+  cause: unknown,
+  secrets: readonly string[] = [],
+): AllayaError {
   const message = cause instanceof Error ? cause.message : String(cause);
-  return new AllayaError(`${provider}: could not reach the service (${redactString(message)})`, {
-    code: 'PROVIDER_UNAVAILABLE',
-    retryable: true,
-    details: { provider },
-    cause,
-  });
+  return new AllayaError(
+    `${provider}: could not reach the service (${scrubSecrets(redactString(message), secrets)})`,
+    {
+      code: 'PROVIDER_UNAVAILABLE',
+      retryable: true,
+      details: { provider },
+      cause,
+    },
+  );
 }

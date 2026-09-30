@@ -871,7 +871,27 @@
       "balanced": "Balanced",
       "frontier": "Frontier"
     },
-    "inferred": "Capabilities estimated from the model name"
+    "inferred": "Capabilities estimated from the model name",
+    "endpoint": {
+      "title": "Connect {provider}",
+      "body": "Enter the address of the server. Models are listed from it, and you choose which to use.",
+      "address": "Address",
+      "addressHint": "A server on this computer can use http://. Anything else must use https://, so your key is never sent unprotected.",
+      "keyOptional": "API key (optional)",
+      "setUp": "Set up",
+      "change": "Change",
+      "disconnect": "Disconnect",
+      "unreachable": "Saved, but {provider} could not be reached. Check that it is running.",
+      "refused": {
+        "empty": "Enter an address.",
+        "malformed": "That does not look like a web address.",
+        "scheme": "The address must start with http:// or https://.",
+        "credentials": "Remove the user name and password from the address, and put the key in the key box.",
+        "query": "Remove everything after a ? or # in the address.",
+        "insecure_remote": "Only a server on this computer can use http://. Use https:// for anything else.",
+        "too_long": "That address is too long."
+      }
+    }
   },
   "activity": {
     "title": "Activity",

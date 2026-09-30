@@ -14,6 +14,8 @@ const SECRET_VALUE_PATTERNS: RegExp[] = [
   /\bsk-or-[A-Za-z0-9_-]{8,}/g, // OpenRouter
   /\bsk-(?:proj-)?[A-Za-z0-9_-]{16,}/g, // OpenAI
   /\bAIza[0-9A-Za-z_-]{20,}/g, // Google API keys
+  /\bgsk_[A-Za-z0-9]{16,}/g, // Groq
+  /\bxai-[A-Za-z0-9]{16,}/g, // xAI
   /\bgh[pousr]_[A-Za-z0-9]{20,}/g, // GitHub tokens
   /\bBearer\s+[A-Za-z0-9._~+/=-]{12,}/gi,
   /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/g, // JWT

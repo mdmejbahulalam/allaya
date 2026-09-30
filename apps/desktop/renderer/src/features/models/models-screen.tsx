@@ -13,6 +13,7 @@ import { ConfirmationDialog } from '@renderer/components/ui/confirmation-dialog'
 import { Dropdown } from '@renderer/components/ui/dropdown';
 import { EmptyState } from '@renderer/components/ui/empty-state';
 import { Switch } from '@renderer/components/ui/switch';
+import { EndpointModal } from './endpoint-modal';
 import { KeyModal } from './key-modal';
 
 const AUTO = '__auto__';
@@ -82,6 +83,14 @@ export function ModelsScreen() {
                   name: provider.name,
                   connected: provider.status === 'connected',
                   ...(provider.maskedKey ? { maskedKey: provider.maskedKey } : {}),
+                  ...(provider.setup === 'endpoint'
+                    ? {
+                        endpoint: {
+                          ...(provider.baseUrl ? { url: provider.baseUrl } : {}),
+                          keyless: provider.keyless === true,
+                        },
+                      }
+                    : {}),
                   models: provider.models.map((m) => m.displayName),
                   capabilities: [
                     ...new Set(
@@ -177,7 +186,14 @@ export function ModelsScreen() {
         </section>
       </div>
 
-      <KeyModal provider={adding} onClose={() => setAdding(null)} />
+      <KeyModal
+        provider={adding?.setup === 'key' ? adding : null}
+        onClose={() => setAdding(null)}
+      />
+      <EndpointModal
+        provider={adding?.setup === 'endpoint' ? adding : null}
+        onClose={() => setAdding(null)}
+      />
       <ConfirmationDialog
         open={removing !== null}
         risk="MEDIUM"

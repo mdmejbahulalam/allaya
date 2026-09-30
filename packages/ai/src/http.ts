@@ -1,6 +1,6 @@
 import { AllayaError, sleep } from '@allaya/shared';
 import type { ProviderId } from '@allaya/types';
-import { httpError, networkError, parseRetryAfter } from './errors';
+import { httpError, networkError, parseRetryAfter, secretsIn } from './errors';
 
 export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
@@ -82,6 +82,7 @@ export async function send(
     backoffMs = 500,
   } = options;
   let attempt = 0;
+  const secrets = secretsIn(spec.headers);
 
   for (;;) {
     const { signal, dispose } = combineSignals(spec.signal, timeoutMs);
@@ -99,7 +100,13 @@ export async function send(
       if (response.ok) return { response, dispose };
 
       const retryAfter = parseRetryAfter(response.headers.get('retry-after'));
-      const error = httpError(provider, response.status, await readBody(response), retryAfter);
+      const error = httpError(
+        provider,
+        response.status,
+        await readBody(response),
+        retryAfter,
+        secrets,
+      );
       dispose();
       if (!error.retryable || attempt >= maxRetries || spec.signal?.aborted) throw error;
       // Honour Retry-After, but never stall the agent for longer than MAX_RETRY_WAIT.
@@ -117,7 +124,7 @@ export async function send(
       } else if (signal.aborted && signal.reason instanceof AllayaError) {
         throw signal.reason;
       } else if (attempt >= maxRetries) {
-        throw networkError(provider, error);
+        throw networkError(provider, error, secrets);
       } else {
         await sleep(backoffMs * 2 ** attempt + Math.random() * backoffMs, spec.signal);
       }

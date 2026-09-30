@@ -15,7 +15,7 @@ describe('provider setup', () => {
   it('starts with every provider unconfigured (no-API-key mode) and no models', async () => {
     backend = createTestBackend();
     const result = await backend.call('providers:list');
-    expect(result.ok && result.data).toHaveLength(4);
+    expect(result.ok && result.data).toHaveLength(11);
     for (const provider of (result as { data: Array<{ status: string; models: unknown[] }> })
       .data) {
       expect(provider.status).toBe('not_configured');

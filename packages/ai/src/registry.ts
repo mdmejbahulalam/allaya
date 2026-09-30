@@ -6,6 +6,7 @@ import { AnthropicProvider } from './providers/anthropic';
 import { GoogleProvider } from './providers/google';
 import { OpenAIProvider } from './providers/openai';
 import { OpenRouterProvider } from './providers/openrouter';
+import { OpenAICompatibleVendor, VENDORS } from './providers/vendors';
 
 export interface ProviderFactoryOptions {
   /** Resolves the decrypted key for a provider at call time. Throws PROVIDER_NOT_CONFIGURED when absent. */
@@ -15,6 +16,8 @@ export interface ProviderFactoryOptions {
   maxRetries?: number;
   backoffMs?: number;
   baseUrls?: Partial<Record<ProviderId, string>>;
+  /** For providers whose address the person sets. Read at request time; `undefined` means the default. */
+  getBaseUrl?: (providerId: ProviderId) => string | undefined;
 }
 
 /** Holds provider adapters. Adding a provider means registering another `AIProvider` — nothing else changes. */
@@ -48,10 +51,13 @@ export function createProviderRegistry(options: ProviderFactoryOptions): Provide
     ...(options.maxRetries !== undefined ? { maxRetries: options.maxRetries } : {}),
     ...(options.backoffMs !== undefined ? { backoffMs: options.backoffMs } : {}),
     ...(options.baseUrls?.[id] ? { baseUrl: options.baseUrls[id] } : {}),
+    ...(options.getBaseUrl ? { getBaseUrl: () => options.getBaseUrl!(id) } : {}),
   });
-  return new ProviderRegistry()
+  const registry = new ProviderRegistry()
     .register(new AnthropicProvider(context('anthropic')))
     .register(new OpenAIProvider(context('openai')))
     .register(new GoogleProvider(context('google')))
     .register(new OpenRouterProvider(context('openrouter')));
+  for (const spec of VENDORS) registry.register(new OpenAICompatibleVendor(spec, context(spec.id)));
+  return registry;
 }

@@ -8,6 +8,9 @@ export function registerProviderHandlers(
   registry
     .register('providers:list', () => providers.list())
     .register('providers:setKey', ({ providerId, apiKey }) => providers.setKey(providerId, apiKey))
+    .register('providers:setEndpoint', ({ providerId, baseUrl, apiKey }) =>
+      providers.setEndpoint(providerId, baseUrl, apiKey),
+    )
     .register('providers:removeKey', ({ providerId }) => providers.removeKey(providerId))
     .register('providers:test', ({ providerId }) => providers.test(providerId))
     .register('providers:refreshModels', ({ providerId }) => providers.refreshModels(providerId))
