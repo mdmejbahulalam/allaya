@@ -1,7 +1,7 @@
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { AllayaError } from '@allaya/shared';
 import {
   BrowserEngine,
@@ -19,6 +19,8 @@ import { startWebFixture, type WebFixture } from '../helpers/web-fixture';
 const CHROMIUM = ['/opt/pw-browsers/chromium', process.env['ALLAYA_TEST_CHROMIUM'] ?? '']
   .filter(Boolean)
   .find((path) => existsSync(path));
+// Starting a real Chromium is slow when the whole suite is running at once, so these tests get a longer limit.
+vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 });
 const real = describe.skipIf(!CHROMIUM);
 
 let web: WebFixture;
