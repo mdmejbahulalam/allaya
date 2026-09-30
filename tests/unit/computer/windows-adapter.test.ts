@@ -307,7 +307,8 @@ const pwsh = which(
 const mcs = which(['mcs'], ['--version']);
 
 describe.skipIf(!pwsh)('PowerShell programs — real parser (pwsh found)', () => {
-  it('every program parses without errors', () => {
+  // One PowerShell start-up per script: slow when the whole suite is running at once.
+  it('every program parses without errors', { timeout: 60_000 }, () => {
     const dir = mkdtempSync(join(tmpdir(), 'allaya-ps-'));
     const results = Object.entries(SCRIPTS).map(([name, script]) => {
       const file = join(dir, `${name}.ps1`);

@@ -178,7 +178,11 @@ describe('managing automations over IPC', () => {
         }),
       );
     expect((await bad({ name: '' })).code).toBe('INVALID_IPC_PAYLOAD');
-    expect((await bad({ instruction: '   ' })).code).toBe('INVALID_IPC_PAYLOAD');
+    // Nothing to do (no instruction, no workflow) is refused where it is saved, with the reason.
+    expect(await bad({ instruction: '   ' })).toMatchObject({
+      code: 'INVALID_INPUT',
+      details: { reason: 'nothing_to_do' },
+    });
     expect((await bad({ instruction: 'z'.repeat(2001) })).code).toBe('INVALID_IPC_PAYLOAD');
     expect((await bad({ trigger: { kind: 'interval', everyMinutes: 1 } })).code).toBe(
       'INVALID_IPC_PAYLOAD',

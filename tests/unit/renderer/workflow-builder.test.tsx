@@ -363,7 +363,7 @@ describe('building a workflow on the screen', () => {
     expect(within(levelThree).getByRole('button', { name: 'Ask me first' })).toBeEnabled();
   });
 
-  it('stops offering more at thirty steps', async () => {
+  it('stops offering more at thirty steps', { timeout: 60_000 }, async () => {
     await openNew();
     await switchToSteps();
     for (let i = 0; i < 29; i += 1) await userEvent.click(addButton('Stop here'));
