@@ -5,5 +5,6 @@ export function registerVoiceHandlers(registry: HandlerRegistry, voice: VoiceSer
   registry
     .register('voice:getCapabilities', () => voice.capabilities())
     .register('voice:transcribe', (input) => voice.transcribe(input))
-    .register('voice:synthesize', (input) => voice.synthesize(input));
+    .register('voice:synthesize', (input) => voice.synthesize(input))
+    .register('voice:listSpeechModels', () => voice.speechModels());
 }

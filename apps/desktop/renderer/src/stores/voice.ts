@@ -1,13 +1,16 @@
 import { create } from 'zustand';
 import {
   VoiceStateMachine,
+  cleanAudioTags,
   prepareSpeechText,
+  stripAudioTags,
   type ReviewReason,
   type VoiceEffect,
 } from '@allaya/speech';
 import type { VoiceState } from '@allaya/types';
 import type { VoiceCapabilities } from '@allaya/validation';
 import { IpcError, invoke } from '@renderer/lib/api';
+import { recordingToWav } from '@renderer/lib/voice/wav';
 import {
   blobToBase64,
   startRecording,
@@ -64,18 +67,24 @@ interface VoiceStoreState {
 /** Everything that touches real hardware, injectable so the flow can be tested with fakes. */
 export interface VoiceRuntime {
   startRecording: (options: RecorderOptions) => Promise<RecorderHandle>;
+  /** Re-encodes a recording as WAV for services that do not read what the browser records. */
+  toWav?: (blob: Blob) => Promise<Blob>;
   systemSpeaker: () => Speaker;
   cloudSpeaker: () => Speaker;
+  /** The expressive (tone-tag) voice. Tests that do not care may leave it out. */
+  expressiveSpeaker?: () => Speaker;
 }
 
 const defaultRuntime: VoiceRuntime = {
   startRecording,
+  toWav: recordingToWav,
   systemSpeaker: () =>
     new SystemSpeaker({
       getRate: () => useSettingsStore.getState().values['voice.speechRate'],
       getVoiceUri: () => useSettingsStore.getState().values['voice.systemVoice'],
     }),
   cloudSpeaker: () => new CloudSpeaker(),
+  expressiveSpeaker: () => new CloudSpeaker({ engine: 'gemini', chunkChars: 420 }),
 };
 
 let runtime: VoiceRuntime = defaultRuntime;
@@ -84,11 +93,17 @@ export function configureVoiceRuntime(next: VoiceRuntime | undefined): void {
   speakers.clear();
 }
 
-const speakers = new Map<'system' | 'cloud', Speaker>();
-const speakerFor = (engine: 'system' | 'cloud'): Speaker => {
+type Engine = 'system' | 'cloud' | 'gemini';
+const speakers = new Map<Engine, Speaker>();
+const speakerFor = (engine: Engine): Speaker => {
   let speaker = speakers.get(engine);
   if (!speaker) {
-    speaker = engine === 'cloud' ? runtime.cloudSpeaker() : runtime.systemSpeaker();
+    speaker =
+      engine === 'gemini'
+        ? (runtime.expressiveSpeaker ?? runtime.cloudSpeaker)()
+        : engine === 'cloud'
+          ? runtime.cloudSpeaker()
+          : runtime.systemSpeaker();
     speakers.set(engine, speaker);
   }
   return speaker;
@@ -124,8 +139,18 @@ export const useVoiceStore = create<VoiceStoreState>((set, get) => {
 
   const transcribe = async (epoch: number, blob: Blob, mimeType: string) => {
     try {
-      const audio = await blobToBase64(blob);
-      const result = await invoke('voice:transcribe', { audio, mimeType });
+      // Google's speech service reads WAV, not the browser's WebM. If the conversion is not possible, the original
+      // is sent and the service decides.
+      let sending = { blob, mimeType };
+      if (get().capabilities?.sttEngine === 'gemini' && runtime.toWav) {
+        try {
+          sending = { blob: await runtime.toWav(blob), mimeType: 'audio/wav' };
+        } catch {
+          /* keep the original recording */
+        }
+      }
+      const audio = await blobToBase64(sending.blob);
+      const result = await invoke('voice:transcribe', { audio, mimeType: sending.mimeType });
       // The user may have cancelled or started over while we waited: a stale result is dropped, never acted on.
       const done = machine.dispatch({ type: 'transcribed', epoch });
       if (!done.ok) return;
@@ -243,11 +268,14 @@ export const useVoiceStore = create<VoiceStoreState>((set, get) => {
 
     async speak(text, language) {
       const engine = settings()['voice.speechEngine'];
-      const spoken = prepareSpeechText(text, {
+      const prepared = prepareSpeechText(text, {
         linkWord: language === 'bn' ? 'লিংক' : 'link',
         codeWord: language === 'bn' ? 'কোড' : 'code',
       });
-      if (!spoken) return;
+      // Only the expressive voice understands "[whispers]"; every other voice would read it out.
+      const spoken = engine === 'gemini' ? cleanAudioTags(prepared) : stripAudioTags(prepared);
+      // Nothing to say unless there is at least one real word (tags and full stops alone are not speech).
+      if (!/[\p{L}\p{N}]/u.test(stripAudioTags(spoken))) return;
       const started = machine.dispatch({ type: 'start_speaking' });
       if (!started.ok) return; // busy listening/processing: never talk over the user
       const epoch = started.snapshot.epoch;

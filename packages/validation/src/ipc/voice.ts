@@ -17,7 +17,11 @@ export const voiceCapabilitiesSchema = z.object({
   enabled: z.boolean(),
   /** A speech-to-text provider is configured (an OpenAI key is stored). */
   sttAvailable: z.boolean(),
+  /** Which service will transcribe (`null` when none can). Audio for Google is sent as WAV. */
+  sttEngine: z.enum(['openai', 'gemini']).nullable(),
   cloudTtsAvailable: z.boolean(),
+  /** A Google key is stored, so the expressive voice can speak. */
+  expressiveTtsAvailable: z.boolean(),
 });
 export type VoiceCapabilities = z.infer<typeof voiceCapabilitiesSchema>;
 
@@ -58,8 +62,20 @@ export const voiceContract = {
       z.object({
         text: z.string().trim().min(1).max(MAX_SPEECH_CHARS),
         language: z.enum(['bn', 'en']),
+        /** Try a voice, model or style without saving it (the settings page's preview). Omitted: what is saved. */
+        engine: z.enum(['cloud', 'gemini']).optional(),
+        voice: z
+          .string()
+          .regex(/^[A-Za-z0-9_-]{1,40}$/)
+          .optional(),
+        style: z.string().max(300).optional(),
       }),
-      z.object({ audio: z.string(), mimeType: z.literal('audio/mpeg') }),
+      z.object({ audio: z.string(), mimeType: z.enum(['audio/mpeg', 'audio/wav']) }),
+    ),
+    /** The speech models the stored Google key can use. Empty (not an error) when the list cannot be read. */
+    'voice:listSpeechModels': spec(
+      noPayload,
+      z.object({ models: z.array(z.string()), fetched: z.boolean() }),
     ),
   },
   events: {},

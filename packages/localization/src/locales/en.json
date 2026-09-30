@@ -1092,7 +1092,72 @@
       "systemVoice": "PC voice",
       "systemVoiceAuto": "Automatic (by language)",
       "cloudVoice": "Cloud voice",
-      "rate": "Speaking speed"
+      "rate": "Speaking speed",
+      "engineExpressive": "Expressive voice (Gemini)",
+      "studio": {
+        "needKey": "Add a Google (Gemini) key on the Models screen to hear this voice. You can still choose and set it up here.",
+        "voices": "Voice",
+        "voicesHint": "{count} voices. Each one speaks Bengali, English and many other languages.",
+        "tone": {
+          "bright": "Bright",
+          "upbeat": "Upbeat",
+          "informative": "Informative",
+          "firm": "Firm",
+          "excitable": "Excitable",
+          "youthful": "Youthful",
+          "breezy": "Breezy",
+          "easygoing": "Easygoing",
+          "breathy": "Breathy",
+          "clear": "Clear",
+          "smooth": "Smooth",
+          "gravelly": "Gravelly",
+          "soft": "Soft",
+          "even": "Even",
+          "mature": "Mature",
+          "forward": "Forward",
+          "friendly": "Friendly",
+          "casual": "Casual",
+          "gentle": "Gentle",
+          "lively": "Lively",
+          "knowledgeable": "Knowledgeable",
+          "warm": "Warm"
+        },
+        "model": "Speech model",
+        "modelFetched": "The models your Google key can use.",
+        "modelDefault": "The default model. Add a Google key to see the ones your account can use.",
+        "refreshModels": "Look for models again",
+        "expressive": "Let Allaya add tone to spoken replies",
+        "expressiveHint": "Allaya may add small tags such as [warm] or [softly] for the voice. They are hidden from the written reply.",
+        "styleTitle": "How should it sound?",
+        "styleHint": "Describe the delivery in your own words: pace, mood, accent. This guides every reply.",
+        "stylePlaceholder": "For example: warm and unhurried, like a friendly assistant",
+        "preset": {
+          "friendly": "Friendly",
+          "calm": "Calm",
+          "energetic": "Energetic",
+          "professional": "Professional",
+          "storyteller": "Storyteller"
+        },
+        "previewTitle": "Try it",
+        "tagsHint": "Tap a tag to put it in the text. Tags such as [whispers] or [excited] change how the next words are said.",
+        "group": {
+          "emotion": "Feeling",
+          "delivery": "Delivery",
+          "pace": "Pace",
+          "sound": "Sounds"
+        },
+        "sample": "Hi, I'm Allaya. [warm] How can I help you today?",
+        "sampleLabel": "Text to speak",
+        "play": "Play",
+        "stop": "Stop",
+        "previewNote": "Plays with the voice and style shown here.",
+        "failed": "Could not play the preview."
+      },
+      "stt": "Speech recognition",
+      "sttAuto": "Automatic",
+      "sttOpenai": "OpenAI Whisper",
+      "sttGemini": "Google Gemini",
+      "sttAutoGoogle": "Using Google Gemini, which does not report how sure it is, so you will usually review what it heard before it is sent."
     },
     "pointer": {
       "open": "Open {name}",
@@ -1139,7 +1204,8 @@
       "updates": "Updates",
       "engine": {
         "system": "system voice",
-        "cloud": "cloud voice"
+        "cloud": "cloud voice",
+        "gemini": "expressive voice"
       },
       "tone": {
         "ok": "OK",
@@ -1249,10 +1315,10 @@
       "title": "Turn on voice?",
       "body": "Voice lets you talk to Allaya in Bengali or English. Here is how it works:",
       "point1": "The microphone is used only while you see “Listening”.",
-      "point2": "Your speech is sent to OpenAI to be turned into text, using your own OpenAI API key.",
+      "point2": "Your speech is sent to OpenAI or Google (whichever key you added) to be turned into text, using your own API key.",
       "point3": "Allaya does not save recordings. Only the text you send stays in the conversation.",
       "point4": "Risky commands, like deleting files, always ask you to confirm first.",
-      "noKey": "Voice needs an OpenAI API key. Add one in AI Models first.",
+      "noKey": "Voice needs an OpenAI or Google (Gemini) API key. Add one in AI Models first.",
       "addKey": "Add key",
       "enable": "Turn on voice"
     }

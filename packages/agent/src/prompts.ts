@@ -21,6 +21,11 @@ export interface SystemPromptOptions {
   toolsAvailable: boolean;
   /** Whether the `start_task` tool is offered (multi-step requests can run as background tasks). */
   canStartTasks?: boolean;
+  /**
+   * Replies will be spoken by an expressive voice that follows tone tags. The model may add a few; the
+   * interface removes them from the written reply.
+   */
+  expressiveVoice?: boolean;
   /** Local time, so relative dates ("today", "গতকাল") resolve correctly. */
   now?: Date;
 }
@@ -35,6 +40,13 @@ const LANGUAGE_RULES: Record<ResponseLanguagePolicy, string> = {
   mixed:
     'Reply in a natural mix of Bengali and English, the way a bilingual Bengali speaker would, using Bengali script for the Bengali parts.',
 };
+
+/** Only offered when the reply will be read aloud by a voice that understands tags. */
+export const EXPRESSIVE_VOICE_RULE =
+  'Your reply may be read aloud by an expressive voice. Where it truly fits, you may put a short tone tag in square ' +
+  'brackets before a sentence — for example [warm], [excited], [softly], [whispers], [short pause]. Use one only every ' +
+  'few sentences, never inside code, file names, links or numbers, and never mention or explain them. Most replies ' +
+  'need none.';
 
 export const PRESERVE_RULE =
   'Keep file names, folder names, URLs, application and product names, code, and technical terms exactly as written — ' +
@@ -103,6 +115,7 @@ export function buildSystemPrompt(options: SystemPromptOptions): string {
     );
   }
 
+  if (options.expressiveVoice) lines.push(EXPRESSIVE_VOICE_RULE);
   if (options.userName?.trim()) lines.push(`The user's name is ${options.userName.trim()}.`);
   if (options.memoryRule) lines.push(options.memoryRule);
   if (options.memory) lines.push(options.memory);

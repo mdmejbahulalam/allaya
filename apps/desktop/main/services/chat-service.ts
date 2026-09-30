@@ -784,6 +784,11 @@ export class ChatService {
       userName: settings.get('profile.displayName'),
       toolsAvailable: tools !== undefined && tools.length > 0,
       canStartTasks,
+      expressiveVoice:
+        settings.get('voice.enabled') &&
+        settings.get('voice.speakReplies') &&
+        settings.get('voice.speechEngine') === 'gemini' &&
+        settings.get('voice.expressive'),
       ...(extras.memory ? { memory: extras.memory } : {}),
       ...(extras.canRemember ? { memoryRule: MEMORY_TOOL_RULE } : {}),
       now: (now ?? (() => new Date()))(),

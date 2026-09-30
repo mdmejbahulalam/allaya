@@ -50,3 +50,26 @@ describe('message language tagging', () => {
     expect(screen.getByText('Open Chrome for me please')).toHaveAttribute('lang', 'en');
   });
 });
+
+describe('tone tags in written replies', () => {
+  const reply = '[warm] Hello there! [whispers] Use `items[index]` here.';
+  it('are hidden when the expressive voice is on — but never inside code', () => {
+    renderUi(<AssistantBubble message={assistant(reply)} />, {
+      settings: { 'voice.speechEngine': 'gemini', 'voice.expressive': true },
+    });
+    expect(screen.getByText(/Hello there!/)).toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/\[warm\]|\[whispers\]/);
+    expect(screen.getByText('items[index]')).toBeInTheDocument();
+  });
+
+  it('are left as written when it is off, so a person’s own brackets are never lost', () => {
+    renderUi(<AssistantBubble message={assistant(reply)} />, {
+      settings: { 'voice.speechEngine': 'system' },
+    });
+    expect(document.body.textContent).toMatch(/\[warm\] Hello there!/);
+    renderUi(<AssistantBubble message={assistant(reply)} />, {
+      settings: { 'voice.speechEngine': 'gemini', 'voice.expressive': false },
+    });
+    expect(document.body.textContent?.match(/\[warm\]/g)).toHaveLength(2);
+  });
+});

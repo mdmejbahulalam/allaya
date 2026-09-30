@@ -49,6 +49,7 @@ function parseMultipart(
 export class FakeAi {
   static readonly VALID_KEY = 'sk-ant-api03-E2EVALIDKEYE2EVALIDKEY0123';
   static readonly OPENAI_KEY = 'sk-proj-E2EVALIDOPENAIKEY0123456789';
+  static readonly GOOGLE_KEY = 'AIzaSyE2EVALIDGOOGLEKEY0123456789ABCD';
   readonly requests: FakeRequest[] = [];
   /** Produces the streamed pieces for a given last user message. */
   reply: (userText: string) => string[] = (text) => ['Echo: ', text];
@@ -119,6 +120,53 @@ export class FakeAi {
       body,
       ...(upload ? { uploadBytes: upload.uploadBytes, fields: upload.fields } : {}),
     });
+
+    // Google-style endpoints: the model list and speech, authenticated with a header.
+    if (req.headers['x-goog-api-key'] !== undefined) {
+      if (req.headers['x-goog-api-key'] !== FakeAi.GOOGLE_KEY) {
+        res.writeHead(400, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ error: { message: 'API key not valid.' } }));
+        return;
+      }
+      res.writeHead(200, { 'content-type': 'application/json' });
+      if (req.method === 'GET' && req.url?.startsWith('/v1beta/models')) {
+        // Only speech models: chat keeps routing to Anthropic in these tests.
+        res.end(
+          JSON.stringify({
+            models: [
+              { name: 'models/gemini-3.1-flash-tts-preview' },
+              { name: 'models/gemini-2.5-pro-preview-tts' },
+            ],
+          }),
+        );
+        return;
+      }
+      if (req.method === 'POST' && /:generateContent$/.test(req.url ?? '')) {
+        // 0.2 s of silence: raw 16-bit PCM at 24 kHz, the way the real service answers.
+        const pcm = Buffer.alloc(24_000 * 2 * 0.2);
+        res.end(
+          JSON.stringify({
+            candidates: [
+              {
+                content: {
+                  parts: [
+                    {
+                      inlineData: {
+                        mimeType: 'audio/L16;codec=pcm;rate=24000',
+                        data: pcm.toString('base64'),
+                      },
+                    },
+                  ],
+                },
+              },
+            ],
+          }),
+        );
+        return;
+      }
+      res.end('{}');
+      return;
+    }
 
     // OpenAI-style endpoints (speech) authenticate with a bearer token.
     if (req.headers['authorization'] !== undefined) {

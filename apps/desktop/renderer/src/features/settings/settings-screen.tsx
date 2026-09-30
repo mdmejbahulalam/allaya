@@ -20,6 +20,7 @@ import { Button } from '@renderer/components/ui/button';
 import { DiagnosticsSection } from './diagnostics-section';
 import { SettingRow } from './setting-row';
 import { ShortcutRecorder } from './shortcut-recorder';
+import { VoiceStudio } from './voice-studio';
 import { pickVoice, type VoiceInfo } from '@allaya/speech';
 import { toVoiceInfo } from '@renderer/lib/voice/speaker';
 import { useVoiceStore } from '@renderer/stores/voice';
@@ -542,144 +543,185 @@ function VoiceSection() {
   }
 
   return (
-    <Card>
-      <p className="mb-4 rounded-control bg-elevated px-3 py-2 text-small text-muted">
-        {t.t('settings.voice.note')}
-      </p>
-      <SettingRow
-        label={t.t('settings.voice.enabled')}
-        description={t.t('settings.voice.enabledHint')}
-      >
-        <Switch
-          label={t.t('settings.voice.enabled')}
-          checked={enabled}
-          onCheckedChange={(v) => void set('voice.enabled', v)}
-        />
-      </SettingRow>
-      <SettingRow label={t.t('settings.voice.device')}>
-        <Dropdown
-          label={t.t('settings.voice.device')}
-          value={values['voice.inputDeviceId']}
-          onValueChange={(v) => void set('voice.inputDeviceId', v)}
-          options={[
-            { value: '', label: t.t('settings.voice.deviceDefault') },
-            ...microphones.map((d, i) => ({
-              value: d.deviceId,
-              label: d.label || `${t.t('settings.voice.device')} ${i + 1}`,
-            })),
-          ]}
-        />
-      </SettingRow>
-      <SettingRow
-        label={t.t('settings.voice.inputLanguage')}
-        description={t.t('settings.voice.inputLanguageHint')}
-      >
-        <Dropdown
-          label={t.t('settings.voice.inputLanguage')}
-          value={values['voice.inputLanguage']}
-          onValueChange={(v) => void set('voice.inputLanguage', v as 'auto' | 'bn' | 'en')}
-          options={[
-            { value: 'auto', label: t.t('settings.language.auto') },
-            { value: 'bn', label: t.t('chat.autonym.bn') },
-            { value: 'en', label: t.t('chat.autonym.en') },
-          ]}
-        />
-      </SettingRow>
-      <SettingRow label={t.t('settings.voice.autoSend')}>
-        <Dropdown
-          label={t.t('settings.voice.autoSend')}
-          value={values['voice.autoSend']}
-          onValueChange={(v) => void set('voice.autoSend', v as 'never' | 'confident' | 'always')}
-          className="min-w-64"
-          options={[
-            { value: 'never', label: t.t('settings.voice.autoSendNever') },
-            { value: 'confident', label: t.t('settings.voice.autoSendConfident') },
-            { value: 'always', label: t.t('settings.voice.autoSendAlways') },
-          ]}
-        />
-      </SettingRow>
-      <SettingRow label={t.t('settings.voice.threshold')} htmlFor="voice-threshold">
-        <div className="flex items-center gap-3">
-          <input
-            id="voice-threshold"
-            type="range"
-            min={0.5}
-            max={0.95}
-            step={0.05}
-            value={values['voice.confidenceThreshold']}
-            disabled={values['voice.autoSend'] !== 'confident'}
-            onChange={(event) => void set('voice.confidenceThreshold', Number(event.target.value))}
-            className="w-40 accent-[var(--accent)]"
-          />
-          <span className="w-12 text-small text-muted tabular-nums">
-            {t.formatNumber(values['voice.confidenceThreshold'], { style: 'percent' })}
-          </span>
-        </div>
-      </SettingRow>
-      <SettingRow label={t.t('settings.voice.speakReplies')}>
-        <Switch
-          label={t.t('settings.voice.speakReplies')}
-          checked={values['voice.speakReplies']}
-          onCheckedChange={(v) => void set('voice.speakReplies', v)}
-        />
-      </SettingRow>
-      <SettingRow label={t.t('settings.voice.engine')}>
-        <Dropdown
-          label={t.t('settings.voice.engine')}
-          value={values['voice.speechEngine']}
-          onValueChange={(v) => void set('voice.speechEngine', v as 'system' | 'cloud')}
-          className="min-w-64"
-          options={[
-            { value: 'system', label: t.t('settings.voice.engineSystem') },
-            {
-              value: 'cloud',
-              label: t.t('settings.voice.engineCloud'),
-              disabled: capabilities?.cloudTtsAvailable === false,
-            },
-          ]}
-        />
-      </SettingRow>
-      {values['voice.speechEngine'] === 'system' ? (
+    <div className="flex flex-col gap-4">
+      <Card>
+        <p className="mb-4 rounded-control bg-elevated px-3 py-2 text-small text-muted">
+          {t.t('settings.voice.note')}
+        </p>
         <SettingRow
-          label={t.t('settings.voice.systemVoice')}
-          {...(!bengaliVoice ? { description: t.t('voice.notice.no_voice_bn') } : {})}
+          label={t.t('settings.voice.enabled')}
+          description={t.t('settings.voice.enabledHint')}
+        >
+          <Switch
+            label={t.t('settings.voice.enabled')}
+            checked={enabled}
+            onCheckedChange={(v) => void set('voice.enabled', v)}
+          />
+        </SettingRow>
+        <SettingRow label={t.t('settings.voice.device')}>
+          <Dropdown
+            label={t.t('settings.voice.device')}
+            value={values['voice.inputDeviceId']}
+            onValueChange={(v) => void set('voice.inputDeviceId', v)}
+            options={[
+              { value: '', label: t.t('settings.voice.deviceDefault') },
+              ...microphones.map((d, i) => ({
+                value: d.deviceId,
+                label: d.label || `${t.t('settings.voice.device')} ${i + 1}`,
+              })),
+            ]}
+          />
+        </SettingRow>
+        <SettingRow
+          label={t.t('settings.voice.inputLanguage')}
+          description={t.t('settings.voice.inputLanguageHint')}
         >
           <Dropdown
-            label={t.t('settings.voice.systemVoice')}
-            value={values['voice.systemVoice']}
-            onValueChange={(v) => void set('voice.systemVoice', v)}
-            className="min-w-64"
-            options={systemVoiceOptions}
+            label={t.t('settings.voice.inputLanguage')}
+            value={values['voice.inputLanguage']}
+            onValueChange={(v) => void set('voice.inputLanguage', v as 'auto' | 'bn' | 'en')}
+            options={[
+              { value: 'auto', label: t.t('settings.language.auto') },
+              { value: 'bn', label: t.t('chat.autonym.bn') },
+              { value: 'en', label: t.t('chat.autonym.en') },
+            ]}
           />
         </SettingRow>
-      ) : (
-        <SettingRow label={t.t('settings.voice.cloudVoice')}>
+        <SettingRow label={t.t('settings.voice.autoSend')}>
           <Dropdown
-            label={t.t('settings.voice.cloudVoice')}
-            value={values['voice.cloudVoice']}
-            onValueChange={(v) => void set('voice.cloudVoice', v)}
-            options={CLOUD_VOICES.map((v) => ({ value: v, label: v }))}
+            label={t.t('settings.voice.autoSend')}
+            value={values['voice.autoSend']}
+            onValueChange={(v) => void set('voice.autoSend', v as 'never' | 'confident' | 'always')}
+            className="min-w-64"
+            options={[
+              { value: 'never', label: t.t('settings.voice.autoSendNever') },
+              { value: 'confident', label: t.t('settings.voice.autoSendConfident') },
+              { value: 'always', label: t.t('settings.voice.autoSendAlways') },
+            ]}
           />
         </SettingRow>
-      )}
-      <SettingRow label={t.t('settings.voice.rate')} htmlFor="voice-rate">
-        <div className="flex items-center gap-3">
-          <input
-            id="voice-rate"
-            type="range"
-            min={0.5}
-            max={2}
-            step={0.1}
-            value={values['voice.speechRate']}
-            onChange={(event) => void set('voice.speechRate', Number(event.target.value))}
-            className="w-40 accent-[var(--accent)]"
+        <SettingRow label={t.t('settings.voice.threshold')} htmlFor="voice-threshold">
+          <div className="flex items-center gap-3">
+            <input
+              id="voice-threshold"
+              type="range"
+              min={0.5}
+              max={0.95}
+              step={0.05}
+              value={values['voice.confidenceThreshold']}
+              disabled={values['voice.autoSend'] !== 'confident'}
+              onChange={(event) =>
+                void set('voice.confidenceThreshold', Number(event.target.value))
+              }
+              className="w-40 accent-[var(--accent)]"
+            />
+            <span className="w-12 text-small text-muted tabular-nums">
+              {t.formatNumber(values['voice.confidenceThreshold'], { style: 'percent' })}
+            </span>
+          </div>
+        </SettingRow>
+        <SettingRow label={t.t('settings.voice.speakReplies')}>
+          <Switch
+            label={t.t('settings.voice.speakReplies')}
+            checked={values['voice.speakReplies']}
+            onCheckedChange={(v) => void set('voice.speakReplies', v)}
           />
-          <span className="w-12 text-small text-muted tabular-nums">
-            {t.formatNumber(values['voice.speechRate'], { maximumFractionDigits: 1 })}×
-          </span>
-        </div>
-      </SettingRow>
-    </Card>
+        </SettingRow>
+        <SettingRow
+          label={t.t('settings.voice.stt')}
+          description={
+            capabilities && capabilities.sttEngine === null
+              ? t.t('voice.setup.noKey')
+              : capabilities?.sttEngine === 'gemini' && values['voice.sttEngine'] === 'auto'
+                ? t.t('settings.voice.sttAutoGoogle')
+                : undefined
+          }
+        >
+          <Dropdown
+            label={t.t('settings.voice.stt')}
+            value={values['voice.sttEngine']}
+            onValueChange={(v) => void set('voice.sttEngine', v as 'auto' | 'openai' | 'gemini')}
+            className="min-w-64"
+            options={[
+              { value: 'auto', label: t.t('settings.voice.sttAuto') },
+              { value: 'openai', label: t.t('settings.voice.sttOpenai') },
+              { value: 'gemini', label: t.t('settings.voice.sttGemini') },
+            ]}
+          />
+        </SettingRow>
+        <SettingRow label={t.t('settings.voice.engine')}>
+          <Dropdown
+            label={t.t('settings.voice.engine')}
+            value={values['voice.speechEngine']}
+            onValueChange={(v) =>
+              void set('voice.speechEngine', v as 'system' | 'cloud' | 'gemini')
+            }
+            className="min-w-64"
+            options={[
+              { value: 'system', label: t.t('settings.voice.engineSystem') },
+              {
+                value: 'gemini',
+                label: t.t('settings.voice.engineExpressive'),
+                disabled: capabilities?.expressiveTtsAvailable === false,
+              },
+              {
+                value: 'cloud',
+                label: t.t('settings.voice.engineCloud'),
+                disabled: capabilities?.cloudTtsAvailable === false,
+              },
+            ]}
+          />
+        </SettingRow>
+        {values['voice.speechEngine'] === 'system' ? (
+          <SettingRow
+            label={t.t('settings.voice.systemVoice')}
+            {...(!bengaliVoice ? { description: t.t('voice.notice.no_voice_bn') } : {})}
+          >
+            <Dropdown
+              label={t.t('settings.voice.systemVoice')}
+              value={values['voice.systemVoice']}
+              onValueChange={(v) => void set('voice.systemVoice', v)}
+              className="min-w-64"
+              options={systemVoiceOptions}
+            />
+          </SettingRow>
+        ) : values['voice.speechEngine'] === 'gemini' ? null : (
+          <SettingRow label={t.t('settings.voice.cloudVoice')}>
+            <Dropdown
+              label={t.t('settings.voice.cloudVoice')}
+              value={values['voice.cloudVoice']}
+              onValueChange={(v) => void set('voice.cloudVoice', v)}
+              options={CLOUD_VOICES.map((v) => ({ value: v, label: v }))}
+            />
+          </SettingRow>
+        )}
+        {values['voice.speechEngine'] !== 'gemini' && (
+          <SettingRow label={t.t('settings.voice.rate')} htmlFor="voice-rate">
+            <div className="flex items-center gap-3">
+              <input
+                id="voice-rate"
+                type="range"
+                min={0.5}
+                max={2}
+                step={0.1}
+                value={values['voice.speechRate']}
+                onChange={(event) => void set('voice.speechRate', Number(event.target.value))}
+                className="w-40 accent-[var(--accent)]"
+              />
+              <span className="w-12 text-small text-muted tabular-nums">
+                {t.formatNumber(values['voice.speechRate'], { maximumFractionDigits: 1 })}×
+              </span>
+            </div>
+          </SettingRow>
+        )}
+      </Card>
+      {values['voice.speechEngine'] === 'gemini' && (
+        <VoiceStudio
+          available={capabilities?.expressiveTtsAvailable !== false}
+          onChange={(key, value) => void set(key, value as never)}
+        />
+      )}
+    </div>
   );
 }
 

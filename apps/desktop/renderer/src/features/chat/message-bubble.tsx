@@ -1,5 +1,6 @@
 import { Brain, Check, Copy, ListChecks, RotateCcw, Sparkles, KeyRound } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { stripAudioTagsOutsideCode } from '@allaya/speech';
 import type { MessageView } from '@allaya/validation';
 import { useT } from '@renderer/lib/i18n';
 import { Markdown } from '@renderer/lib/markdown';
@@ -8,6 +9,7 @@ import { cn } from '@renderer/lib/cn';
 import { Badge } from '@renderer/components/ui/badge';
 import { Button } from '@renderer/components/ui/button';
 import { IconButton } from '@renderer/components/ui/icon-button';
+import { useSettingsStore } from '@renderer/stores/settings';
 import { useTasksStore } from '@renderer/stores/tasks';
 import { useToolsStore } from '@renderer/stores/tools';
 import { useUiStore } from '@renderer/stores/ui';
@@ -59,7 +61,12 @@ export function AssistantBubble({
   const t = useT();
   const [copied, setCopied] = useState(false);
   const streaming = message.status === 'streaming';
-  const text = streaming ? (liveText ?? message.content) : message.content;
+  // With the expressive voice on, the model may add tone tags for the voice; they are not for reading.
+  const hideTags = useSettingsStore(
+    (s) => s.values['voice.speechEngine'] === 'gemini' && s.values['voice.expressive'],
+  );
+  const raw = streaming ? (liveText ?? message.content) : message.content;
+  const text = hideTags ? stripAudioTagsOutsideCode(raw, streaming) : raw;
   const failed = message.status === 'error';
   const lang = useMemo(() => textLang(text), [text]);
   const liveActions = useToolsStore((s) => s.live[message.id]);
@@ -70,7 +77,7 @@ export function AssistantBubble({
 
   const copy = async () => {
     try {
-      await navigator.clipboard.writeText(message.content);
+      await navigator.clipboard.writeText(text);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {

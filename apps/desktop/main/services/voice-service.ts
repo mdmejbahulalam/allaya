@@ -1,5 +1,12 @@
-import { OpenAiCompatibleStt, OpenAiCompatibleTts } from '@allaya/voice';
-import { decideSubmission } from '@allaya/speech';
+import {
+  GeminiStt,
+  GeminiTts,
+  OpenAiCompatibleStt,
+  OpenAiCompatibleTts,
+  listSpeechModels,
+  type SttProvider,
+} from '@allaya/voice';
+import { DEFAULT_EXPRESSIVE_MODEL, decideSubmission, stripAudioTags } from '@allaya/speech';
 import { AllayaError, newId, type Logger, type RunRegistry } from '@allaya/shared';
 import {
   MAX_AUDIO_BASE64_CHARS,
@@ -31,13 +38,25 @@ export interface VoiceServiceDeps {
 export class VoiceService {
   constructor(private readonly deps: VoiceServiceDeps) {}
 
+  /** Which service transcribes: the person's choice, or (automatic) OpenAI first, then Google. */
+  sttEngine(): 'openai' | 'gemini' | null {
+    const { providers, settings } = this.deps;
+    const choice = settings.get('voice.sttEngine');
+    if (choice !== 'gemini' && providers.hasKey('openai')) return 'openai';
+    if (choice !== 'openai' && providers.hasKey('google')) return 'gemini';
+    return null;
+  }
+
   capabilities(): VoiceCapabilities {
     const { providers, settings } = this.deps;
     const hasKey = providers.hasKey('openai');
+    const sttEngine = this.sttEngine();
     return {
       enabled: settings.get('voice.enabled'),
-      sttAvailable: hasKey,
+      sttAvailable: sttEngine !== null,
+      sttEngine,
       cloudTtsAvailable: hasKey,
+      expressiveTtsAvailable: providers.hasKey('google'),
     };
   }
 
@@ -54,10 +73,19 @@ export class VoiceService {
     const runId = `voice:stt:${newId('run')}`;
     const source = runs.start(runId, 'voice');
     try {
-      const stt = new OpenAiCompatibleStt(
-        providers.audioEndpoint('openai'),
-        settings.get('voice.sttModel'),
-      );
+      const engine = this.sttEngine();
+      if (!engine) {
+        throw new AllayaError('No speech-to-text service is set up', {
+          code: 'PROVIDER_NOT_CONFIGURED',
+        });
+      }
+      const stt: SttProvider =
+        engine === 'gemini'
+          ? new GeminiStt(providers.audioEndpoint('google'), settings.get('voice.geminiSttModel'))
+          : new OpenAiCompatibleStt(
+              providers.audioEndpoint('openai'),
+              settings.get('voice.sttModel'),
+            );
       const started = Date.now();
       const result = await stt.transcribe(
         { bytes, mimeType: input.mimeType },
@@ -100,24 +128,62 @@ export class VoiceService {
   async synthesize(input: {
     text: string;
     language: 'bn' | 'en';
-  }): Promise<{ audio: string; mimeType: 'audio/mpeg' }> {
+    engine?: 'cloud' | 'gemini' | undefined;
+    voice?: string | undefined;
+    style?: string | undefined;
+  }): Promise<{ audio: string; mimeType: 'audio/mpeg' | 'audio/wav' }> {
     const { providers, settings, runs } = this.deps;
     this.requireEnabled();
+    const saved = settings.get('voice.speechEngine');
+    const engine = input.engine ?? (saved === 'gemini' ? 'gemini' : 'cloud');
     const runId = `voice:tts:${newId('run')}`;
     const source = runs.start(runId, 'voice');
     try {
+      if (engine === 'gemini') {
+        const tts = new GeminiTts(providers.audioEndpoint('google'), {
+          model: settings.get('voice.geminiModel'),
+          voice: settings.get('voice.geminiVoice'),
+          style: settings.get('voice.style'),
+        });
+        const out = await tts.synthesize(input.text, {
+          language: input.language,
+          ...(input.voice ? { voice: input.voice } : {}),
+          ...(input.style !== undefined ? { style: input.style } : {}),
+          signal: source.signal,
+        });
+        return {
+          audio: Buffer.from(out.bytes).toString('base64'),
+          mimeType: out.mimeType === 'audio/mpeg' ? 'audio/mpeg' : 'audio/wav',
+        };
+      }
       const tts = new OpenAiCompatibleTts(
         providers.audioEndpoint('openai'),
         settings.get('voice.ttsModel'),
-        settings.get('voice.cloudVoice'),
+        input.voice ?? settings.get('voice.cloudVoice'),
       );
-      const out = await tts.synthesize(input.text, {
+      // This voice does not understand tone tags: it would read "[whispers]" aloud.
+      const out = await tts.synthesize(stripAudioTags(input.text), {
         language: input.language,
         signal: source.signal,
       });
       return { audio: Buffer.from(out.bytes).toString('base64'), mimeType: 'audio/mpeg' };
     } finally {
       runs.finish(runId);
+    }
+  }
+
+  /** Speech models the stored Google key can use, so the person picks from real ones. */
+  async speechModels(): Promise<{ models: string[]; fetched: boolean }> {
+    const { providers, logger } = this.deps;
+    if (!providers.hasKey('google')) return { models: [DEFAULT_EXPRESSIVE_MODEL], fetched: false };
+    try {
+      const models = await listSpeechModels(providers.audioEndpoint('google'));
+      return models.length > 0
+        ? { models, fetched: true }
+        : { models: [DEFAULT_EXPRESSIVE_MODEL], fetched: false };
+    } catch (error) {
+      logger.debug('Could not list speech models', { error: String(error).slice(0, 120) });
+      return { models: [DEFAULT_EXPRESSIVE_MODEL], fetched: false };
     }
   }
 

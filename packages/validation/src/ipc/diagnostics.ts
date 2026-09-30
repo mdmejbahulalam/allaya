@@ -48,7 +48,7 @@ export const diagnosticsSchema = z.object({
   voice: z.object({
     tone,
     enabled: z.boolean(),
-    speechEngine: z.enum(['system', 'cloud']),
+    speechEngine: z.enum(['system', 'cloud', 'gemini']),
     inputLanguage: z.enum(['auto', 'bn', 'en']),
     cloudSpeechReady: z.boolean(),
   }),

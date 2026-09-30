@@ -91,15 +91,33 @@ export class SystemSpeaker implements Speaker {
 }
 
 /** Speech synthesised by the configured cloud provider (through the main process; the key never reaches here). */
+export interface CloudSpeakerOptions {
+  /** Try an engine, voice or style without saving it (the settings page's preview). */
+  engine?: 'cloud' | 'gemini';
+  voice?: string;
+  style?: string;
+  /** Longest piece sent at once. Shorter pieces start sooner; the expressive voice generates a whole piece first. */
+  chunkChars?: number;
+}
+
 export class CloudSpeaker implements Speaker {
   private token = 0;
   private audio: HTMLAudioElement | undefined;
 
+  constructor(private readonly options: CloudSpeakerOptions = {}) {}
+
   async speak(text: string, language: 'bn' | 'en'): Promise<void> {
     const mine = ++this.token;
-    const chunks = chunkForSpeech(text, 900);
+    const chunks = chunkForSpeech(text, this.options.chunkChars ?? 900);
+    const { engine, voice, style } = this.options;
     const fetchChunk = async (chunk: string) => {
-      const out = await invoke('voice:synthesize', { text: chunk, language });
+      const out = await invoke('voice:synthesize', {
+        text: chunk,
+        language,
+        ...(engine ? { engine } : {}),
+        ...(voice ? { voice } : {}),
+        ...(style !== undefined ? { style } : {}),
+      });
       const bytes = Uint8Array.from(atob(out.audio), (c) => c.charCodeAt(0));
       return URL.createObjectURL(new Blob([bytes], { type: out.mimeType }));
     };

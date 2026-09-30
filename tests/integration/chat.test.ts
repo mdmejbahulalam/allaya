@@ -413,3 +413,37 @@ describe('conversation management', () => {
 });
 
 void SONNET;
+
+describe('the expressive-voice rule in the system prompt', () => {
+  const systemFor = async (settings: Record<string, unknown>) => {
+    const requests: RecordedRequest[] = [];
+    await connected((req) => {
+      requests.push(req);
+      return replyStream(['ok']);
+    });
+    for (const [key, value] of Object.entries(settings))
+      await backend.call('settings:set', { key, value });
+    const sent = data<{ assistantMessage: MessageView }>(await send('hello'));
+    await waitForFinish(sent.assistantMessage.id);
+    return (requests[0]!.body as { system: string }).system;
+  };
+  const on = {
+    'voice.enabled': true,
+    'voice.speakReplies': true,
+    'voice.speechEngine': 'gemini',
+    'voice.expressive': true,
+  };
+
+  it('is offered only when replies are spoken by the expressive voice, with tone turned on', async () => {
+    expect(await systemFor(on)).toMatch(/tone tag/);
+  });
+  it.each([
+    ['another voice engine', { 'voice.speechEngine': 'cloud' }],
+    ['the system voice', { 'voice.speechEngine': 'system' }],
+    ['tone switched off', { 'voice.expressive': false }],
+    ['replies not read aloud', { 'voice.speakReplies': false }],
+    ['voice turned off', { 'voice.enabled': false }],
+  ])('is not offered with %s', async (_label, change) => {
+    expect(await systemFor({ ...on, ...change })).not.toMatch(/tone tag/);
+  });
+});

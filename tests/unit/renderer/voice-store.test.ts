@@ -63,7 +63,13 @@ function install(
   invokeMock = vi.fn<Invoke>(async (channel) => {
     if (channel === 'voice:transcribe') return (options.transcribe ?? (async () => decision()))();
     if (channel === 'voice:getCapabilities')
-      return { enabled: true, sttAvailable: true, cloudTtsAvailable: true };
+      return {
+        enabled: true,
+        sttAvailable: true,
+        sttEngine: 'openai',
+        cloudTtsAvailable: true,
+        expressiveTtsAvailable: true,
+      };
     throw new Error(`unexpected channel ${channel}`);
   });
   (window as unknown as { allaya: unknown }).allaya = {
@@ -474,5 +480,116 @@ describe('speaking', () => {
     install({ speaker });
     await useVoiceStore.getState().speak('   ', 'en');
     expect(speaker.speak).not.toHaveBeenCalled();
+  });
+});
+
+describe('tone tags in spoken replies', () => {
+  const engines = () => {
+    const system = fakeSpeaker();
+    const cloud = fakeSpeaker();
+    const expressive = fakeSpeaker();
+    configureVoiceRuntime({
+      startRecording: async () => fakeRecorder().handle,
+      systemSpeaker: () => system,
+      cloudSpeaker: () => cloud,
+      expressiveSpeaker: () => expressive,
+    });
+    return { system, cloud, expressive };
+  };
+  const reply =
+    '[warm] Hello there! [whispers] This is a secret. See [the docs](https://a.example/x).';
+
+  it('the expressive voice gets the tags, tidied', async () => {
+    enable({ 'voice.speechEngine': 'gemini' });
+    const { system, cloud, expressive } = engines();
+    await useVoiceStore.getState().speak('[Warm][warm] Hello there!', 'en');
+    expect(expressive.spoken).toEqual(['[warm] Hello there!']);
+    expect(system.spoken).toEqual([]);
+    expect(cloud.spoken).toEqual([]);
+  });
+
+  it.each(['system', 'cloud'] as const)('the %s voice never reads a tag aloud', async (engine) => {
+    enable({ 'voice.speechEngine': engine });
+    const { system, cloud, expressive } = engines();
+    await useVoiceStore.getState().speak(reply, 'en');
+    const spoken = (engine === 'system' ? system : cloud).spoken.join(' ');
+    expect(spoken).toContain('Hello there!');
+    expect(spoken).not.toMatch(/warm|whispers/);
+    expect(expressive.spoken).toEqual([]);
+  });
+
+  it('a reply that is only tags says nothing', async () => {
+    enable({ 'voice.speechEngine': 'cloud' });
+    const { cloud } = engines();
+    await useVoiceStore.getState().speak('[laughs]', 'en');
+    expect(cloud.spoken).toEqual([]);
+    expect(state()).toBe('IDLE');
+  });
+});
+
+describe('recordings for the Google speech service', () => {
+  const listenAndStop = async () => {
+    const run = useVoiceStore.getState().start();
+    await flush();
+    useVoiceStore.getState().finishListening();
+    await run;
+    await flush();
+  };
+  const caps = (sttEngine: 'openai' | 'gemini') =>
+    useVoiceStore.setState({
+      capabilities: {
+        enabled: true,
+        sttAvailable: true,
+        sttEngine,
+        cloudTtsAvailable: true,
+        expressiveTtsAvailable: true,
+      },
+    });
+  const runtimeWith = (toWav?: (b: Blob) => Promise<Blob>) =>
+    configureVoiceRuntime({
+      startRecording: async () => {
+        const r = fakeRecorder();
+        recorders.push(r);
+        return r.handle;
+      },
+      systemSpeaker: () => fakeSpeaker(),
+      cloudSpeaker: () => fakeSpeaker(),
+      ...(toWav ? { toWav } : {}),
+    });
+
+  it('is sent as WAV, so the service can read it', async () => {
+    const toWav = vi.fn(async () => new Blob([new Uint8Array(50)], { type: 'audio/wav' }));
+    runtimeWith(toWav);
+    caps('gemini');
+    await listenAndStop();
+    expect(toWav).toHaveBeenCalledOnce();
+    expect(invokeMock).toHaveBeenCalledWith(
+      'voice:transcribe',
+      expect.objectContaining({ mimeType: 'audio/wav' }),
+    );
+  });
+
+  it('is left as recorded for OpenAI, which reads it as it is', async () => {
+    const toWav = vi.fn();
+    runtimeWith(toWav as never);
+    caps('openai');
+    await listenAndStop();
+    expect(toWav).not.toHaveBeenCalled();
+    expect(invokeMock).toHaveBeenCalledWith(
+      'voice:transcribe',
+      expect.objectContaining({ mimeType: 'audio/webm' }),
+    );
+  });
+
+  it('falls back to the original when it cannot be converted', async () => {
+    runtimeWith(async () => {
+      throw new Error('cannot decode');
+    });
+    caps('gemini');
+    await listenAndStop();
+    expect(invokeMock).toHaveBeenCalledWith(
+      'voice:transcribe',
+      expect.objectContaining({ mimeType: 'audio/webm' }),
+    );
   });
 });

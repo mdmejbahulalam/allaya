@@ -71,3 +71,14 @@ describe('system prompt honesty', () => {
     ).toMatch(/2026-09-29/);
   });
 });
+
+describe('the expressive voice rule', () => {
+  it('is added only when the reply will be spoken by a voice that follows tags', () => {
+    const off = buildSystemPrompt({ ...base, toolsAvailable: false });
+    expect(off).not.toMatch(/tone tag/);
+    const on = buildSystemPrompt({ ...base, toolsAvailable: false, expressiveVoice: true });
+    expect(on).toMatch(/tone tag in square brackets/);
+    expect(on).toMatch(/never inside code, file names, links or numbers/);
+    expect(on).toMatch(/never mention or explain them/);
+  });
+});
