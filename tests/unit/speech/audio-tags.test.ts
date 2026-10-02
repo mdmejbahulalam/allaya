@@ -25,7 +25,7 @@ describe('stripAudioTags (for a voice that would read them aloud)', () => {
     expect(stripAudioTags('item [1] and [2024-05] and []')).toBe('item [1] and [2024-05] and []');
   });
   it('leaves Bengali text alone', () => {
-    expect(stripAudioTags('[warm] নমস্কার, আমি আল্লায়া।')).toBe('নমস্কার, আমি আল্লায়া।');
+    expect(stripAudioTags('[warm] নমস্কার, আমি আলেয়া।')).toBe('নমস্কার, আমি আলেয়া।');
   });
 });
 

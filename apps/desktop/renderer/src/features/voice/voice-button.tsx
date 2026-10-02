@@ -11,6 +11,7 @@ import { IconButton } from '@renderer/components/ui/icon-button';
 export function VoiceButton({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) {
   const t = useT();
   const state = useVoiceStore((s) => s.state);
+  const conversation = useVoiceStore((s) => s.conversation);
   const toggle = useVoiceStore((s) => s.toggle);
 
   const config = {
@@ -26,15 +27,21 @@ export function VoiceButton({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) {
     },
     SPEAKING: { label: t.t('voice.stopSpeaking'), icon: <Volume2 size={18} /> },
   }[state];
+  // In a hands-free conversation the button always means "end it".
+  const label = conversation ? t.t('voice.endConversation') : config.label;
+  const icon = conversation ? <Square size={16} fill="currentColor" /> : config.icon;
 
   return (
     <IconButton
-      label={config.label}
-      icon={config.icon}
+      label={label}
+      icon={icon}
       size={size}
-      active={state === 'LISTENING'}
+      active={state === 'LISTENING' || conversation}
       onClick={() => void toggle()}
-      className={cn(state === 'LISTENING' && 'bg-danger/15 text-danger-text ring-1 ring-danger/40')}
+      className={cn(
+        (state === 'LISTENING' || conversation) &&
+          'bg-danger/15 text-danger-text ring-1 ring-danger/40',
+      )}
     />
   );
 }

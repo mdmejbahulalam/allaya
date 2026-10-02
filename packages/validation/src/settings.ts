@@ -49,6 +49,10 @@ export const settingsSchemas = {
   'voice.inputLanguage': z.enum(['auto', 'bn', 'en']),
   'voice.inputDeviceId': z.string().max(300),
   'voice.speakReplies': z.boolean(),
+  // Hands-free: one click on the microphone keeps the conversation going (listen, reply, listen…) until it is ended.
+  'voice.conversation': z.boolean(),
+  /** Ends a hands-free conversation after this long with nobody speaking. */
+  'voice.conversationIdleSeconds': z.number().int().min(30).max(600),
   'voice.speechEngine': z.enum(['system', 'cloud', 'gemini']),
   'voice.systemVoice': z.string().max(300),
   'voice.cloudVoice': z.string().regex(/^[A-Za-z0-9_-]{1,40}$/),
@@ -123,6 +127,8 @@ export const settingsDefaults: SettingsSnapshot = {
   'voice.inputLanguage': 'auto',
   'voice.inputDeviceId': '',
   'voice.speakReplies': false,
+  'voice.conversation': true,
+  'voice.conversationIdleSeconds': 120,
   'voice.speechEngine': 'system',
   'voice.systemVoice': '',
   'voice.cloudVoice': 'alloy',

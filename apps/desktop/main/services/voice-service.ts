@@ -18,7 +18,7 @@ import type { SettingsService } from './settings-service';
 
 /** Vocabulary hint: product and app names that speech models otherwise mangle, in Bengali and English. */
 const STT_PROMPT =
-  'Allaya, আল্লায়া, Chrome, ক্রোম, Downloads, Desktop, Documents, খুলে দাও, বন্ধ করো, খুঁজে দাও';
+  'Allaya, আলেয়া, Chrome, ক্রোম, Downloads, Desktop, Documents, খুলে দাও, বন্ধ করো, খুঁজে দাও';
 
 export interface VoiceServiceDeps {
   providers: ProviderService;

@@ -26,8 +26,16 @@ export function VoiceBridge() {
     void refresh();
   }, [refresh, voiceEnabled, providers]);
 
+  // Turning voice off ends a hands-free conversation: the microphone must not stay open without consent.
   useEffect(() => {
-    if (!lastCompleted || !voiceEnabled || !speakReplies) return;
+    if (!voiceEnabled) useVoiceStore.getState().endConversation();
+  }, [voiceEnabled]);
+
+  useEffect(() => {
+    // In a hands-free conversation every reply is spoken, whatever the "read replies aloud" setting says: the
+    // person is talking, not reading.
+    const wantsSpeech = speakReplies || useVoiceStore.getState().conversation;
+    if (!lastCompleted || !voiceEnabled || !wantsSpeech) return;
     const uiLanguage = resolveUiLocale(uiPreference, osLocale) === 'bn' ? 'bn' : 'en';
     const language = textLang(lastCompleted.content) ?? uiLanguage;
     void useVoiceStore.getState().speak(lastCompleted.content, language);

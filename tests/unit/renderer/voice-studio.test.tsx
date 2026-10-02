@@ -121,7 +121,7 @@ describe('the voice studio', () => {
     show();
     const text = screen.getByRole('textbox', { name: 'Text to speak' });
     await userEvent.clear(text);
-    await userEvent.type(text, 'নমস্কার, আমি আল্লায়া। আপনি কেমন আছেন?');
+    await userEvent.type(text, 'নমস্কার, আমি আলেয়া। আপনি কেমন আছেন?');
     await userEvent.click(screen.getByRole('button', { name: 'Play' }));
     await waitFor(() => expect(speakers[0]!.speak).toHaveBeenCalledWith(expect.any(String), 'bn'));
   });

@@ -16,7 +16,7 @@ export interface LaunchedApp {
 
 /** Launches the built Electron app with an isolated profile. Run `pnpm build` first. */
 export async function launchApp(
-  options: { userDataDir?: string; env?: Record<string, string> } = {},
+  options: { userDataDir?: string; env?: Record<string, string>; args?: string[] } = {},
 ): Promise<LaunchedApp> {
   const userDataDir = options.userDataDir ?? mkdtempSync(join(tmpdir(), 'allaya-e2e-'));
   const isRoot = typeof process.getuid === 'function' && process.getuid() === 0;
@@ -28,6 +28,7 @@ export async function launchApp(
       // (Not `--use-fake-ui-for-media-stream`: that would bypass the app's own permission handler.)
       '--use-fake-device-for-media-stream',
       '--mute-audio',
+      ...(options.args ?? []),
       DESKTOP_DIR,
     ],
     cwd: DESKTOP_DIR,

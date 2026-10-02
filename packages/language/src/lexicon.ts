@@ -869,6 +869,7 @@ export const STOPWORDS: ReadonlySet<string> = new Set(
     'hi',
     'hello',
     'allaya',
+    'আলেয়া',
     'আল্লায়া',
     'অল্লায়া',
     'টা',

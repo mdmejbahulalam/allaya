@@ -20,6 +20,8 @@ export function useNoticeText() {
           return notice.language === 'bn' ? 'voice.notice.no_voice_bn' : 'voice.notice.no_voice_en';
         case 'speech_failed':
           return 'voice.notice.speech_failed';
+        case 'conversation_idle':
+          return 'voice.notice.conversation_idle';
         case 'error': {
           const mic = `voice.notice.${notice.code === 'mic_permission_denied' ? 'mic_permission_denied' : notice.code}`;
           if (t.has(mic)) return mic as TranslationKey;
@@ -41,17 +43,25 @@ export function VoicePanel() {
   const review = useVoiceStore((s) => s.review);
   const notice = useVoiceStore((s) => s.notice);
   const interrupt = useVoiceStore((s) => s.interrupt);
+  const conversation = useVoiceStore((s) => s.conversation);
+  const awaitingReply = useVoiceStore((s) => s.awaitingReply);
+  const endConversation = useVoiceStore((s) => s.endConversation);
+  const skip = useVoiceStore((s) => s.skip);
   const dismissNotice = useVoiceStore((s) => s.dismissNotice);
 
-  const active = state === 'LISTENING' || state === 'PROCESSING' || state === 'SPEAKING';
+  const busy = state === 'LISTENING' || state === 'PROCESSING' || state === 'SPEAKING';
+  // A hands-free conversation keeps its panel between turns, so the way to end it is always in reach.
+  const active = busy || (conversation && !review);
   if (!active && !review && !notice) return null;
 
   const status =
     state === 'LISTENING'
-      ? t.t('voice.listeningHint')
+      ? t.t(conversation ? 'voice.conversation.listening' : 'voice.listeningHint')
       : state === 'PROCESSING'
         ? t.t('voice.processingLabel')
-        : t.t('voice.speakingHint');
+        : state === 'SPEAKING'
+          ? t.t('voice.speakingHint')
+          : t.t(awaitingReply ? 'voice.conversation.waiting' : 'voice.conversation.ready');
 
   return (
     <section
@@ -68,15 +78,32 @@ export function VoicePanel() {
           <p role="status" className="shrink-0 text-small text-muted">
             {status}
           </p>
-          <Button size="sm" variant="secondary" onClick={interrupt}>
-            {t.t('common.cancel')}
-          </Button>
+          {conversation ? (
+            <>
+              {state === 'SPEAKING' && (
+                <Button size="sm" variant="outline" onClick={skip}>
+                  {t.t('voice.skip')}
+                </Button>
+              )}
+              <Button size="sm" variant="secondary" onClick={() => endConversation()}>
+                {t.t('voice.endConversation')}
+              </Button>
+            </>
+          ) : (
+            <Button size="sm" variant="secondary" onClick={interrupt}>
+              {t.t('common.cancel')}
+            </Button>
+          )}
         </div>
       )}
 
-      {!active && review && <ReviewCard key={review.text} />}
+      {active && conversation && (
+        <p className="mt-2 text-caption text-muted">{t.t('voice.conversation.hint')}</p>
+      )}
 
-      {!active && !review && notice && (
+      {!busy && review && <ReviewCard key={review.text} />}
+
+      {!busy && !review && !(conversation && !notice) && notice && (
         <div role="status" className="flex items-start justify-between gap-3">
           <p className="text-body text-fg">{noticeText(notice)}</p>
           <IconButton

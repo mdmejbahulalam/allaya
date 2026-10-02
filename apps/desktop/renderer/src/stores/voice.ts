@@ -33,7 +33,9 @@ export type VoiceNotice =
   | { kind: 'no_speech' }
   | { kind: 'error'; code: string }
   | { kind: 'no_voice'; language: 'bn' | 'en' }
-  | { kind: 'speech_failed' };
+  | { kind: 'speech_failed' }
+  /** A hands-free conversation ended by itself because nobody spoke for a while. */
+  | { kind: 'conversation_idle' };
 
 export interface VoiceReview {
   text: string;
@@ -48,6 +50,10 @@ interface VoiceStoreState {
   review: VoiceReview | null;
   notice: VoiceNotice | null;
   capabilities: VoiceCapabilities | null;
+  /** Hands-free: the microphone keeps coming back after each reply, until the person ends it. */
+  conversation: boolean;
+  /** In a conversation: a message has been sent and its reply has not finished yet. */
+  awaitingReply: boolean;
   setupOpen: boolean;
   refreshCapabilities: () => Promise<void>;
   openSetup: (open: boolean) => void;
@@ -58,6 +64,12 @@ interface VoiceStoreState {
   finishListening: () => void;
   /** Cancel whatever voice is doing (listening, transcribing, speaking). The emergency stop calls this. */
   interrupt: () => void;
+  /** Starts a hands-free conversation (the mic button does this when the setting is on). */
+  startConversation: () => Promise<void>;
+  /** Ends it: closes the microphone and silences speech. The person's own "stop". */
+  endConversation: (notice?: VoiceNotice) => void;
+  /** In a conversation: stop speaking this reply and listen now. */
+  skip: () => void;
   speak: (text: string, language: 'bn' | 'en') => Promise<void>;
   confirmReview: (text: string) => void;
   dismissReview: () => void;
@@ -113,6 +125,13 @@ const LEVEL_BARS = 24;
 const machine = new VoiceStateMachine();
 let recorder: RecorderHandle | undefined;
 let activeSpeaker: Speaker | undefined;
+/** The reply a conversation is waiting for, and the last time anyone said or heard anything (for the idle end). */
+let awaitingId: string | undefined;
+let lastActivity = 0;
+let watchdog: ReturnType<typeof setTimeout> | undefined;
+/** After a reply finishes, how long to wait for speech to begin before listening again (speech not wanted or empty). */
+const REPLY_GRACE_MS = 1500;
+const CONVERSATION_NO_SPEECH_MS = 15_000;
 
 const settings = () => useSettingsStore.getState().values;
 
@@ -157,36 +176,101 @@ export const useVoiceStore = create<VoiceStoreState>((set, get) => {
       sync();
       set({ levels: [] });
       const { action, reasons } = result.decision;
-      if (action === 'discard') set({ notice: { kind: 'no_speech' } });
-      else if (action === 'review')
+      if (action === 'discard') {
+        // In a conversation, silence is not a problem to report: just keep listening.
+        if (get().conversation) onSilence();
+        else set({ notice: { kind: 'no_speech' } });
+      } else if (action === 'review')
         set({ review: { text: result.text, confidence: result.confidence, reasons } });
       else await submit(result.text);
     } catch (error) {
       const code = error instanceof IpcError ? error.code : 'UNKNOWN';
       fail(epoch, { kind: 'error', code });
+      // A failure ends a hands-free conversation: carrying on would only fail again, with the microphone open.
+      if (get().conversation) endQuietly();
     }
   };
 
   const submit = async (text: string) => {
     useUiStore.getState().navigate('chat');
+    lastActivity = Date.now();
+    set({ notice: null });
     try {
-      await useChatStore.getState().send(text, undefined, 'voice');
+      const message = await useChatStore.getState().send(text, undefined, 'voice');
+      if (!get().conversation) return;
+      if (message?.status === 'streaming') {
+        awaitingId = message.id;
+        set({ awaitingReply: true });
+      } else if (message?.status === 'complete') {
+        // A reply Allaya wrote itself: it is read aloud now, and the microphone comes back after that.
+        armWatchdog();
+      } else {
+        resume();
+      }
     } catch (error) {
       set({ notice: { kind: 'error', code: error instanceof IpcError ? error.code : 'UNKNOWN' } });
+      if (get().conversation) endQuietly();
     }
   };
 
-  const beginListening = async () => {
+  // ── hands-free conversation ───────────────────────────────────────────────
+  /** Closes everything and leaves the conversation, keeping any notice already set. */
+  const endQuietly = () => {
+    awaitingId = undefined;
+    if (watchdog) clearTimeout(watchdog);
+    watchdog = undefined;
+    set({ conversation: false, awaitingReply: false });
+  };
+
+  /** Listens again, if a conversation is on and nothing else is going on (a reply, a question to the person). */
+  const resume = () => {
+    if (!get().conversation) return;
+    if (machine.state !== 'IDLE' || get().review || awaitingId) return;
+    void beginListening(true);
+  };
+
+  /** If speech has not begun shortly after a reply finished (voice replies off, nothing to read), carry on. */
+  const armWatchdog = () => {
+    if (watchdog) clearTimeout(watchdog);
+    watchdog = setTimeout(() => {
+      watchdog = undefined;
+      resume();
+    }, REPLY_GRACE_MS);
+  };
+
+  /** A listening round with nobody speaking: go round again, unless it has been quiet too long. */
+  const onSilence = () => {
+    if (!get().conversation) return;
+    const idleMs = settings()['voice.conversationIdleSeconds'] * 1000;
+    if (Date.now() - lastActivity >= idleMs) {
+      const result = machine.dispatch({ type: 'interrupt' });
+      if (result.ok) run(result.effects);
+      endQuietly();
+      set({ state: machine.state, levels: [], notice: { kind: 'conversation_idle' } });
+      return;
+    }
+    resume();
+  };
+
+  /** `keepNotice`: a conversation going round again must not wipe what it just told the person. */
+  const beginListening = async (keepNotice = false) => {
     const started = machine.dispatch({ type: 'start_listening' });
     if (!started.ok) return;
     run(started.effects);
     const epoch = started.snapshot.epoch;
-    set({ state: machine.state, review: null, notice: null, levels: [] });
+    set({
+      state: machine.state,
+      review: null,
+      ...(keepNotice ? {} : { notice: null }),
+      levels: [],
+    });
 
     let handle: RecorderHandle;
     try {
       handle = await runtime.startRecording({
         deviceId: settings()['voice.inputDeviceId'],
+        // In a conversation, waiting for the next thing to say is normal: be patient, and ask less often.
+        ...(get().conversation ? { vad: { noSpeechTimeoutMs: CONVERSATION_NO_SPEECH_MS } } : {}),
         onLevel: (level) => {
           if (machine.snapshot.epoch !== epoch) return;
           set((s) => ({ levels: [...s.levels, level].slice(-LEVEL_BARS) }));
@@ -195,6 +279,7 @@ export const useVoiceStore = create<VoiceStoreState>((set, get) => {
     } catch (error) {
       const reason = error instanceof RecorderError ? error.reason : 'failed';
       fail(epoch, { kind: 'error', code: `mic_${reason}` });
+      if (get().conversation) endQuietly();
       return;
     }
     // Permission prompts take time; if the user cancelled meanwhile, release the microphone immediately.
@@ -215,13 +300,34 @@ export const useVoiceStore = create<VoiceStoreState>((set, get) => {
     } else {
       const idle = machine.dispatch({ type: 'interrupt' });
       if (idle.ok) run(idle.effects);
+      const quiet = result.kind === 'no_speech';
       set({
         state: machine.state,
         levels: [],
-        notice: result.kind === 'no_speech' ? { kind: 'no_speech' } : null,
+        // In a conversation, a quiet moment is not worth a message.
+        notice: quiet && !get().conversation ? { kind: 'no_speech' } : null,
       });
+      if (quiet) onSilence();
     }
   };
+
+  // The reply a conversation waits for finishes (or fails, or is cancelled): read it aloud, or go back to listening.
+  useChatStore.subscribe((chat) => {
+    if (!awaitingId) return;
+    const id = awaitingId;
+    for (const list of Object.values(chat.messages)) {
+      const message = list.find((m) => m.id === id);
+      if (!message || message.status === 'streaming') continue;
+      awaitingId = undefined;
+      set({ awaitingReply: false });
+      lastActivity = Date.now();
+      // A reply that finished well is read aloud by the voice bridge, and the microphone comes back after that;
+      // the short wait is for the cases where nothing is read. A failed one has nothing to read.
+      if (message.status === 'complete') armWatchdog();
+      else resume();
+      return;
+    }
+  });
 
   return {
     state: 'IDLE',
@@ -229,6 +335,8 @@ export const useVoiceStore = create<VoiceStoreState>((set, get) => {
     review: null,
     notice: null,
     capabilities: null,
+    conversation: false,
+    awaitingReply: false,
     setupOpen: false,
 
     async refreshCapabilities() {
@@ -243,6 +351,8 @@ export const useVoiceStore = create<VoiceStoreState>((set, get) => {
 
     async toggle() {
       const { state } = get();
+      // In a conversation the button means one thing: end it.
+      if (get().conversation) return get().endConversation();
       if (state === 'LISTENING') return get().finishListening();
       if (state === 'SPEAKING' || state === 'PROCESSING') return get().interrupt();
       return get().start();
@@ -253,7 +363,40 @@ export const useVoiceStore = create<VoiceStoreState>((set, get) => {
         set({ setupOpen: true });
         return;
       }
+      // With hands-free on, one click starts a conversation; the person ends it.
+      if (settings()['voice.conversation'] && !get().conversation) {
+        await get().startConversation();
+        return;
+      }
       await beginListening();
+    },
+
+    async startConversation() {
+      if (!settings()['voice.enabled']) {
+        set({ setupOpen: true });
+        return;
+      }
+      if (get().conversation) return;
+      lastActivity = Date.now();
+      awaitingId = undefined;
+      set({ conversation: true, awaitingReply: false });
+      await beginListening();
+    },
+
+    endConversation(notice) {
+      endQuietly();
+      const result = machine.dispatch({ type: 'interrupt' });
+      if (result.ok) run(result.effects);
+      set({ state: machine.state, levels: [], review: null, ...(notice ? { notice } : {}) });
+    },
+
+    skip() {
+      if (!get().conversation || machine.state !== 'SPEAKING') return;
+      const result = machine.dispatch({ type: 'interrupt' });
+      if (result.ok) run(result.effects);
+      set({ state: machine.state, levels: [] });
+      lastActivity = Date.now();
+      resume();
     },
 
     finishListening() {
@@ -261,6 +404,8 @@ export const useVoiceStore = create<VoiceStoreState>((set, get) => {
     },
 
     interrupt() {
+      // The emergency stop and the STOP button: everything ends, a conversation included.
+      endQuietly();
       const result = machine.dispatch({ type: 'interrupt' });
       if (result.ok) run(result.effects);
       set({ state: machine.state, levels: [] });
@@ -275,7 +420,10 @@ export const useVoiceStore = create<VoiceStoreState>((set, get) => {
       // Only the expressive voice understands "[whispers]"; every other voice would read it out.
       const spoken = engine === 'gemini' ? cleanAudioTags(prepared) : stripAudioTags(prepared);
       // Nothing to say unless there is at least one real word (tags and full stops alone are not speech).
-      if (!/[\p{L}\p{N}]/u.test(stripAudioTags(spoken))) return;
+      if (!/[\p{L}\p{N}]/u.test(stripAudioTags(spoken))) {
+        resume();
+        return;
+      }
       const started = machine.dispatch({ type: 'start_speaking' });
       if (!started.ok) return; // busy listening/processing: never talk over the user
       const epoch = started.snapshot.epoch;
@@ -285,7 +433,12 @@ export const useVoiceStore = create<VoiceStoreState>((set, get) => {
       try {
         await speaker.speak(spoken, language);
         const done = machine.dispatch({ type: 'finished_speaking', epoch });
-        if (done.ok) sync();
+        if (done.ok) {
+          sync();
+          // The reply is heard: in a conversation, it is the person's turn.
+          lastActivity = Date.now();
+          resume();
+        }
       } catch (error) {
         if (machine.snapshot.epoch !== epoch) return;
         const idle = machine.dispatch({ type: 'interrupt' });
@@ -297,6 +450,8 @@ export const useVoiceStore = create<VoiceStoreState>((set, get) => {
               ? { kind: 'no_voice', language }
               : { kind: 'speech_failed' },
         });
+        // Not being able to speak does not end a conversation: the reply is on the screen.
+        resume();
       } finally {
         if (activeSpeaker === speaker && machine.state !== 'SPEAKING') activeSpeaker = undefined;
       }
@@ -307,7 +462,10 @@ export const useVoiceStore = create<VoiceStoreState>((set, get) => {
       set({ review: null });
       if (trimmed) void submit(trimmed);
     },
-    dismissReview: () => set({ review: null }),
+    dismissReview() {
+      set({ review: null });
+      resume();
+    },
     dismissNotice: () => set({ notice: null }),
   };
 });
@@ -318,6 +476,10 @@ export function resetVoiceForTests(): void {
   machine.dispatch({ type: 'reset' });
   recorder = undefined;
   activeSpeaker = undefined;
+  awaitingId = undefined;
+  lastActivity = 0;
+  if (watchdog) clearTimeout(watchdog);
+  watchdog = undefined;
   configureVoiceRuntime(undefined);
   useVoiceStore.setState({
     state: 'IDLE',
@@ -325,6 +487,8 @@ export function resetVoiceForTests(): void {
     review: null,
     notice: null,
     capabilities: null,
+    conversation: false,
+    awaitingReply: false,
     setupOpen: false,
   });
 }

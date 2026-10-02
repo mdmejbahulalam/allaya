@@ -99,7 +99,8 @@ function install(
 
 const enable = (over: Partial<typeof settingsDefaults> = {}) =>
   useSettingsStore.setState({
-    values: { ...settingsDefaults, 'voice.enabled': true, ...over },
+    // These tests are about one utterance at a time; the hands-free conversation has its own tests below.
+    values: { ...settingsDefaults, 'voice.enabled': true, 'voice.conversation': false, ...over },
     hydrated: true,
   });
 const flush = () => new Promise((r) => setTimeout(r, 0));

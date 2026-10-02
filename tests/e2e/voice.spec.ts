@@ -65,8 +65,15 @@ async function connectEverything(page: Page) {
   await addKey(page, 'OpenAI', FakeAi.OPENAI_KEY);
 }
 
+/** These tests are about one utterance at a time; the hands-free conversation has its own tests (conversation.spec.ts). */
+const singleShot = (page: Page) =>
+  page.evaluate(() =>
+    window.allaya.invoke('settings:set', { key: 'voice.conversation', value: false }),
+  );
+
 /** Turns voice on through the real consent dialog. */
 async function enableVoice(page: Page) {
+  await singleShot(page);
   await nav(page, 'Home');
   await page.getByRole('button', { name: 'Start voice mode' }).click();
   await expect(page.getByRole('dialog', { name: 'Turn on voice?' })).toBeVisible();

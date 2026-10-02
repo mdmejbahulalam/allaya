@@ -649,6 +649,28 @@ function VoiceSection() {
             ]}
           />
         </SettingRow>
+        <SettingRow
+          label={t.t('settings.voice.conversation')}
+          description={t.t('settings.voice.conversationHint')}
+        >
+          <Switch
+            label={t.t('settings.voice.conversation')}
+            checked={values['voice.conversation']}
+            onCheckedChange={(v) => void set('voice.conversation', v)}
+          />
+        </SettingRow>
+        <SettingRow label={t.t('settings.voice.conversationIdle')}>
+          <Dropdown
+            label={t.t('settings.voice.conversationIdle')}
+            value={String(values['voice.conversationIdleSeconds'])}
+            disabled={!values['voice.conversation']}
+            onValueChange={(v) => void set('voice.conversationIdleSeconds', Number(v))}
+            options={[30, 60, 120, 300, 600].map((seconds) => ({
+              value: String(seconds),
+              label: t.t(`settings.voice.idleOption.${seconds}` as TranslationKey),
+            }))}
+          />
+        </SettingRow>
         <SettingRow label={t.t('settings.voice.engine')}>
           <Dropdown
             label={t.t('settings.voice.engine')}

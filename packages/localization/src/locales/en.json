@@ -1292,7 +1292,17 @@
       "sttAuto": "Automatic",
       "sttOpenai": "OpenAI Whisper",
       "sttGemini": "Google Gemini",
-      "sttAutoGoogle": "Using Google Gemini, which does not report how sure it is, so you will usually review what it heard before it is sent."
+      "sttAutoGoogle": "Using Google Gemini, which does not report how sure it is, so you will usually review what it heard before it is sent.",
+      "conversation": "Keep the conversation going",
+      "conversationHint": "One click on the microphone starts a hands-free conversation: Allaya listens, answers aloud, and listens again until you end it. Replies are spoken in a conversation even if “Read replies aloud” is off.",
+      "conversationIdle": "End the conversation after it has been quiet for",
+      "idleOption": {
+        "30": "30 seconds",
+        "60": "1 minute",
+        "120": "2 minutes",
+        "300": "5 minutes",
+        "600": "10 minutes"
+      }
     },
     "pointer": {
       "open": "Open {name}",
@@ -1444,7 +1454,8 @@
       "no_voice_bn": "No Bengali voice is installed on this PC, so replies stay as text. Add one in Windows settings, or use the cloud voice in Settings → Voice.",
       "no_voice_en": "No English voice is installed on this PC, so replies stay as text.",
       "speech_failed": "I couldn't speak that reply.",
-      "generic": "Voice isn't working right now."
+      "generic": "Voice isn't working right now.",
+      "conversation_idle": "I stopped listening because it was quiet for a while. Press the microphone to talk again."
     },
     "setup": {
       "title": "Turn on voice?",
@@ -1456,6 +1467,14 @@
       "noKey": "Voice needs an OpenAI or Google (Gemini) API key. Add one in AI Models first.",
       "addKey": "Add key",
       "enable": "Turn on voice"
+    },
+    "endConversation": "End conversation",
+    "skip": "Skip",
+    "conversation": {
+      "listening": "Listening — go ahead",
+      "waiting": "Thinking about your reply…",
+      "ready": "Getting ready to listen…",
+      "hint": "This is a hands-free conversation. Allaya keeps listening after each reply. Say “stop” or press End conversation to finish."
     }
   },
   "onboarding": {

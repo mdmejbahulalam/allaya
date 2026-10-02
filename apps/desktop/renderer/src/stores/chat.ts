@@ -13,7 +13,12 @@ interface ChatState {
   lastCompleted: MessageView | null;
   loadConversations: () => Promise<void>;
   select: (id: string | null) => Promise<void>;
-  send: (text: string, model?: ModelRefView, source?: 'text' | 'voice') => Promise<void>;
+  /** Resolves with the assistant message as first accepted (still `streaming`, or already complete/failed). */
+  send: (
+    text: string,
+    model?: ModelRefView,
+    source?: 'text' | 'voice',
+  ) => Promise<MessageView | undefined>;
   cancel: () => Promise<void>;
   setLanguage: (id: string, language: 'auto' | 'bn' | 'en') => Promise<void>;
   remove: (id: string) => Promise<void>;
@@ -88,6 +93,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         },
       };
     });
+    return result.assistantMessage;
   },
 
   async cancel() {

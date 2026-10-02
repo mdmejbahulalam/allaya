@@ -116,3 +116,70 @@ describe('voice panel', () => {
     expect(screen.getByText("Voice isn't working right now.")).toBeInTheDocument();
   });
 });
+
+describe('a hands-free conversation on screen', () => {
+  it('turns the microphone button into "End conversation", whatever the voice is doing', async () => {
+    const endConversation = vi.fn();
+    renderUi(<VoiceButton />);
+    for (const state of ['IDLE', 'LISTENING', 'PROCESSING', 'SPEAKING'] as const) {
+      act(() => useVoiceStore.setState({ state, conversation: true, endConversation }));
+      expect(screen.getByRole('button', { name: 'End conversation' })).toBeInTheDocument();
+    }
+    await userEvent.click(screen.getByRole('button', { name: 'End conversation' }));
+    expect(endConversation).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the panel up between turns, says what it is waiting for, and always offers the way out', async () => {
+    const endConversation = vi.fn();
+    renderUi(<VoicePanel />);
+    act(() =>
+      useVoiceStore.setState({
+        state: 'IDLE',
+        conversation: true,
+        awaitingReply: true,
+        endConversation,
+      }),
+    );
+    expect(screen.getByRole('status')).toHaveTextContent('Thinking about your reply…');
+    expect(screen.getByText(/hands-free conversation/)).toBeInTheDocument();
+    act(() => useVoiceStore.setState({ awaitingReply: false }));
+    expect(screen.getByRole('status')).toHaveTextContent('Getting ready to listen…');
+    act(() => useVoiceStore.setState({ state: 'LISTENING' }));
+    expect(screen.getByRole('status')).toHaveTextContent('Listening — go ahead');
+    await userEvent.click(screen.getByRole('button', { name: 'End conversation' }));
+    expect(endConversation).toHaveBeenCalledTimes(1);
+    // The single-question "Cancel" is not shown: ending is one clear action.
+    expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull();
+  });
+
+  it('offers "Skip" only while a reply is being read', async () => {
+    const skip = vi.fn();
+    renderUi(<VoicePanel />);
+    act(() => useVoiceStore.setState({ state: 'LISTENING', conversation: true, skip }));
+    expect(screen.queryByRole('button', { name: 'Skip' })).toBeNull();
+    act(() => useVoiceStore.setState({ state: 'SPEAKING' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Skip' }));
+    expect(skip).toHaveBeenCalledTimes(1);
+  });
+
+  it('says why a conversation ended by itself', () => {
+    renderUi(<VoicePanel />);
+    act(() =>
+      useVoiceStore.setState({
+        state: 'IDLE',
+        conversation: false,
+        notice: { kind: 'conversation_idle' },
+      }),
+    );
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'I stopped listening because it was quiet for a while',
+    );
+  });
+
+  it('is in Bengali when the interface is', () => {
+    renderUi(<VoicePanel />, { settings: { 'language.ui': 'bn' } });
+    act(() => useVoiceStore.setState({ state: 'LISTENING', conversation: true }));
+    expect(screen.getByRole('button', { name: 'কথোপকথন শেষ করুন' })).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('শুনছি');
+  });
+});
