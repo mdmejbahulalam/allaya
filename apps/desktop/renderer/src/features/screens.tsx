@@ -21,6 +21,7 @@ export const SCREENS: Record<RouteId, ComponentType> = {
   browser: lazyNamed(() => import('./browser/browser-screen'), 'BrowserScreen'),
   files: lazyNamed(() => import('./files/files-screen'), 'FilesScreen'),
   memory: lazyNamed(() => import('./memory/memory-screen'), 'MemoryScreen'),
+  skills: lazyNamed(() => import('./skills/skills-screen'), 'SkillsScreen'),
   models: lazyNamed(() => import('./models/models-screen'), 'ModelsScreen'),
   activity: lazyNamed(() => import('./activity/activity-screen'), 'ActivityScreen'),
   permissions: lazyNamed(() => import('./permissions/permissions-screen'), 'PermissionsScreen'),

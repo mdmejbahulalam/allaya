@@ -13,6 +13,7 @@ import { memoryContract } from './memory';
 import { providersContract } from './providers';
 import { tasksContract } from './tasks';
 import { shellContract } from './shell';
+import { skillsContract } from './skills';
 import { toolsContract } from './tools';
 import { updatesContract } from './updates';
 import { voiceContract } from './voice';
@@ -36,6 +37,7 @@ export * from './automations';
 export * from './shell';
 export * from './updates';
 export * from './memory';
+export * from './skills';
 
 /**
  * The complete IPC surface between renderer and main. Each domain contributes
@@ -59,6 +61,7 @@ export const ipcInvokeContract = {
   ...diagnosticsContract.invoke,
   ...appsContract.invoke,
   ...memoryContract.invoke,
+  ...skillsContract.invoke,
   ...shellContract.invoke,
   ...updatesContract.invoke,
 } as const satisfies Record<string, ChannelSpec>;
@@ -77,6 +80,7 @@ export const ipcEventContract = {
   ...tasksContract.events,
   ...automationsContract.events,
   ...memoryContract.events,
+  ...skillsContract.events,
   ...shellContract.events,
   ...updatesContract.events,
 } as const satisfies Record<string, z.ZodType>;

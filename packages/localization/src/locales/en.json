@@ -79,7 +79,8 @@
       "computer": "Computer",
       "intelligence": "Intelligence",
       "system": "System"
-    }
+    },
+    "skills": "Skills"
   },
   "header": {
     "searchPlaceholder": "Search or ask Allaya…",
@@ -234,7 +235,9 @@
       "en": "English"
     },
     "usedMemory": "Used from memory: {items}",
-    "openMemory": "Memory"
+    "openMemory": "Memory",
+    "usedSkills": "Used skill: {items}",
+    "openSkills": "Open Skills"
   },
   "tasks": {
     "title": "Tasks",
@@ -1614,5 +1617,102 @@
     "stop": "STOP",
     "stopHint": "Stop everything Allaya is doing",
     "label": "Allaya assistant"
+  },
+  "skills": {
+    "title": "Skills",
+    "subtitle": "Know-how Allaya brings to a request when it fits — like planning social media content. Skills shape what Allaya writes; they never give it new powers.",
+    "new": "New skill",
+    "toggle": "Use skills",
+    "off": {
+      "title": "Skills are off",
+      "body": "Allaya answers without any skill until you switch this back on."
+    },
+    "privacyTitle": "What is shared",
+    "privacyBody": "When a skill fits your message, its instructions — and, for social media marketing, your brand profile — go to your AI provider along with that message. Allaya writes and plans; it does not post to any of your accounts.",
+    "builtIn": "Built in",
+    "mine": "Your skills",
+    "use": "Use “{name}”",
+    "category": {
+      "marketing": "Marketing",
+      "writing": "Writing",
+      "research": "Research",
+      "learning": "Learning",
+      "life": "Everyday",
+      "custom": "Yours"
+    },
+    "tryTitle": "Try asking (this sends it)",
+    "emptyTitle": "No skills of your own yet",
+    "emptyBody": "Write down how you like a kind of work done — a poem style, how to answer customers — and Allaya will use it whenever your message fits.",
+    "usedFor": "Used when you mention: {words}",
+    "editNamed": "Edit “{name}”",
+    "deleteNamed": "Delete “{name}”",
+    "delete": "Delete skill",
+    "deleteBody": "Delete “{name}”? Allaya will no longer use it.",
+    "deleted": "“{name}” deleted.",
+    "saved": "“{name}” saved.",
+    "count": "{count} of {max} skills of your own",
+    "platform": {
+      "facebook": "Facebook",
+      "instagram": "Instagram",
+      "tiktok": "TikTok",
+      "youtube": "YouTube",
+      "x": "X",
+      "linkedin": "LinkedIn",
+      "pinterest": "Pinterest",
+      "threads": "Threads",
+      "whatsapp": "WhatsApp",
+      "telegram": "Telegram"
+    },
+    "brand": {
+      "title": "Brand profile",
+      "intro": "Tell Allaya about the business once, and social media posts will fit it. Everything is optional. It is sent to your AI provider only when the social media skill is used.",
+      "summary": "Brand profile: {name}",
+      "empty": "No brand profile yet. Add one so posts match your business.",
+      "setUp": "Set up",
+      "edit": "Edit",
+      "clear": "Clear",
+      "saved": "Brand profile saved.",
+      "secret": "That looks like a password, key or card number. Take it out; a brand profile is shared with your AI provider.",
+      "rules": "A brand profile describes your business. It cannot change how Allaya asks for permission or confirmation.",
+      "field": {
+        "businessName": "Business or page name",
+        "about": "What it does",
+        "audience": "Who it is for",
+        "tone": "How it should sound",
+        "languages": "Language of the posts",
+        "goals": "What you want from social media",
+        "avoid": "Things to stay away from",
+        "platforms": "Where you post"
+      },
+      "placeholder": {
+        "businessName": "Sweet Corner Bakery",
+        "about": "A small bakery in Dhaka making fresh cakes and snacks",
+        "audience": "Families and office workers nearby",
+        "tone": "Warm, playful, never pushy",
+        "languages": "Bengali, sometimes English",
+        "goals": "More orders for birthday cakes",
+        "avoid": "Discounts we cannot honour, politics"
+      }
+    },
+    "form": {
+      "newTitle": "New skill",
+      "editTitle": "Edit skill",
+      "intro": "A skill is advice about how you want a kind of work done. Allaya reads it when your message mentions one of its words. It cannot hold passwords and it cannot change how Allaya asks for permission.",
+      "name": "Name",
+      "namePlaceholder": "Poems",
+      "instructions": "How should Allaya do it?",
+      "instructionsPlaceholder": "Write short rhyming poems with a gentle ending. Keep the language simple.",
+      "counter": "{count} of {max} characters",
+      "keywords": "Words that bring it in",
+      "keywordsPlaceholder": "poem, কবিতা, ছড়া",
+      "keywordsHint": "Separate with commas. Add the words you would use when asking, in any language.",
+      "needName": "Give the skill a name.",
+      "needInstructions": "Say how you want it done.",
+      "needKeywords": "Add at least one word.",
+      "secret": "That looks like a password, key or card number, which skills cannot hold.",
+      "rules": "A skill cannot change how Allaya asks for permission or confirmation. Take that part out.",
+      "duplicate": "You already have a skill with that name.",
+      "tooMany": "You have reached the limit. Delete a skill to add another."
+    }
   }
 }

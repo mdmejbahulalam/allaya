@@ -51,6 +51,8 @@ export interface TaskServiceDeps {
   limits?: Partial<TaskLimits>;
   /** What Allaya remembers. Omitted in tests that do not use it. */
   memory?: { forPrompt(query: string): { text?: string | undefined } };
+  /** Skills that bear on a task's request (a task sees only its own request). */
+  skills?: { forPrompt(messagesNewestFirst: readonly string[]): { text?: string | undefined } };
   /** Test seam: how long to wait before retrying a step. */
   backoffMs?: (attempt: number, code: ErrorCode | undefined) => number;
 }
@@ -501,10 +503,15 @@ export class TaskService {
     });
   }
 
+  /** What a task is told about the person and the know-how that fits it: memory, then skills; worked out once. */
   private memoryFor(task: TaskRecord): string | undefined {
-    if (!this.deps.memory) return undefined;
+    if (!this.deps.memory && !this.deps.skills) return undefined;
     if (!this.memoryOf.has(task.id)) {
-      this.memoryOf.set(task.id, this.deps.memory.forPrompt(task.request).text);
+      const parts = [
+        this.deps.memory?.forPrompt(task.request).text,
+        this.deps.skills?.forPrompt([task.request]).text,
+      ].filter((part): part is string => !!part);
+      this.memoryOf.set(task.id, parts.length > 0 ? parts.join('\n') : undefined);
     }
     return this.memoryOf.get(task.id);
   }

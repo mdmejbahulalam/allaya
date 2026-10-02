@@ -120,6 +120,9 @@ importers:
       '@allaya/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@allaya/skills':
+        specifier: workspace:*
+        version: link:../../packages/skills
       '@allaya/speech':
         specifier: workspace:*
         version: link:../../packages/speech
@@ -354,6 +357,15 @@ importers:
         version: link:../types
 
   packages/shared: {}
+
+  packages/skills:
+    dependencies:
+      '@allaya/memory':
+        specifier: workspace:*
+        version: link:../memory
+      '@allaya/validation':
+        specifier: workspace:*
+        version: link:../validation
 
   packages/speech:
     dependencies:

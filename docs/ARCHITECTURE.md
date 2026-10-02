@@ -44,6 +44,7 @@ Operating system
 | `@allaya/browser`    | Browser automation: URL policy, filtering proxy, page model, engine, Playwright session, tools       |
 | `@allaya/automation` | Schedule maths (local time, DST), the scheduler (Electron-free), `create_automation` tools           |
 | `@allaya/memory`     | Memory store port, secret/rule guard, retrieval, prompt block, manager, `remember`/`recall`/`forget` |
+| `@allaya/skills`     | Built-in skill catalog, relevance matching, guard for skills people write, prompt block              |
 
 More packages arrive with their phases (see STATUS.md).
 
@@ -129,6 +130,32 @@ and the `FileService`.
   the used ids on the reply; the task service asks once per task and hands the block to the planner and step prompts.
 
 Nothing in `@allaya/memory` can widen a permission: it only produces text for prompts and rows for the screen.
+
+## Skills
+
+`@allaya/skills` is know-how Allaya brings to a request when it fits (social media marketing, content writing, email writing,
+research, language tutoring, personal organising, plus up to 10 skills the person writes). A skill is **text in the prompt, not a
+capability**: it shapes what is written and never adds a tool, permission or the right to skip a confirmation. The social media
+skill says plainly that Allaya drafts and plans but does not post or see analytics.
+
+- **Relevance, not always-on.** `relevant()` scores keywords (English and Bengali, light stemming; a request word may extend a keyword
+  but not the reverse, and short words never prefix-match) over the person's latest two messages (newest counts double, so a
+  follow-up keeps the skill, a change of subject drops it) and brings in at most two. Nothing is sent to decide.
+- **Where it goes.** `buildSystemPrompt({ skills })` in chat; the task service appends the block to the memory block handed to the
+  planner and every step. Replies record `skillsUsed`; the bubble shows "Used skill: …".
+- **Storage.** Settings (`skills.enabled`, `skills.disabled` — built-ins start on, `skills.custom`, `skills.brand`). Writes that need a
+  check go through IPC `skills:saveCustom` / `skills:saveBrand`, which refuse secrets and rule-changing text (`@allaya/memory`
+  guard). Because the generic settings channel accepts any well-formed value, `forPrompt` re-checks custom skills and the brand
+  profile every time and silently drops any that fail. Skill and brand text is fenced with `<`/`>` removed.
+- **Privacy.** When a skill is used, its instructions (and the brand profile for the social media skill) go to the AI provider with
+  that message; the Skills screen says so.
+
+## Voice conversation
+
+One click on the microphone starts a hands-free conversation (`voice.conversation`, default on): listen → transcribe → send →
+read the reply aloud → listen again, until the person ends it (button, STOP / emergency stop, voice turned off, a failure, or
+`voice.conversationIdleSeconds` of quiet). A transcript that needs review pauses the loop until confirmed or dismissed.
+Replies are spoken in a conversation even if "read replies aloud" is off. Implemented in the renderer voice store.
 
 ## Safety controls
 

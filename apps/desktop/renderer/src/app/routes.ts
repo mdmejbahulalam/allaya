@@ -13,6 +13,7 @@ import {
   MonitorCog,
   Settings,
   ShieldCheck,
+  Sparkles,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -26,6 +27,7 @@ export const ROUTE_IDS = [
   'browser',
   'files',
   'memory',
+  'skills',
   'models',
   'activity',
   'permissions',
@@ -54,6 +56,7 @@ export const ROUTES: RouteDef[] = [
   { id: 'browser', icon: Globe, group: 'computer' },
   { id: 'files', icon: FolderOpen, group: 'computer' },
   { id: 'memory', icon: Brain, group: 'intelligence' },
+  { id: 'skills', icon: Sparkles, group: 'intelligence' },
   { id: 'models', icon: Cpu, group: 'intelligence' },
   { id: 'activity', icon: Activity, group: 'system' },
   { id: 'permissions', icon: ShieldCheck, group: 'system' },

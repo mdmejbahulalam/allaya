@@ -72,6 +72,11 @@ const assistantMetadataSchema = z.object({
     .array(z.object({ id: z.string(), key: z.string() }))
     .max(20)
     .optional(),
+  /** The skills this reply drew on. */
+  skills: z
+    .array(z.object({ id: z.string(), name: z.string() }))
+    .max(5)
+    .optional(),
 });
 type AssistantMetadata = z.infer<typeof assistantMetadataSchema>;
 
@@ -152,6 +157,13 @@ export interface ChatServiceDeps {
     forPrompt(query: string): {
       text?: string | undefined;
       used: Array<{ id: string; key: string }>;
+    };
+  };
+  /** The skills brought into a reply when they bear on it. Omitted in tests that do not use them. */
+  skills?: {
+    forPrompt(messagesNewestFirst: readonly string[]): {
+      text?: string | undefined;
+      used: Array<{ id: string; name: string }>;
     };
   };
   events: EventPublisher;
@@ -522,6 +534,18 @@ export class ChatService {
         conversations.updateMessage(assistantId, { metadata });
       }
 
+      // The skills that bear on the conversation so far: the latest two things the person said.
+      const recentAsks = [...history]
+        .reverse()
+        .filter((m) => m.role === 'user' && typeof m.content === 'string')
+        .slice(0, 2)
+        .map((m) => m.content as string);
+      const skillUse = this.deps.skills?.forPrompt(recentAsks) ?? { used: [] };
+      if (skillUse.used.length > 0) {
+        metadata = { ...metadata, skills: skillUse.used };
+        conversations.updateMessage(assistantId, { metadata });
+      }
+
       const { tools } = this.deps;
       // Tools are offered only to a model that can use them, and only if any are registered.
       const canStartTasks = this.deps.tasks !== undefined && model.capabilities.tools;
@@ -560,6 +584,7 @@ export class ChatService {
           canStartTasks,
           {
             memory: memoryUse.text,
+            skills: skillUse.text,
             canRemember: modelTools?.some((t) => t.name === 'remember') ?? false,
           },
         );
@@ -775,7 +800,11 @@ export class ChatService {
     replyLanguage: ResolvedResponseLanguage,
     tools?: ModelToolSpec[],
     canStartTasks = false,
-    extras: { memory?: string | undefined; canRemember?: boolean } = {},
+    extras: {
+      memory?: string | undefined;
+      skills?: string | undefined;
+      canRemember?: boolean;
+    } = {},
   ): AIRequest {
     const { settings, now } = this.deps;
     const system = buildSystemPrompt({
@@ -786,10 +815,11 @@ export class ChatService {
       canStartTasks,
       expressiveVoice:
         settings.get('voice.enabled') &&
-        settings.get('voice.speakReplies') &&
+        (settings.get('voice.speakReplies') || settings.get('voice.conversation')) &&
         settings.get('voice.speechEngine') === 'gemini' &&
         settings.get('voice.expressive'),
       ...(extras.memory ? { memory: extras.memory } : {}),
+      ...(extras.skills ? { skills: extras.skills } : {}),
       ...(extras.canRemember ? { memoryRule: MEMORY_TOOL_RULE } : {}),
       now: (now ?? (() => new Date()))(),
     });
@@ -929,6 +959,7 @@ export function toMessageView(row: MessageRow): MessageView {
     ...(meta?.error ? { error: meta.error } : {}),
     ...(meta?.actions?.length ? { actions: meta.actions } : {}),
     ...(meta?.memories?.length ? { memoriesUsed: meta.memories } : {}),
+    ...(meta?.skills?.length ? { skillsUsed: meta.skills } : {}),
     ...(row.taskId ? { taskId: row.taskId } : {}),
   };
 }

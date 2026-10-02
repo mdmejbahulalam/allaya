@@ -1,0 +1,17 @@
+{
+  "name": "@allaya/skills",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Skills: know-how Allaya brings to a request when it is relevant (social media marketing, writing, research…). The catalog, relevance matching, the guard for skills people write, and the prompt block. Electron-free.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@allaya/memory": "workspace:*",
+    "@allaya/validation": "workspace:*"
+  }
+}

@@ -1,5 +1,5 @@
 import { Brain, Check, Copy, ListChecks, RotateCcw, Sparkles, KeyRound } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { stripAudioTagsOutsideCode } from '@allaya/speech';
 import type { MessageView } from '@allaya/validation';
 import { useT } from '@renderer/lib/i18n';
@@ -10,6 +10,7 @@ import { Badge } from '@renderer/components/ui/badge';
 import { Button } from '@renderer/components/ui/button';
 import { IconButton } from '@renderer/components/ui/icon-button';
 import { useSettingsStore } from '@renderer/stores/settings';
+import { useSkillsStore } from '@renderer/stores/skills';
 import { useTasksStore } from '@renderer/stores/tasks';
 import { useToolsStore } from '@renderer/stores/tools';
 import { useUiStore } from '@renderer/stores/ui';
@@ -26,6 +27,32 @@ export function UserBubble({ message }: { message: MessageView }) {
         {message.content}
       </div>
     </div>
+  );
+}
+
+/** "Used skill: Social media marketing" — built-in skills are named in the interface language. */
+function SkillsUsed({ skills }: { skills: Array<{ id: string; name: string }> }) {
+  const t = useT();
+  const catalog = useSkillsStore((s) => s.skills);
+  const load = useSkillsStore((s) => s.load);
+  useEffect(() => {
+    if (catalog === null) void load().catch(() => undefined);
+  }, [catalog, load]);
+  const names = skills.map(
+    (skill) => catalog?.find((c) => c.id === skill.id)?.name[t.locale] ?? skill.name,
+  );
+  return (
+    <p className="mt-2 flex flex-wrap items-center gap-x-2 text-caption text-muted">
+      <Sparkles aria-hidden size={12} />
+      <span data-testid="skills-used">{t.t('chat.usedSkills', { items: names.join(', ') })}</span>
+      <button
+        type="button"
+        className="rounded text-accent-text underline-offset-2 hover:underline focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:outline-none"
+        onClick={() => useUiStore.getState().navigate('skills')}
+      >
+        {t.t('chat.openSkills')}
+      </button>
+    </p>
   );
 }
 
@@ -126,6 +153,10 @@ export function AssistantBubble({
               {t.t('chat.openMemory')}
             </button>
           </p>
+        )}
+
+        {message.skillsUsed && message.skillsUsed.length > 0 && !streaming && (
+          <SkillsUsed skills={message.skillsUsed} />
         )}
 
         {message.taskId && !streaming && (

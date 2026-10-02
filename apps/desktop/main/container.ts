@@ -56,6 +56,8 @@ import { MemoryManager, createMemoryTools } from '@allaya/memory';
 import { MemoryRepository } from '@allaya/database';
 import { DbMemoryStore } from './memory/db-store';
 import { registerMemoryHandlers } from './ipc/handlers/memory';
+import { registerSkillsHandlers } from './ipc/handlers/skills';
+import { SkillsService } from './services/skills-service';
 import { TaskService, type TaskServiceDeps } from './services/task-service';
 import { BrowserService, type BrowserLaunchState } from './services/browser-service';
 import { EventPublisher } from './ipc/events';
@@ -352,6 +354,7 @@ export function createContainer(options: ContainerOptions): Container {
     },
   });
   const memoryTools = createMemoryTools(memory);
+  const skills = new SkillsService({ settings });
   // The record of what Allaya did. The Activity screen is told whenever a call is recorded.
   let auditNotified = false;
   const audit = new ToolAuditRepository(database.db, undefined, undefined, () => {
@@ -412,6 +415,7 @@ export function createContainer(options: ContainerOptions): Container {
     events,
     runs,
     memory,
+    skills,
     logger: options.logger.child('tasks'),
     osLocale: () => options.getAppInfo().osLocale,
     ...(options.tasks?.limits ? { limits: options.tasks.limits } : {}),
@@ -437,6 +441,7 @@ export function createContainer(options: ContainerOptions): Container {
     tools,
     tasks,
     memory,
+    skills,
     events,
     runs,
     logger: options.logger.child('chat'),
@@ -464,6 +469,7 @@ export function createContainer(options: ContainerOptions): Container {
   registerBrowserHandlers(registry, browser);
   registerTaskHandlers(registry, tasks);
   registerAutomationHandlers(registry, automations);
+  registerSkillsHandlers(registry, skills);
   registerMemoryHandlers(registry, memory, settings, {
     changed: () => events.publish('memory:changed', {}),
     ...(options.memory?.pickSaveFile ? { pickSaveFile: options.memory.pickSaveFile } : {}),

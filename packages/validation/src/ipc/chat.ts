@@ -37,6 +37,11 @@ export const messageViewSchema = z.object({
     .array(z.object({ id: z.string(), key: z.string() }))
     .max(20)
     .optional(),
+  /** The skills this reply drew on (built-in skills by id, so the screen can name them in its own language). */
+  skillsUsed: z
+    .array(z.object({ id: z.string(), name: z.string() }))
+    .max(5)
+    .optional(),
 });
 export type MessageView = z.infer<typeof messageViewSchema>;
 

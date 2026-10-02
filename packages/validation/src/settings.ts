@@ -1,5 +1,12 @@
 import { z } from 'zod';
 import { LANGUAGE_PREFERENCES } from '@allaya/types';
+import {
+  MAX_CUSTOM_SKILLS,
+  brandProfileSchema,
+  customSkillSchema,
+  skillIdSchema,
+  EMPTY_BRAND,
+} from './skills';
 
 /**
  * Registry of every persisted user setting. The renderer can only read/write keys
@@ -75,6 +82,11 @@ export const settingsSchemas = {
   'automations.paused': z.boolean(),
   // Memory. Off: nothing is remembered and nothing remembered is given to the AI.
   'memory.enabled': z.boolean(),
+  // Skills. Off: no skill is brought into any reply. `disabled` lists built-in skills switched off (new ones start on).
+  'skills.enabled': z.boolean(),
+  'skills.disabled': z.array(skillIdSchema).max(50),
+  'skills.custom': z.array(customSkillSchema).max(MAX_CUSTOM_SKILLS),
+  'skills.brand': brandProfileSchema,
   // Shortcuts
   'shortcuts.commandPalette': z.string().max(64),
   'shortcuts.newTask': z.string().max(64),
@@ -146,6 +158,10 @@ export const settingsDefaults: SettingsSnapshot = {
   'browser.headless': false,
   'automations.paused': false,
   'memory.enabled': true,
+  'skills.enabled': true,
+  'skills.disabled': [],
+  'skills.custom': [],
+  'skills.brand': EMPTY_BRAND,
   'shortcuts.commandPalette': 'Ctrl+K',
   'shortcuts.newTask': 'Ctrl+N',
   'shortcuts.voice': 'Ctrl+Shift+V',

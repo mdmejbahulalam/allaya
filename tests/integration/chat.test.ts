@@ -441,9 +441,15 @@ describe('the expressive-voice rule in the system prompt', () => {
     ['another voice engine', { 'voice.speechEngine': 'cloud' }],
     ['the system voice', { 'voice.speechEngine': 'system' }],
     ['tone switched off', { 'voice.expressive': false }],
-    ['replies not read aloud', { 'voice.speakReplies': false }],
+    ['replies not read aloud', { 'voice.speakReplies': false, 'voice.conversation': false }],
     ['voice turned off', { 'voice.enabled': false }],
   ])('is not offered with %s', async (_label, change) => {
     expect(await systemFor({ ...on, ...change })).not.toMatch(/tone tag/);
+  });
+
+  it('is offered in a hands-free conversation even when "read replies aloud" is off', async () => {
+    expect(
+      await systemFor({ ...on, 'voice.speakReplies': false, 'voice.conversation': true }),
+    ).toMatch(/tone tag/);
   });
 });

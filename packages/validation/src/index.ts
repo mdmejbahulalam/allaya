@@ -4,3 +4,4 @@ export { z } from 'zod';
 export * from './automation';
 export * from './memory';
 export * from './workflow';
+export * from './skills';
