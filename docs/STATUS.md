@@ -1,5 +1,9 @@
 # Implementation status
 
+> **Allaya Lite** (`apps/lite`) is the newer, simpler app: chat and voice with any model, a built-in browser, tasks with a
+> model for each, and connected apps. Its status and what was verified are in [`apps/lite/README.md`](../apps/lite/README.md).
+> The rest of this file is about the earlier, larger app (`apps/desktop`).
+
 Legend: ✅ implemented **and verified** here · 🧩 implemented, verified only against fakes/Linux ·
 🪟 needs a real Windows machine to verify · 🚧 written but not yet tested · ⬜ not started
 

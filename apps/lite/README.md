@@ -55,6 +55,20 @@ reuses only the tested AI provider layer (`@allaya/ai`).
   against the real services; "Another app" takes any address.
 - English and Bengali (the name is আলেয়া), light and dark.
 
+## What was verified, and what was not
+
+- **Here (Linux):** types, lint, 2,848 unit/integration/screen tests, 37 end-to-end tests that drive the real built app
+  (chat, voice with a fake microphone, the browser against a local web server, tasks including one that runs by itself at
+  its time, the tray, connected apps against a fake MCP server that speaks the real protocol and the real sign-in steps),
+  a packaged build that starts and runs a smoke test, and mutation checks on the safety-critical code.
+- **On GitHub (commit `7148eb7`):** `Allaya Lite checks` (Linux: types, lint, unit tests, the real app) passed, and
+  `Windows installer (Allaya Lite)` passed on a real `windows-2022` machine: it built the installer
+  (`allaya-lite-windows-installer` artifact) and started the **packaged Windows program** for the smoke test.
+- **Not verified:** nobody has installed or run it by hand on a real PC (installing, the tray, notices, starting with
+  Windows, uninstalling, SmartScreen); no real AI, speech, Google, GitHub or Ahrefs service has been called (all fakes);
+  eight of the eleven app addresses are from memory; the installer is unsigned. The microphone and speakers were only
+  tested with a fake audio device.
+
 ## Using it
 
 See [GUIDE.md](GUIDE.md) (English) and [GUIDE.bn.md](GUIDE.bn.md) (বাংলা).
