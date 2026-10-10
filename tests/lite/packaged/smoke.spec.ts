@@ -58,7 +58,7 @@ test('the packaged program starts, stores data, runs its connections code, and i
               ) => Promise<{ ok: boolean; data?: unknown; error?: { code: string } }>;
             };
           };
-          return w.allaya.invoke(c as string, p);
+          return w.allaya.invoke(c, p);
         },
         [channel, payload] as const,
       );
