@@ -2,6 +2,7 @@ import { Handlers } from './dispatcher';
 import type { ChatService } from '../core/chat';
 import type { ConnectionService } from '../core/connections';
 import type { BrowserService } from '../browser/service';
+import type { McpService } from '../mcp/service';
 import type { ApprovalService } from '../core/approvals';
 import type { TaskService } from '../core/tasks';
 import type { SettingsStore } from '../core/settings';
@@ -22,6 +23,7 @@ export interface Services {
   browser: BrowserService;
   tasks: TaskService;
   approvals: ApprovalService;
+  mcp: McpService;
   info: AppInfo;
 }
 
@@ -76,6 +78,27 @@ export function createHandlers(s: Services): Handlers {
       s.approvals.decide(id, allow);
       return { ok: true as const };
     })
+
+    .register('mcp:list', () => s.mcp.list())
+    .register('mcp:add', (input) => s.mcp.add(input))
+    .register('mcp:update', ({ id, changes }) => s.mcp.update(id, changes))
+    .register('mcp:remove', ({ id }) => {
+      s.mcp.remove(id);
+      return { ok: true as const };
+    })
+    .register('mcp:reconnect', async ({ id }) => {
+      await s.mcp.connect(id);
+      return s.mcp.get(id);
+    })
+    .register('mcp:signIn', ({ id }) => s.mcp.signIn(id))
+    .register('mcp:cancelSignIn', ({ id }) => {
+      s.mcp.cancelSignIn(id);
+      return { ok: true as const };
+    })
+    .register('mcp:signOut', ({ id }) => s.mcp.signOut(id))
+    .register('mcp:setTool', ({ id, tool, ask, enabled }) =>
+      s.mcp.setTool(id, tool, { ask, enabled }),
+    )
 
     .register('browser:state', () => s.browser.state())
     .register('browser:go', ({ input }) => {

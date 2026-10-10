@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { app, BrowserWindow, ipcMain, Menu } from 'electron';
+import { app, BrowserWindow, ipcMain, Menu, shell as electronShell } from 'electron';
 import type { Logger } from '@allaya/shared';
 import { BrowserService } from './browser/service';
 import { ElectronBrowserHost } from './browser/electron-host';
@@ -19,6 +19,7 @@ import { ToolRegistry } from './core/tools';
 import { VoiceService } from './core/voice';
 import { createHandlers } from './ipc/handlers';
 import { Dispatcher } from './ipc/dispatcher';
+import { McpService } from './mcp/service';
 import { createLogger } from './logging';
 import { APP_INDEX_URL, installAppProtocol, registerAppScheme } from './security/app-protocol';
 import { InsecureTestCipher, SafeStorageCipher } from './security/cipher';
@@ -81,6 +82,27 @@ async function start(): Promise<void> {
   const approvals = new ApprovalService(events, {
     onRequest: (view) => shell.notify('Allaya needs your OK', view.summary),
   });
+  // Connected apps: their tools join the others. Signing in happens in the person's own browser.
+  const mcp = new McpService({
+    db,
+    secrets,
+    events,
+    tools,
+    logger: logger.child('mcp'),
+    host: {
+      async openBrowser(url) {
+        // A test has no person to click: it follows the sign-in page's answer straight back to the app.
+        if (E2E) {
+          await fetch(url, { redirect: 'follow' }).catch(() => undefined);
+          return;
+        }
+        await electronShell.openExternal(url);
+      },
+    },
+    ...(E2E && Number(process.env['ALLAYA_E2E_SIGN_IN_TIMEOUT_MS']) > 0
+      ? { signInTimeoutMs: Number(process.env['ALLAYA_E2E_SIGN_IN_TIMEOUT_MS']) }
+      : {}),
+  });
   const tasks = new TaskService({
     db,
     connections,
@@ -88,6 +110,7 @@ async function start(): Promise<void> {
     events,
     tools,
     approvals,
+    beforeRun: (groups) => mcp.ensure(groups),
     logger: logger.child('tasks'),
     // Tests make the clock quick, to see a scheduled run happen.
     ...(E2E && Number(process.env['ALLAYA_E2E_TICK_MS']) > 0
@@ -99,7 +122,12 @@ async function start(): Promise<void> {
         run.status === 'done' ? run.result.replace(/\s+/g, ' ') : (run.error?.message ?? ''),
       ),
   });
-  for (const tool of createTaskTools(tasks, () => new Date())) tools.register(tool);
+  for (const tool of createTaskTools(
+    tasks,
+    () => new Date(),
+    () => mcp.groups(),
+  ))
+    tools.register(tool);
   const chat = new ChatService({
     db,
     connections,
@@ -120,6 +148,7 @@ async function start(): Promise<void> {
     browser: new BrowserService(browser),
     tasks,
     approvals,
+    mcp,
     info: {
       version: app.getVersion(),
       platform: process.platform,
@@ -153,6 +182,7 @@ async function start(): Promise<void> {
   mainWindow = createWindow(security, shell, hidden);
   shell.applyLoginItem(settings.get());
   tasks.start();
+  mcp.start();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0)
@@ -164,6 +194,7 @@ async function start(): Promise<void> {
     shell.quitting = true;
     tasks.stop();
     approvals.denyAll();
+    void mcp.dispose();
     browser.dispose();
     // Replies still being written are stopped, keeping what they had.
     for (const item of chat.list()) chat.cancel(item.id);

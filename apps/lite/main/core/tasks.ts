@@ -91,6 +91,8 @@ export interface TaskDeps {
   now?: () => Date;
   /** How often the clock looks for what is due (a test makes it short). */
   tickMs?: number;
+  /** Called before a run, with the tool groups it may use: the place to connect the apps it needs. */
+  beforeRun?: (groups: string[]) => Promise<void>;
 }
 
 /**
@@ -392,6 +394,8 @@ export class TaskService {
     let error: { code: string; message: string } | undefined;
     try {
       const groups = JSON.parse(task.groups_json) as string[];
+      // Connecting an app that is down is a courtesy: a run goes on with the tools it has.
+      await this.deps.beforeRun?.(groups).catch(() => undefined);
       const tools = this.deps.tools.list({ groups });
       const settings = this.deps.settings.get();
       const system = buildTaskPrompt({

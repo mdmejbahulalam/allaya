@@ -194,8 +194,11 @@ describe('Allaya using the browser in a chat', () => {
     await b.call('settings:set', { browserTools: false });
     await b.call('chat:send', { text: 'hi', model });
     await b.chat.whenIdle();
-    const body = ai.calls[0]!.request.body as { system: string; tools?: unknown[] };
-    expect(body.tools).toBeUndefined();
-    expect(body.system).toContain('no tools');
+    const body = ai.calls[0]!.request.body as { system: string; tools?: Array<{ name: string }> };
+    // The browser is not offered; Allaya's other abilities (making a task) are not the browser's to switch off.
+    const names = body.tools?.map((t) => t.name) ?? [];
+    expect(names).not.toContain('open_url');
+    expect(names).not.toContain('read_page');
+    expect(names).toContain('create_task');
   });
 });

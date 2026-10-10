@@ -201,8 +201,12 @@ test('the browser can be switched off for Allaya, and then it is not offered', a
   await page.getByRole('button', { name: 'Back to chat' }).click();
   await say(page, 'hello');
   await expect(page.getByRole('log', { name: 'Conversation' }).getByText('ok')).toBeVisible();
-  const body = chatRequests()[0]!.body as { tools?: unknown[] };
-  expect(body.tools).toBeUndefined();
+  // The browser is not offered; making a task is not the browser's to switch off.
+  const body = chatRequests()[0]!.body as { tools?: Array<{ name: string }> };
+  const names = body.tools?.map((t) => t.name) ?? [];
+  expect(names).not.toContain('open_url');
+  expect(names).not.toContain('read_page');
+  expect(names).toContain('create_task');
 });
 
 test('the browser pane goes away with the settings screen, and comes back', async () => {

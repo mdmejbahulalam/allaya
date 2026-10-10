@@ -72,6 +72,29 @@ const MIGRATIONS: readonly string[] = [
   );
   create index task_runs_by_task on task_runs (task_id, started_at);
   `,
+  `
+  create table mcp_servers (
+    id text primary key,
+    name text not null,
+    preset_id text,
+    transport text not null,
+    url text,
+    command text,
+    args_json text not null default '[]',
+    auth text not null,
+    trust_hints integer not null default 0,
+    enabled integer not null default 1,
+    created_at integer not null
+  );
+
+  create table mcp_tool_prefs (
+    server_id text not null references mcp_servers(id) on delete cascade,
+    tool text not null,
+    ask integer,
+    enabled integer,
+    primary key (server_id, tool)
+  );
+  `,
 ];
 
 export function openDb(path: string): Db {

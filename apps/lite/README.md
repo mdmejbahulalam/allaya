@@ -4,7 +4,7 @@ A small desktop app: chat with any AI model, and (as it is built) talk to it, br
 schedule, and connect it to the software you use. The earlier, larger app is in `apps/desktop`; this one starts fresh and
 reuses only the tested AI provider layer (`@allaya/ai`).
 
-## What works now (steps 1–4)
+## What works now (steps 1–5)
 
 - Connect any AI service: Anthropic, OpenAI, Google, OpenRouter, Groq, Mistral, DeepSeek, xAI, Together, Fireworks,
   Perplexity, Cerebras, SambaNova, NVIDIA NIM, Hyperbolic, Moonshot, Ollama, LM Studio, or any OpenAI-compatible address.
@@ -13,7 +13,7 @@ reuses only the tested AI provider layer (`@allaya/ai`).
 - A chat per conversation, each with its own model; streaming replies that can be stopped; everything saved locally (SQLite).
 - The agent loop is already in place (`main/core/agent.ts`): tools the model may call, read tools run freely, tools that
   change something outside the app always ask first (a question on screen: Allow / Don't allow; no answer is a no). The
-  browser and tasks plug in through `ToolRegistry`; connections will too.
+  browser, tasks and connected apps all plug in through `ToolRegistry`.
 - **Voice** (step 2): one click on the microphone starts a spoken conversation — listen, understand, answer with the
   chat's own model, read the answer aloud, listen again — until you end it (or it has been quiet for two minutes). Listening
   and speaking use whichever connected service can do it (OpenAI, Google Gemini, Groq listens) or this computer's own
@@ -33,9 +33,26 @@ reuses only the tested AI provider layer (`@allaya/ai`).
   nothing is made until the person allows it, and bad requests (a time already past, unclear schedule) are refused
   before the person is asked. At most two tasks run at once; one that was missed while the app was closed runs once when
   it opens (if less than a day late); a run cut off by closing the app is shown as stopped. A task that needs to change
-  something outside (when connections arrive) asks the person first, in the app and as a desktop notice.
+  something outside (a connected app) asks the person first, in the app and as a desktop notice.
   Tasks run **only while Allaya is running**: closing the window can keep it in the tray (a setting, on by default) and it
   can start with Windows, quietly in the tray.
+- **Connected apps** (step 5, Settings → Apps): any software that offers an MCP server — GitHub, Gmail, Ahrefs, Notion,
+  Linear, Sentry, Supabase, Canva, Vercel, Figma, Jira/Confluence, or any address (or a program on this computer, for
+  advanced use). Each one's tools join Allaya's own as `mcp__<app>__<tool>`, in chats and in tasks (a task is given the
+  apps it may use, and no others). Signing in: paste a key (GitHub token, Ahrefs MCP key), or sign in on the service's
+  own page in the person's browser (OAuth with PKCE; the sign-in comes back to `http://127.0.0.1:38943/callback`), or —
+  as Google's Gmail server requires — sign in with an app the person made in their own Google Cloud console (client ID
+  and secret). Keys, tokens and program settings are encrypted by the operating system, never shown again, and removed
+  from any error text. **What asks first:** a tool runs without asking only if the service is one Allaya trusts (the named
+  ones, at their own address) _and_ the tool says it only reads; every other tool — and every tool of an address Allaya
+  does not know — asks the person first. Per tool, the person can switch a tool off, or switch asking off or on (a very
+  long list starts with only the first 64 tools on). What a service sends back reaches the model marked as information
+  from that service, never as an instruction. A program on this computer is started with only the few environment
+  variables a program needs plus the ones the person gave it, and is stopped when the app is removed or Allaya quits.
+  Verified against the services' own documentation: GitHub (`https://api.githubcopilot.com/mcp/`, personal access
+  token), Gmail (`https://gmailmcp.googleapis.com/mcp/v1`, a developer preview that can read and draft but not send),
+  Ahrefs (`https://api.ahrefs.com/mcp/mcp`, MCP key). The other addresses are from memory and have not been tried
+  against the real services; "Another app" takes any address.
 - English and Bengali (the name is আলেয়া), light and dark.
 
 ## Layout
@@ -45,6 +62,7 @@ apps/lite
   shared/     the contract between screen and engine (zod), presets, defaults
   main/core/  db, secrets, settings, connections, chat, agent loop, tools, tasks, approvals
   main/browser/  the built-in browser and its tools
+  main/mcp/      connected apps: the connection, sign-in (OAuth), the one-visit listener, the service that keeps them
   main/shell.ts  tray, desktop notices, start with Windows
   main/ipc/   the one door from the screen into the engine
   main/security/  window/session hardening, app protocol, CSP, cipher

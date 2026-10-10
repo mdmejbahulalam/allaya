@@ -15,6 +15,7 @@ import {
 import { weekdayName } from '../lib/time';
 import { useAppStore } from '../stores/app';
 import { useConnectionsStore } from '../stores/connections';
+import { useMcpStore } from '../stores/mcp';
 import { useTasksStore } from '../stores/tasks';
 import { ModelPicker } from './model-picker';
 import { taskErrorText } from './task-errors';
@@ -29,13 +30,21 @@ export function TaskForm({ task }: { task: TaskView | null }) {
   const ids = useId();
   const models = useConnectionsStore((s) => s.models);
   const go = useAppStore((s) => s.go);
+  const servers = useMcpStore((s) => s.servers);
   const { create, update, show } = useTasksStore();
-  const [draft, setDraft] = useState<Draft>(() => (task ? draftFromTask(task) : emptyDraft()));
+  const appGroups = useMemo(() => servers.map((s) => s.group), [servers]);
+  const [draft, setDraft] = useState<Draft>(() =>
+    task ? draftFromTask(task, appGroups) : emptyDraft(),
+  );
   const [errors, setErrors] = useState<DraftErrors>({});
   const [failure, setFailure] = useState<string | null>(null);
   const [noModel, setNoModel] = useState(false);
   const [busy, setBusy] = useState(false);
-  const others = useMemo(() => task?.groups.filter((g) => g !== BROWSER_GROUP) ?? [], [task]);
+  // Groups the form has no switch for (an app removed since) are kept as they are.
+  const others = useMemo(
+    () => task?.groups.filter((g) => g !== BROWSER_GROUP && !appGroups.includes(g)) ?? [],
+    [task, appGroups],
+  );
 
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
     setDraft((d) => ({ ...d, [key]: value }));
@@ -269,18 +278,58 @@ export function TaskForm({ task }: { task: TaskView | null }) {
         )}
       </fieldset>
 
-      <label className="flex items-start gap-3">
-        <input
-          type="checkbox"
-          checked={draft.browser}
-          onChange={(e) => set('browser', e.target.checked)}
-          className="mt-1 size-4 accent-[var(--accent)]"
-        />
-        <span>
-          <span className="block text-sm font-medium">{t.t('tasks.form.browser')}</span>
-          <span className="block text-sm text-muted">{t.t('tasks.form.browserHelp')}</span>
-        </span>
-      </label>
+      <fieldset className="space-y-2">
+        <legend className="mb-1.5 text-sm font-medium">{t.t('tasks.form.tools')}</legend>
+        <label className="flex items-start gap-3">
+          <input
+            type="checkbox"
+            checked={draft.browser}
+            onChange={(e) => set('browser', e.target.checked)}
+            className="mt-1 size-4 accent-[var(--accent)]"
+          />
+          <span>
+            <span className="block text-sm font-medium">{t.t('tasks.form.browser')}</span>
+            <span className="block text-sm text-muted">{t.t('tasks.form.browserHelp')}</span>
+          </span>
+        </label>
+        {servers.map((server) => (
+          <label key={server.id} className="flex items-start gap-3">
+            <input
+              type="checkbox"
+              checked={draft.apps.includes(server.group)}
+              onChange={(e) =>
+                set(
+                  'apps',
+                  e.target.checked
+                    ? [...draft.apps, server.group]
+                    : draft.apps.filter((g) => g !== server.group),
+                )
+              }
+              className="mt-1 size-4 accent-[var(--accent)]"
+            />
+            <span>
+              <span className="block text-sm font-medium" dir="auto">
+                {t.t('tasks.form.app', { name: server.name })}
+              </span>
+              <span className="block text-sm text-muted">
+                {server.enabled ? t.t('tasks.form.appHelp') : t.t('tasks.form.appOff')}
+              </span>
+            </span>
+          </label>
+        ))}
+        {servers.length === 0 && (
+          <p className="text-sm text-muted">
+            {t.t('tasks.form.noApps')}{' '}
+            <button
+              type="button"
+              className="text-accent underline underline-offset-2"
+              onClick={() => go('settings', 'apps')}
+            >
+              {t.t('tasks.form.connectApp')}
+            </button>
+          </p>
+        )}
+      </fieldset>
 
       {failure && (
         <p role="alert" className="text-sm text-danger">

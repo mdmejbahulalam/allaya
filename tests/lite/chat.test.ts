@@ -113,11 +113,8 @@ describe('sending a message', () => {
       { chat: [{ text: ['ok'] }] },
       { now: () => new Date(2026, 9, 10, 8, 30) },
     );
-    await b.call('settings:set', {
-      userName: 'Babul',
-      instructions: 'Answer in short lines.',
-      browserTools: false,
-    });
+    await b.call('settings:set', { userName: 'Babul', instructions: 'Answer in short lines.' });
+    b.tools.unregisterPrefix('');
     await send(b, 'Hi', { model });
     await idle(b);
     const system = bodyOf(ai.calls[0]!).system;

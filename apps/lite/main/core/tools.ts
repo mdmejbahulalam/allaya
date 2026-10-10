@@ -40,10 +40,13 @@ export class ToolRegistry {
     return this.tools.get(name);
   }
   /** Every tool, or only those of the given groups (a tool with no group is always included). */
-  list(options: { groups?: readonly string[] } = {}): Tool[] {
-    const all = [...this.tools.values()];
-    const { groups } = options;
-    return groups ? all.filter((t) => !t.group || groups.includes(t.group)) : all;
+  list(options: { groups?: readonly string[]; excludeGroups?: readonly string[] } = {}): Tool[] {
+    const { groups, excludeGroups } = options;
+    return [...this.tools.values()].filter(
+      (t) =>
+        (!groups || !t.group || groups.includes(t.group)) &&
+        !(excludeGroups && t.group && excludeGroups.includes(t.group)),
+    );
   }
 }
 

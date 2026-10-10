@@ -78,7 +78,34 @@ export function scheduleFromArgs(args: Record<string, unknown>, now: Date): Sche
  * What the model may do about tasks. Making one is a change that will run on its own later, so it always asks the
  * person first; listing them only looks.
  */
-export function createTaskTools(tasks: TaskService, now: () => Date): Tool[] {
+export function createTaskTools(
+  tasks: TaskService,
+  now: () => Date,
+  /** The apps that are connected, by name and tool group, for a task to be allowed some of them. */
+  connections: () => Array<{ name: string; group: string }> = () => [],
+): Tool[] {
+  /** The groups of the apps the model named; one it cannot find is refused with the names that exist. */
+  const groupsFor = (args: Record<string, unknown>): string[] => {
+    const wanted = Array.isArray(args['use_connections'])
+      ? (args['use_connections'] as unknown[]).filter((n): n is string => typeof n === 'string')
+      : [];
+    const have = connections();
+    const groups: string[] = [];
+    for (const name of wanted) {
+      const found = have.find((c) => c.name.toLowerCase() === name.trim().toLowerCase());
+      if (!found) {
+        throw new AllayaError(
+          have.length > 0
+            ? `There is no connected app called “${name}”. The connected apps are: ${have.map((c) => c.name).join(', ')}.`
+            : `There is no connected app called “${name}”: no apps are connected yet.`,
+          { code: 'INVALID_INPUT' },
+        );
+      }
+      if (!groups.includes(found.group)) groups.push(found.group);
+    }
+    return groups;
+  };
+
   return [
     {
       name: 'create_task',
@@ -125,6 +152,12 @@ export function createTaskTools(tasks: TaskService, now: () => Date): Tool[] {
             type: 'boolean',
             description: 'Whether the task needs to open and read web pages (default true).',
           },
+          use_connections: {
+            type: 'array',
+            items: { type: 'string' },
+            description:
+              'Names of connected apps the task may use, such as "GitHub" or "Gmail". Anything an app does that changes something will still ask the user first.',
+          },
         },
         required: ['title', 'instructions'],
       },
@@ -147,6 +180,7 @@ export function createTaskTools(tasks: TaskService, now: () => Date): Tool[] {
           throw new AllayaError('That time has already passed. Pick a time in the future.', {
             code: 'INVALID_INPUT',
           });
+        groupsFor(args);
       },
       async run(args) {
         const title = str(args, 'title') as string;
@@ -163,7 +197,7 @@ export function createTaskTools(tasks: TaskService, now: () => Date): Tool[] {
             instructions,
             model,
             schedule,
-            groups: args['use_browser'] === false ? [] : ['browser'],
+            groups: [...(args['use_browser'] === false ? [] : ['browser']), ...groupsFor(args)],
           },
           'allaya',
         );

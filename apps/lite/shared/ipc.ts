@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { MCP_AUTH_KINDS } from './mcp-presets';
 import { CONNECTION_KINDS } from './presets';
 import { scheduleSchema } from './schedule';
 
@@ -275,6 +276,84 @@ export const approvalViewSchema = z.object({
 });
 export type ApprovalView = z.infer<typeof approvalViewSchema>;
 
+// ── Connected apps (MCP servers) ─────────────────────────────────────────────
+export const MCP_STATUSES = [
+  'off',
+  'connecting',
+  'connected',
+  'needs_sign_in',
+  'signing_in',
+  'error',
+] as const;
+
+export const mcpToolSchema = z.object({
+  /** As the service names it. */
+  name: z.string(),
+  title: z.string().optional(),
+  description: z.string(),
+  /** Whether Allaya may use it at all. */
+  enabled: z.boolean(),
+  /** Whether Allaya asks the person before using it. */
+  ask: z.boolean(),
+  /** What it would do without the person's choice: ask, unless the service is trusted and says the tool only reads. */
+  askByDefault: z.boolean(),
+});
+export type McpToolView = z.infer<typeof mcpToolSchema>;
+
+export const mcpServerViewSchema = z.object({
+  id,
+  name: z.string(),
+  presetId: z.string().nullable(),
+  transport: z.enum(['http', 'stdio']),
+  url: z.string().nullable(),
+  command: z.string().nullable(),
+  args: z.array(z.string()),
+  /** Names of the environment variables given to a program (never the values). */
+  envKeys: z.array(z.string()),
+  auth: z.enum(MCP_AUTH_KINDS),
+  enabled: z.boolean(),
+  /** Whether a tool's claim to only read is believed. */
+  trusted: z.boolean(),
+  status: z.enum(MCP_STATUSES),
+  /** Why it is not connected, in words from the program (never a secret). */
+  error: z.string().nullable(),
+  tools: z.array(mcpToolSchema),
+  hasToken: z.boolean(),
+  tokenHint: z.string().nullable(),
+  clientId: z.string().nullable(),
+  hasClientSecret: z.boolean(),
+  signedIn: z.boolean(),
+  /** The tool group a task is given to use this connection. */
+  group: z.string(),
+});
+export type McpServerView = z.infer<typeof mcpServerViewSchema>;
+
+export const MAX_MCP_ENV = 30;
+export const mcpServerInputSchema = z.object({
+  presetId: z.string().max(40).nullable().optional(),
+  name: z.string().trim().min(1).max(60),
+  transport: z.enum(['http', 'stdio']),
+  url: z.string().max(300).optional(),
+  command: z.string().trim().max(300).optional(),
+  args: z.array(z.string().max(500)).max(40).optional(),
+  env: z
+    .record(
+      z
+        .string()
+        .regex(/^[A-Za-z_][A-Za-z0-9_]*$/)
+        .max(80),
+      z.string().max(4000),
+    )
+    .refine((env) => Object.keys(env).length <= MAX_MCP_ENV)
+    .optional(),
+  auth: z.enum(MCP_AUTH_KINDS),
+  token: z.string().max(4000).optional(),
+  clientId: z.string().max(500).optional(),
+  clientSecret: z.string().max(500).optional(),
+  enabled: z.boolean().optional(),
+});
+export type McpServerInput = z.infer<typeof mcpServerInputSchema>;
+
 // ── Browser ─────────────────────────────────────────────────────────────────
 export const tabSchema = z.object({
   id,
@@ -367,6 +446,30 @@ export const invokeContract = {
   'approvals:list': spec(none, z.array(approvalViewSchema)),
   'approvals:decide': spec(z.object({ id, allow: z.boolean() }), ok),
 
+  'mcp:list': spec(none, z.array(mcpServerViewSchema)),
+  'mcp:add': spec(mcpServerInputSchema, mcpServerViewSchema),
+  'mcp:update': spec(
+    z.object({ id, changes: mcpServerInputSchema.partial() }),
+    mcpServerViewSchema,
+  ),
+  'mcp:remove': spec(z.object({ id }), ok),
+  /** Connect again (after an error, or to test). Resolves when the attempt is over. */
+  'mcp:reconnect': spec(z.object({ id }), mcpServerViewSchema),
+  /** Sign in on the service's own page, in the person's browser. Resolves when they have finished (or not). */
+  'mcp:signIn': spec(z.object({ id }), mcpServerViewSchema),
+  'mcp:cancelSignIn': spec(z.object({ id }), ok),
+  'mcp:signOut': spec(z.object({ id }), mcpServerViewSchema),
+  /** Change how one tool of a connection is used: whether it may be used at all, and whether it asks first. */
+  'mcp:setTool': spec(
+    z.object({
+      id,
+      tool: z.string().min(1).max(200),
+      ask: z.boolean().optional(),
+      enabled: z.boolean().optional(),
+    }),
+    mcpServerViewSchema,
+  ),
+
   'browser:state': spec(none, browserStateSchema),
   /** Go to an address, or search for words, in the current tab (a first tab if none is open). */
   'browser:go': spec(z.object({ input: z.string().max(2000) }), ok),
@@ -428,6 +531,7 @@ export const eventContract = {
   /** A run started, made progress, or ended. */
   'tasks:run': runViewSchema,
   'approvals:changed': z.array(approvalViewSchema),
+  'mcp:changed': z.array(mcpServerViewSchema),
   'browser:changed': browserStateSchema,
   /** The browser refused to save a file a page offered. */
   'browser:download-refused': z.object({ filename: z.string().max(300) }),

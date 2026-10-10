@@ -20,6 +20,8 @@ export interface Draft {
   time: string;
   days: number[];
   browser: boolean;
+  /** The tool groups of the connected apps the task may use. */
+  apps: string[];
 }
 
 export const emptyDraft = (): Draft => ({
@@ -33,9 +35,11 @@ export const emptyDraft = (): Draft => ({
   time: '08:00',
   days: [],
   browser: true,
+  apps: [],
 });
 
-export function draftFromTask(task: TaskView): Draft {
+/** `appGroups` are the groups of the apps that are connected now: the ones the form has a switch for. */
+export function draftFromTask(task: TaskView, appGroups: readonly string[] = []): Draft {
   const draft: Draft = {
     ...emptyDraft(),
     title: task.title,
@@ -43,6 +47,7 @@ export function draftFromTask(task: TaskView): Draft {
     model: task.model,
     kind: task.schedule.kind,
     browser: task.groups.includes(BROWSER_GROUP),
+    apps: task.groups.filter((g) => appGroups.includes(g)),
   };
   const { schedule } = task;
   if (schedule.kind === 'once') draft.at = toLocalInput(schedule.at);
@@ -64,7 +69,7 @@ export type DraftErrors = Partial<
 
 /**
  * The task the form describes, or what to fix. `others` are the task's other tool groups (those the form has no switch
- * for), kept as they are.
+ * for, such as an app that has since been removed), kept as they are.
  */
 export function draftToInput(
   draft: Draft,
@@ -112,7 +117,7 @@ export function draftToInput(
       instructions: draft.instructions.trim(),
       model: draft.model,
       schedule,
-      groups: draft.browser ? [BROWSER_GROUP, ...others] : [...others],
+      groups: [...(draft.browser ? [BROWSER_GROUP] : []), ...draft.apps, ...others],
     },
   };
 }

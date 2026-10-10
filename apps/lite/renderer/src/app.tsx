@@ -11,6 +11,7 @@ import { useApprovalsStore } from './stores/approvals';
 import { useChatStore } from './stores/chat';
 import { useBrowserStore } from './stores/browser';
 import { useConnectionsStore } from './stores/connections';
+import { useMcpStore } from './stores/mcp';
 import { useTasksStore } from './stores/tasks';
 import { useVoiceStore } from './stores/voice';
 
@@ -51,6 +52,7 @@ export function App() {
     void useBrowserStore.getState().load();
     void useTasksStore.getState().load();
     void useApprovalsStore.getState().load();
+    void useMcpStore.getState().load();
     void loadConnections().then(() => loadModels());
     const offs = [
       subscribe('chat:delta', onDelta),
@@ -70,6 +72,7 @@ export function App() {
       subscribe('chats:changed', () => void useChatStore.getState().loadChats()),
       subscribe('tasks:changed', () => void useTasksStore.getState().onChanged()),
       subscribe('tasks:run', (run) => useTasksStore.getState().onRun(run)),
+      subscribe('mcp:changed', (list) => useMcpStore.getState().set(list)),
       subscribe('approvals:changed', (list) => useApprovalsStore.getState().set(list)),
       subscribe('browser:changed', (state) => useBrowserStore.getState().setState(state)),
       subscribe('browser:download-refused', ({ filename }) =>

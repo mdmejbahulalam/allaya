@@ -19,6 +19,7 @@ import { describeSchedule } from '../lib/schedule-text';
 import { formatWhen } from '../lib/time';
 import { useAppStore } from '../stores/app';
 import { findModel, useConnectionsStore } from '../stores/connections';
+import { appName, useMcpStore } from '../stores/mcp';
 import { useTasksStore } from '../stores/tasks';
 import { StepLine } from './message';
 import { TaskForm } from './task-form';
@@ -203,6 +204,11 @@ function TaskDetail({ task, onFailure }: { task: TaskView; onFailure: (text: str
   const { show, update, remove } = useTasksStore();
   const runs = useTasksStore((s) => s.runs);
   const modelName = useModelName(task);
+  const servers = useMcpStore((s) => s.servers);
+  const tools = [
+    ...(task.groups.includes('browser') ? [t.t('tasks.tools.web')] : []),
+    ...task.groups.flatMap((g) => appName(servers, g) ?? []),
+  ];
   const [confirming, setConfirming] = useState(false);
   const [chosen, setChosen] = useState<string | null>(null);
   const selected = runs.find((r) => r.id === chosen) ?? runs[0];
@@ -274,9 +280,7 @@ function TaskDetail({ task, onFailure }: { task: TaskView; onFailure: (text: str
           </>
         )}
         <dt className="text-muted">{t.t('tasks.tools')}</dt>
-        <dd>
-          {task.groups.includes('browser') ? t.t('tasks.tools.web') : t.t('tasks.tools.none')}
-        </dd>
+        <dd>{tools.length > 0 ? tools.join(', ') : t.t('tasks.tools.none')}</dd>
       </dl>
 
       {task.schedule.kind !== 'manual' && (

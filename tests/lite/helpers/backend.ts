@@ -10,6 +10,7 @@ import { createBrowserTools } from '@lite/main/browser/tools';
 import { SettingsStore } from '@lite/main/core/settings';
 import { ApprovalService, approverForChat } from '@lite/main/core/approvals';
 import { TaskService } from '@lite/main/core/tasks';
+import { McpService, type McpHost } from '@lite/main/mcp/service';
 import { createTaskTools } from '@lite/main/core/task-tools';
 import type { RunView } from '@lite/shared/ipc';
 import { VoiceService } from '@lite/main/core/voice';
@@ -29,6 +30,9 @@ export interface LiteBackendOptions {
   /** Answer questions on the spot instead of leaving them open (for tests that do not look at the question). */
   approve?: (request: ApprovalRequest & { chatId: string }) => Promise<boolean>;
   now?: () => Date;
+  /** What opening the person's browser does (for signing in). */
+  openBrowser?: McpHost['openBrowser'];
+  signInTimeoutMs?: number;
 }
 
 export interface LiteBackend {
@@ -43,6 +47,7 @@ export interface LiteBackend {
   browser: FakeBrowser;
   tasks: TaskService;
   approvals: ApprovalService;
+  mcp: McpService;
   /** Every run that ended, as the desktop notice would have been told. */
   finished: RunView[];
   /** Calls a channel as the app's own screen would, through the real dispatcher. */
@@ -74,9 +79,18 @@ export function createLiteBackend(options: LiteBackendOptions = {}): LiteBackend
     events,
     options.now ? { now: () => options.now!().getTime() } : {},
   );
+  const mcp = new McpService({
+    db,
+    secrets,
+    events,
+    tools,
+    host: { openBrowser: options.openBrowser ?? (() => Promise.resolve()) },
+    ...(options.signInTimeoutMs ? { signInTimeoutMs: options.signInTimeoutMs } : {}),
+  });
   const finished: RunView[] = [];
   const tasks = new TaskService({
     db,
+    beforeRun: (groups) => mcp.ensure(groups),
     connections,
     settings,
     events,
@@ -85,7 +99,7 @@ export function createLiteBackend(options: LiteBackendOptions = {}): LiteBackend
     onFinished: (run) => finished.push(run),
     ...(options.now ? { now: options.now } : {}),
   });
-  for (const tool of createTaskTools(tasks, options.now ?? (() => new Date())))
+  for (const tool of createTaskTools(tasks, options.now ?? (() => new Date()), () => mcp.groups()))
     tools.register(tool);
   const chat = new ChatService({
     db,
@@ -105,6 +119,7 @@ export function createLiteBackend(options: LiteBackendOptions = {}): LiteBackend
     browser: new BrowserService(browser),
     tasks,
     approvals,
+    mcp,
     info: { version: '0.0.0-test', platform: 'test', locale: 'en-US', e2e: false },
   });
   handlers.assertComplete();
@@ -121,9 +136,13 @@ export function createLiteBackend(options: LiteBackendOptions = {}): LiteBackend
     browser,
     tasks,
     approvals,
+    mcp,
     finished,
     call: (channel, payload) => dispatcher.dispatch({ channel, payload }, TRUSTED),
-    dispose: () => db.close(),
+    dispose: () => {
+      void mcp.dispose();
+      db.close();
+    },
   };
 }
 
