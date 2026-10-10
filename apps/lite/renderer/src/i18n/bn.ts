@@ -44,6 +44,60 @@ export const bn: Record<TextKey, string> = {
   'error.CREDENTIAL_STORAGE_UNAVAILABLE':
     'এই কম্পিউটারে নিরাপদ সংরক্ষণ চালু নেই, তাই কী সংরক্ষণ করা যাচ্ছে না।',
 
+  'settings.tab.voice': 'ভয়েস',
+
+  'voice.talk': 'কথা বলুন',
+  'voice.end': 'কথোপকথন শেষ করুন',
+  'voice.listening': 'শুনছি… বলুন',
+  'voice.transcribing': 'আপনি যা বললেন তা বুঝছি…',
+  'voice.thinking': 'ভাবছি…',
+  'voice.speaking': 'বলছি…',
+  'voice.skip': 'এড়িয়ে যান',
+  'voice.readAloud': 'পড়ে শোনান',
+  'voice.stopReading': 'পড়া থামান',
+  'voice.hint':
+    'কথোপকথন শুরু করতে মাইক্রোফোনে একবার চাপুন। আপনি শেষ না করা পর্যন্ত এটি চলতে থাকবে।',
+  'voice.openSettings': 'ভয়েস সেটিংস',
+  'voice.dismiss': 'সরিয়ে দিন',
+  'voice.notice.no_stt':
+    'আলেয়ার সঙ্গে কথা বলতে এআই সেবায় ওপেনএআই, গুগল বা গ্রক যুক্ত করুন — এদের একটি আপনার কথা শোনে।',
+  'voice.notice.mic.permission_denied':
+    'মাইক্রোফোন বন্ধ করা আছে। কম্পিউটারের গোপনীয়তা সেটিংসে অনুমতি দিয়ে আবার চেষ্টা করুন।',
+  'voice.notice.mic.no_microphone': 'কোনো মাইক্রোফোন পাওয়া যায়নি।',
+  'voice.notice.mic.unsupported': 'এই কম্পিউটারে এখানে শব্দ রেকর্ড করা যাচ্ছে না।',
+  'voice.notice.mic.failed': 'মাইক্রোফোন চালু করা যায়নি।',
+  'voice.notice.no_voice':
+    'এই কম্পিউটারে ওই ভাষার কোনো ভয়েস নেই। ভয়েস সেটিংসে একটি সেবার ভয়েস বেছে নিন।',
+  'voice.notice.speech_failed': 'উত্তরটি পড়ে শোনানো যায়নি। এটি পর্দায় আছে।',
+  'voice.notice.error': 'কথোপকথন থেমে গেছে। {reason}',
+  'voice.notice.idle': 'অনেকক্ষণ চুপচাপ ছিল, তাই শোনা বন্ধ করেছি।',
+
+  'voice.title': 'ভয়েস',
+  'voice.intro':
+    'আলেয়ার সঙ্গে মুখে কথা বলুন। আপনি যুক্ত করা একটি সেবা আপনার কণ্ঠকে লেখায় বদলায়, যেকোনো মডেল উত্তর দেয়, আর উত্তরটি আপনাকে পড়ে শোনানো হয়।',
+  'voice.privacy':
+    'শব্দ কেবল আপনার বেছে নেওয়া সেবার কাছে যায়, লেখা বা কণ্ঠে বদলানোর জন্য। আলেয়া এটি রেখে দেয় না।',
+  'voice.stt.label': 'শোনা (কথা থেকে লেখা)',
+  'voice.stt.auto': 'স্বয়ংক্রিয়',
+  'voice.stt.none': 'এখনো কিছুই শুনতে পারে না। এআই সেবায় ওপেনএআই, গুগল বা গ্রক যুক্ত করুন।',
+  'voice.stt.using': '{name} দিয়ে শোনা হচ্ছে।',
+  'voice.language': 'আপনি যে ভাষায় বলেন',
+  'voice.language.auto': 'নিজে বুঝে নেবে',
+  'voice.language.en': 'English',
+  'voice.language.bn': 'বাংলা',
+  'voice.tts.label': 'বলা (লেখা থেকে কথা)',
+  'voice.tts.system': 'এই কম্পিউটারের ভয়েস (বিনামূল্যে)',
+  'voice.tts.voice': 'ভয়েস',
+  'voice.tts.style': 'কেমন শোনাবে',
+  'voice.tts.styleHelp': 'সহজ কথায় লিখুন, যেমন “উষ্ণ ও ধীরস্থির”। সব ভয়েস এটি মানে না।',
+  'voice.tts.stylePlaceholder': 'উষ্ণ, শান্ত, ধীরস্থির',
+  'voice.speakReplies': 'প্রতিটি উত্তর পড়ে শোনান',
+  'voice.speakRepliesHelp': 'মুখের কথোপকথনের বাইরেও প্রতিটি উত্তর শেষ হলে পড়ে শোনানো হবে।',
+  'voice.preview': 'ভয়েস শুনে দেখুন',
+  'voice.previewStop': 'থামান',
+  'voice.previewText': 'নমস্কার, আমি আলেয়া। আজ আপনাকে কীভাবে সাহায্য করতে পারি?',
+  'voice.saved': 'সংরক্ষিত হয়েছে।',
+
   'model.pick': 'মডেল বেছে নিন',
   'model.search': 'মডেল খুঁজুন',
   'model.none': 'এখনো কোনো মডেল নেই',

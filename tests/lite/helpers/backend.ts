@@ -6,6 +6,7 @@ import { openDb, type Db } from '@lite/main/core/db';
 import { Events, MemorySink } from '@lite/main/core/events';
 import { SecretStore } from '@lite/main/core/secrets';
 import { SettingsStore } from '@lite/main/core/settings';
+import { VoiceService } from '@lite/main/core/voice';
 import { ToolRegistry } from '@lite/main/core/tools';
 import type { ApprovalRequest } from '@lite/main/core/agent';
 import { Dispatcher } from '@lite/main/ipc/dispatcher';
@@ -29,6 +30,7 @@ export interface LiteBackend {
   secrets: SecretStore;
   connections: ConnectionService;
   chat: ChatService;
+  voice: VoiceService;
   tools: ToolRegistry;
   /** Calls a channel as the app's own screen would, through the real dispatcher. */
   call<C extends InvokeChannel>(channel: C, payload?: InvokeRequest<C>): Promise<unknown>;
@@ -62,10 +64,12 @@ export function createLiteBackend(options: LiteBackendOptions = {}): LiteBackend
     ...(options.approve ? { approve: options.approve } : {}),
     ...(options.now ? { now: options.now } : {}),
   });
+  const voice = new VoiceService({ settings, connections });
   const handlers = createHandlers({
     settings,
     connections,
     chat,
+    voice,
     info: { version: '0.0.0-test', platform: 'test', locale: 'en-US', e2e: false },
   });
   handlers.assertComplete();
@@ -77,6 +81,7 @@ export function createLiteBackend(options: LiteBackendOptions = {}): LiteBackend
     secrets,
     connections,
     chat,
+    voice,
     tools,
     call: (channel, payload) => dispatcher.dispatch({ channel, payload }, TRUSTED),
     dispose: () => db.close(),

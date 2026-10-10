@@ -42,6 +42,62 @@ export const en = {
   'error.CREDENTIAL_STORAGE_UNAVAILABLE':
     'Secure storage is not available on this computer, so the key cannot be saved.',
 
+  'settings.tab.voice': 'Voice',
+
+  'voice.talk': 'Talk',
+  'voice.end': 'End conversation',
+  'voice.listening': 'Listening… speak now',
+  'voice.transcribing': 'Understanding what you said…',
+  'voice.thinking': 'Thinking…',
+  'voice.speaking': 'Speaking…',
+  'voice.skip': 'Skip',
+  'voice.readAloud': 'Read aloud',
+  'voice.stopReading': 'Stop reading',
+  'voice.hint':
+    'Press the microphone once to start a conversation. It keeps going until you end it.',
+  'voice.openSettings': 'Voice settings',
+  'voice.dismiss': 'Dismiss',
+  'voice.notice.no_stt':
+    'To talk to Allaya, connect OpenAI, Google or Groq in AI services — one of them listens for you.',
+  'voice.notice.mic.permission_denied':
+    'The microphone is blocked. Allow it in your computer’s privacy settings, then try again.',
+  'voice.notice.mic.no_microphone': 'No microphone was found.',
+  'voice.notice.mic.unsupported': 'This computer cannot record sound here.',
+  'voice.notice.mic.failed': 'The microphone could not be started.',
+  'voice.notice.no_voice':
+    'This computer has no voice for that language. Choose a service voice in Voice settings.',
+  'voice.notice.speech_failed': 'The reply could not be read aloud. It is on the screen.',
+  'voice.notice.error': 'The conversation stopped. {reason}',
+  'voice.notice.idle': 'I stopped listening because it was quiet for a while.',
+
+  'voice.title': 'Voice',
+  'voice.intro':
+    'Talk to Allaya out loud. Your voice is turned into text by a service you have connected, any model answers, and the answer is read back to you.',
+  'voice.privacy':
+    'Sound is sent only to the service you choose, to be turned into text or speech. Allaya does not keep it.',
+  'voice.stt.label': 'Listening (speech to text)',
+  'voice.stt.auto': 'Automatic',
+  'voice.stt.none': 'Nothing can listen yet. Connect OpenAI, Google or Groq in AI services.',
+  'voice.stt.using': 'Listening with {name}.',
+  'voice.language': 'Language you speak',
+  'voice.language.auto': 'Detect it',
+  'voice.language.en': 'English',
+  'voice.language.bn': 'বাংলা',
+  'voice.tts.label': 'Speaking (text to speech)',
+  'voice.tts.system': 'This computer’s voice (free)',
+  'voice.tts.voice': 'Voice',
+  'voice.tts.style': 'How it should sound',
+  'voice.tts.styleHelp':
+    'In plain words, for example “warm and unhurried”. Only some voices follow it.',
+  'voice.tts.stylePlaceholder': 'Warm, calm, unhurried',
+  'voice.speakReplies': 'Read every reply aloud',
+  'voice.speakRepliesHelp':
+    'Outside a spoken conversation, each reply is read aloud when it is finished.',
+  'voice.preview': 'Try the voice',
+  'voice.previewStop': 'Stop',
+  'voice.previewText': 'Hello, I am Allaya. How can I help you today?',
+  'voice.saved': 'Saved.',
+
   'model.pick': 'Choose a model',
   'model.search': 'Search models',
   'model.none': 'No models yet',

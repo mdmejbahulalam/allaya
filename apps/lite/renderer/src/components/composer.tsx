@@ -1,9 +1,11 @@
-import { ArrowUp, Square } from 'lucide-react';
+import { ArrowUp, Mic, Square } from 'lucide-react';
 import { useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
 import type { ModelRef } from '../../../shared/ipc';
 import { useT } from '../i18n';
 import { cn } from '../lib/cn';
+import { useVoiceStore } from '../stores/voice';
 import { ModelPicker } from './model-picker';
+import { VoiceBar } from './voice-bar';
 
 /**
  * The box at the bottom: Enter sends, Shift+Enter starts a new line, and while a reply is being written the button
@@ -44,6 +46,8 @@ export function Composer({
     box.current?.focus();
   }, [autoFocusKey]);
 
+  const talking = useVoiceStore((s) => s.active);
+  const toggleVoice = useVoiceStore((s) => s.toggle);
   const canSend = text.trim().length > 0 && !busy && !disabled;
   const submit = () => {
     if (!canSend) return;
@@ -60,6 +64,7 @@ export function Composer({
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 pb-4">
+      <VoiceBar />
       <div className="rounded-2xl border border-line-strong bg-panel focus-within:border-accent">
         <textarea
           ref={box}
@@ -74,31 +79,47 @@ export function Composer({
         />
         <div className="flex items-center justify-between gap-2 px-2 pb-2">
           <ModelPicker value={model} onPick={onModel} onConnect={onConnect} openUp />
-          {busy ? (
+          <div className="flex items-center gap-2">
             <button
               type="button"
-              aria-label={t.t('chat.stop')}
-              title={t.t('chat.stop')}
-              onClick={onStop}
-              className="inline-flex size-8 items-center justify-center rounded-full bg-fg text-bg"
-            >
-              <Square size={13} fill="currentColor" />
-            </button>
-          ) : (
-            <button
-              type="button"
-              aria-label={t.t('chat.send')}
-              title={t.t('chat.send')}
-              disabled={!canSend}
-              onClick={submit}
+              aria-label={talking ? t.t('voice.end') : t.t('voice.talk')}
+              title={talking ? t.t('voice.end') : t.t('voice.talk')}
+              aria-pressed={talking}
+              disabled={disabled}
+              onClick={() => void toggleVoice()}
               className={cn(
-                'inline-flex size-8 items-center justify-center rounded-full bg-accent text-accent-fg transition-opacity',
-                !canSend && 'opacity-40',
+                'inline-flex size-8 items-center justify-center rounded-full transition-colors disabled:opacity-40',
+                talking ? 'bg-danger text-accent-fg' : 'text-muted hover:bg-elevated hover:text-fg',
               )}
             >
-              <ArrowUp size={16} />
+              {talking ? <Square size={12} fill="currentColor" /> : <Mic size={16} />}
             </button>
-          )}
+            {busy ? (
+              <button
+                type="button"
+                aria-label={t.t('chat.stop')}
+                title={t.t('chat.stop')}
+                onClick={onStop}
+                className="inline-flex size-8 items-center justify-center rounded-full bg-fg text-bg"
+              >
+                <Square size={13} fill="currentColor" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                aria-label={t.t('chat.send')}
+                title={t.t('chat.send')}
+                disabled={!canSend}
+                onClick={submit}
+                className={cn(
+                  'inline-flex size-8 items-center justify-center rounded-full bg-accent text-accent-fg transition-opacity',
+                  !canSend && 'opacity-40',
+                )}
+              >
+                <ArrowUp size={16} />
+              </button>
+            )}
+          </div>
         </div>
       </div>
       <p className="mt-1.5 text-center text-xs text-muted">{t.t('chat.hint')}</p>

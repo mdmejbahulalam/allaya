@@ -7,6 +7,7 @@ import { openDb } from './core/db';
 import { Events } from './core/events';
 import { SecretStore } from './core/secrets';
 import { SettingsStore } from './core/settings';
+import { VoiceService } from './core/voice';
 import { createHandlers } from './ipc/handlers';
 import { Dispatcher } from './ipc/dispatcher';
 import { createLogger } from './logging';
@@ -60,10 +61,12 @@ async function start(): Promise<void> {
   });
   chat.recoverInterrupted();
 
+  const voice = new VoiceService({ settings, connections });
   const handlers = createHandlers({
     settings,
     connections,
     chat,
+    voice,
     info: {
       version: app.getVersion(),
       platform: process.platform,

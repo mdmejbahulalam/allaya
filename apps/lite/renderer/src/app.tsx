@@ -7,6 +7,7 @@ import { SettingsView } from './settings/settings-view';
 import { useAppStore } from './stores/app';
 import { useChatStore } from './stores/chat';
 import { useConnectionsStore } from './stores/connections';
+import { useVoiceStore } from './stores/voice';
 
 /** Light, dark, or whatever the computer is set to. */
 function useTheme(preference: 'system' | 'dark' | 'light') {
@@ -45,7 +46,19 @@ export function App() {
     void loadConnections().then(() => loadModels());
     const offs = [
       subscribe('chat:delta', onDelta),
-      subscribe('chat:message', onMessage),
+      subscribe('chat:message', (message) => {
+        onMessage(message);
+        // With "read every reply aloud" on, a finished reply is read outside a spoken conversation too.
+        const { settings } = useAppStore.getState();
+        if (
+          message.role === 'assistant' &&
+          message.status === 'complete' &&
+          message.content &&
+          settings.voice.speakReplies
+        ) {
+          void useVoiceStore.getState().speakText(message.content);
+        }
+      }),
       subscribe('chats:changed', () => void useChatStore.getState().loadChats()),
       subscribe('connections:changed', () => {
         void useConnectionsStore.getState().loadConnections();

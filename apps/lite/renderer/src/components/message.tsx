@@ -1,9 +1,10 @@
-import { Check, CircleAlert, Copy, LoaderCircle, Ban } from 'lucide-react';
+import { Ban, Check, CircleAlert, Copy, LoaderCircle, Square, Volume2 } from 'lucide-react';
 import { useState } from 'react';
 import type { MessageView, Step } from '../../../shared/ipc';
 import { useT } from '../i18n';
 import { cn } from '../lib/cn';
 import { Markdown } from '../lib/markdown';
+import { useVoiceStore } from '../stores/voice';
 import { IconButton } from './ui';
 
 function StepLine({ step }: { step: Step }) {
@@ -63,6 +64,9 @@ export function AssistantMessage({ message }: { message: MessageView }) {
   const t = useT();
   const [copied, setCopied] = useState(false);
   const streaming = message.status === 'streaming';
+  const speakingAloud = useVoiceStore((s) => s.speakingAloud);
+  const speakText = useVoiceStore((s) => s.speakText);
+  const stopSpeaking = useVoiceStore((s) => s.stopSpeaking);
   const copy = () => {
     void navigator.clipboard.writeText(message.content).then(() => {
       setCopied(true);
@@ -122,6 +126,12 @@ export function AssistantMessage({ message }: { message: MessageView }) {
         >
           <IconButton label={copied ? t.t('chat.copied') : t.t('chat.copy')} onClick={copy}>
             {copied ? <Check size={15} /> : <Copy size={15} />}
+          </IconButton>
+          <IconButton
+            label={speakingAloud ? t.t('voice.stopReading') : t.t('voice.readAloud')}
+            onClick={() => (speakingAloud ? stopSpeaking() : void speakText(message.content))}
+          >
+            {speakingAloud ? <Square size={13} fill="currentColor" /> : <Volume2 size={15} />}
           </IconButton>
         </div>
       )}

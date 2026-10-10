@@ -255,6 +255,33 @@ export class ConnectionService {
     }
   }
 
+  /** Where the audio calls of a connection go, with its key read at the moment of the call. */
+  audioEndpoint(id: string): {
+    getApiKey: () => Promise<string>;
+    baseUrl?: string;
+    fetch?: FetchLike;
+  } {
+    const row = this.row(id);
+    const override =
+      this.deps.baseUrlOverrides?.[row.preset_id ?? ''] ?? this.deps.baseUrlOverrides?.[row.kind];
+    const baseUrl =
+      override ?? (row.kind === 'compatible' ? (row.base_url ?? undefined) : undefined);
+    return {
+      getApiKey: () => {
+        const key = this.deps.secrets.get(this.secretName(id));
+        if (!key) {
+          throw new AllayaError(`No API key is saved for ${row.name}`, {
+            code: 'PROVIDER_NOT_CONFIGURED',
+            details: { connection: id },
+          });
+        }
+        return Promise.resolve(key);
+      },
+      ...(baseUrl ? { baseUrl } : {}),
+      ...(this.deps.fetch ? { fetch: this.deps.fetch } : {}),
+    };
+  }
+
   async test(id: string, signal?: AbortSignal) {
     const result = await this.provider(id).testConnection(signal);
     if (result.ok) this.cache.delete(id);

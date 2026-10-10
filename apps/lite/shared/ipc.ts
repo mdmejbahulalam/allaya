@@ -56,6 +56,23 @@ const ok = z.object({ ok: z.literal(true) });
 export const modelRefSchema = z.object({ connectionId: id, modelId: z.string().min(1).max(200) });
 export type ModelRef = z.infer<typeof modelRefSchema>;
 
+export const voiceSettingsSchema = z.object({
+  /** The service that turns speech into text; null picks the first one that can. */
+  sttConnectionId: z.string().max(128).nullable(),
+  /** `system` speaks with this computer's own voices; `service` uses a connected AI service's voice. */
+  ttsEngine: z.enum(['system', 'service']),
+  ttsConnectionId: z.string().max(128).nullable(),
+  /** A voice of that service; empty is its default. */
+  ttsVoice: z.string().max(60),
+  /** How it should sound, in plain words (only some voices follow it). */
+  ttsStyle: z.string().max(300),
+  /** Read every reply aloud, not only in a spoken conversation. */
+  speakReplies: z.boolean(),
+  /** The language to expect when listening; `auto` lets the service decide. */
+  inputLanguage: z.enum(['auto', 'en', 'bn']),
+});
+export type VoiceSettings = z.infer<typeof voiceSettingsSchema>;
+
 export const settingsSchema = z.object({
   language: z.enum(['auto', 'en', 'bn']),
   theme: z.enum(['system', 'dark', 'light']),
@@ -65,6 +82,7 @@ export const settingsSchema = z.object({
   instructions: z.string().max(4000),
   /** The model used for a new chat. */
   defaultModel: modelRefSchema.nullable(),
+  voice: voiceSettingsSchema,
 });
 export type Settings = z.infer<typeof settingsSchema>;
 export { settingsDefaults } from './defaults';
@@ -183,6 +201,33 @@ export type ChatView = z.infer<typeof chatViewSchema>;
 
 export const MAX_MESSAGE_CHARS = 30_000;
 
+// ── Voice ───────────────────────────────────────────────────────────────────
+export const MAX_AUDIO_BASE64_CHARS = 28_000_000;
+export const MAX_SPEECH_CHARS = 4_000;
+
+export const speechEngineSchema = z.object({
+  connectionId: id,
+  name: z.string(),
+  stt: z.boolean(),
+  tts: z.boolean(),
+  /** The voices of this service, when it has voices to choose from. */
+  voices: z.array(z.object({ id: z.string(), label: z.string() })),
+  /** This service reads a plain audio file, not what the microphone records: convert it first. */
+  needsWav: z.boolean(),
+  /** The voice follows a style note and [tone tags] in the text. */
+  expressive: z.boolean(),
+});
+export type SpeechEngine = z.infer<typeof speechEngineSchema>;
+
+export const voiceOptionsSchema = z.object({
+  engines: z.array(speechEngineSchema),
+  /** What listening will use right now (the choice, or the first able service), or null if nothing can. */
+  stt: z.object({ connectionId: id, needsWav: z.boolean() }).nullable(),
+  /** What speaking will use right now: a service, or null for this computer's own voices. */
+  tts: z.object({ connectionId: id, voice: z.string(), expressive: z.boolean() }).nullable(),
+});
+export type VoiceOptions = z.infer<typeof voiceOptionsSchema>;
+
 export const invokeContract = {
   'app:info': spec(
     none,
@@ -217,6 +262,33 @@ export const invokeContract = {
     z.object({ chat: chatViewSchema, userMessage: messageViewSchema, reply: messageViewSchema }),
   ),
   'chat:cancel': spec(z.object({ chatId: id }), ok),
+
+  'voice:options': spec(none, voiceOptionsSchema),
+  'voice:transcribe': spec(
+    z.object({
+      audio: z.string().min(1).max(MAX_AUDIO_BASE64_CHARS),
+      mimeType: z
+        .string()
+        .regex(/^audio\/[\w.+-]+(;.*)?$/)
+        .max(80),
+    }),
+    z.object({
+      text: z.string(),
+      language: z.enum(['en', 'bn']).nullable(),
+      noSpeech: z.boolean(),
+    }),
+  ),
+  'voice:synthesize': spec(
+    z.object({
+      text: z.string().trim().min(1).max(MAX_SPEECH_CHARS),
+      language: z.enum(['en', 'bn']),
+      /** Try another service, voice or style without saving it (the settings preview). */
+      connectionId: id.optional(),
+      voice: z.string().max(60).optional(),
+      style: z.string().max(300).optional(),
+    }),
+    z.object({ audio: z.string(), mimeType: z.enum(['audio/mpeg', 'audio/wav']) }),
+  ),
 } as const;
 
 export const eventContract = {

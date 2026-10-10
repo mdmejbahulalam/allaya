@@ -358,9 +358,9 @@ describe('skills of your own', () => {
     renderUi(<SkillsScreen />, { settings: { 'skills.custom': [mine] } });
     await screen.findAllByTestId('skill-card');
     await userEvent.click(screen.getByRole('button', { name: 'Delete “Poems”' }));
-    expect(
-      await screen.findByText(/Delete “Poems”\? Allaya will no longer use it\./),
-    ).toBeVisible();
+    await waitFor(() =>
+      expect(screen.getByText(/Delete “Poems”\? Allaya will no longer use it\./)).toBeVisible(),
+    );
     expect(calls('skills:deleteCustom')).toHaveLength(0);
     await userEvent.click(screen.getByRole('button', { name: 'Delete skill' }));
     await waitFor(() => expect(calls('skills:deleteCustom')).toHaveLength(1));

@@ -4,8 +4,9 @@ import { cn } from '../lib/cn';
 import { useAppStore, type SettingsTab } from '../stores/app';
 import { GeneralPanel } from './general-panel';
 import { ProvidersPanel } from './providers-panel';
+import { VoicePanel } from './voice-panel';
 
-const TABS: SettingsTab[] = ['providers', 'general'];
+const TABS: SettingsTab[] = ['providers', 'voice', 'general'];
 
 export function SettingsView() {
   const t = useT();
@@ -49,7 +50,15 @@ export function SettingsView() {
             </button>
           ))}
         </div>
-        <div role="tabpanel">{tab === 'providers' ? <ProvidersPanel /> : <GeneralPanel />}</div>
+        <div role="tabpanel">
+          {tab === 'providers' ? (
+            <ProvidersPanel />
+          ) : tab === 'voice' ? (
+            <VoicePanel />
+          ) : (
+            <GeneralPanel />
+          )}
+        </div>
       </div>
     </div>
   );

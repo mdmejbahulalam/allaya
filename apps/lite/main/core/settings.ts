@@ -25,7 +25,12 @@ export class SettingsStore {
     const out: Record<string, unknown> = { ...settingsDefaults };
     for (const key of Object.keys(settingsDefaults) as Array<keyof Settings>) {
       if (!(key in stored)) continue;
-      const field = settingsSchema.shape[key].safeParse(stored[key]);
+      // A setting that grew a field since it was saved keeps what was saved and takes the default for the rest.
+      const saved =
+        key === 'voice' && typeof stored[key] === 'object' && stored[key] !== null
+          ? { ...settingsDefaults.voice, ...stored[key] }
+          : stored[key];
+      const field = settingsSchema.shape[key].safeParse(saved);
       if (field.success) out[key] = field.data;
     }
     return out as Settings;

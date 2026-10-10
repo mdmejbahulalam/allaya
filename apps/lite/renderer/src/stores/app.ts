@@ -4,7 +4,7 @@ import type { Settings } from '../../../shared/ipc';
 import { invoke } from '../lib/api';
 
 export type Route = 'chat' | 'settings';
-export type SettingsTab = 'providers' | 'general';
+export type SettingsTab = 'providers' | 'voice' | 'general';
 
 interface AppInfo {
   version: string;

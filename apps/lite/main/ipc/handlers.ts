@@ -2,6 +2,7 @@ import { Handlers } from './dispatcher';
 import type { ChatService } from '../core/chat';
 import type { ConnectionService } from '../core/connections';
 import type { SettingsStore } from '../core/settings';
+import type { VoiceService } from '../core/voice';
 
 export interface AppInfo {
   version: string;
@@ -14,6 +15,7 @@ export interface Services {
   settings: SettingsStore;
   connections: ConnectionService;
   chat: ChatService;
+  voice: VoiceService;
   info: AppInfo;
 }
 
@@ -48,5 +50,9 @@ export function createHandlers(s: Services): Handlers {
     .register('chat:cancel', ({ chatId }) => {
       s.chat.cancel(chatId);
       return { ok: true as const };
-    });
+    })
+
+    .register('voice:options', () => s.voice.options())
+    .register('voice:transcribe', (input) => s.voice.transcribe(input))
+    .register('voice:synthesize', (input) => s.voice.synthesize(input));
 }

@@ -7,4 +7,13 @@ export const settingsDefaults: Settings = {
   userName: '',
   instructions: '',
   defaultModel: null,
+  voice: {
+    sttConnectionId: null,
+    ttsEngine: 'system',
+    ttsConnectionId: null,
+    ttsVoice: '',
+    ttsStyle: '',
+    speakReplies: false,
+    inputLanguage: 'auto',
+  },
 };
