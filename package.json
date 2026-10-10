@@ -22,6 +22,7 @@
     "db:generate": "pnpm --filter @allaya/database db:generate",
     "check": "pnpm typecheck && pnpm lint && pnpm test",
     "test:packaged": "playwright test -c playwright.packaged.config.ts",
+    "test:lite:packaged": "playwright test -c playwright.lite-packaged.config.ts",
     "lite": "pnpm --filter @allaya/lite dev",
     "lite:build": "pnpm --filter @allaya/lite build",
     "test:lite:e2e": "pnpm --filter @allaya/lite build:e2e && xvfb-run -a playwright test -c playwright.lite.config.ts"

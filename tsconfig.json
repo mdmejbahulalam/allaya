@@ -5,6 +5,7 @@
     "vitest.config.ts",
     "playwright.config.ts",
     "playwright.packaged.config.ts",
-    "playwright.lite.config.ts"
+    "playwright.lite.config.ts",
+    "playwright.lite-packaged.config.ts"
   ]
 }

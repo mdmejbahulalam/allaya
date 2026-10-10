@@ -55,6 +55,10 @@ reuses only the tested AI provider layer (`@allaya/ai`).
   against the real services; "Another app" takes any address.
 - English and Bengali (the name is আলেয়া), light and dark.
 
+## Using it
+
+See [GUIDE.md](GUIDE.md) (English) and [GUIDE.bn.md](GUIDE.bn.md) (বাংলা).
+
 ## Layout
 
 ```
@@ -77,6 +81,9 @@ pnpm lite                 # run in development
 pnpm lite:build           # build
 pnpm test                 # unit + integration + renderer tests (tests/lite/**)
 pnpm test:lite:e2e        # build and drive the real app with Playwright
+pnpm --filter @allaya/lite pack         # an unpacked package for this system
+pnpm --filter @allaya/lite dist         # the Windows installer (needs Windows)
+ALLAYA_LITE_PACKAGED_EXE=<program> pnpm test:lite:packaged   # starts the packaged program and checks it
 ```
 
 The data lives in its own folder (`%APPDATA%/Allaya Lite`), so it never touches the earlier app's data.

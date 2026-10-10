@@ -1,0 +1,59 @@
+# How Allaya (the simple one) is packaged. `pnpm --filter @allaya/lite pack` makes an unpacked folder for this system
+# (used to check the package layout); `pnpm --filter @allaya/lite dist` makes the Windows installer (needs Windows, or Wine).
+#
+# It is a separate program from the earlier, larger Allaya: its own id, its own install folder and its own data folder,
+# so installing one never touches the other.
+appId: com.allaya.lite
+productName: Allaya Lite
+copyright: Copyright © Allaya
+directories:
+  output: release
+  buildResources: build
+
+# Only what runs is shipped: the built app, and (from package.json `dependencies`) the one module that stays outside the
+# bundle. Everything else — the workspace packages, the MCP client, React — is bundled by the build.
+files:
+  - out/**
+  - package.json
+  - '!**/*.map'
+
+# The database driver is a native module: it cannot be loaded from inside the archive.
+asar: true
+asarUnpack:
+  - '**/node_modules/better-sqlite3/**'
+  - '**/*.node'
+# better-sqlite3 uses Node-API, which is stable across Node and Electron, so there is nothing to rebuild.
+npmRebuild: false
+
+extraResources:
+  - from: build/icon.png
+    to: icons/icon.png
+  - from: build/tray.png
+    to: icons/tray.png
+
+linux:
+  # Only used to check the package layout on Linux; the shipped product is the Windows installer.
+  executableName: allaya-lite
+  category: Utility
+
+win:
+  icon: build/icon.ico
+  target:
+    - target: nsis
+      arch: [x64]
+  # Code signing needs a certificate this repository does not have: set CSC_LINK / CSC_KEY_PASSWORD for a release build
+  # and add `publisherName` here. Until then the installer is UNSIGNED and Windows will warn.
+  artifactName: 'Allaya-Lite-Setup-${version}-${arch}.${ext}'
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Allaya Lite
+  # The person's chats, tasks and keys are theirs: uninstalling never deletes them.
+  deleteAppDataOnUninstall: false
+  runAfterFinish: true
+# No update feed yet: a new version is installed over the old one.
+publish: null

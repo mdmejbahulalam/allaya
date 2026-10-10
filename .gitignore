@@ -18,3 +18,4 @@ test-results/
 *.sqlite-wal
 *.sqlite-shm
 test-results-packaged/
+test-results-lite-packaged/

@@ -1,0 +1,31 @@
+name: Allaya Lite checks
+
+# The simple Allaya's tests: types, lint, unit and integration tests, and the real app driven by Playwright.
+on:
+  push:
+    branches: [claude/sleepy-ramanujan-y0byjo]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Types
+        run: pnpm --filter @allaya/lite typecheck
+      - name: Lint
+        run: pnpm exec eslint apps/lite tests/lite
+      - name: Unit, integration and screen tests
+        run: pnpm exec vitest run tests/lite
+      - name: The real app
+        run: pnpm test:lite:e2e

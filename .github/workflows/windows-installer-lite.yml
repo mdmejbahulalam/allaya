@@ -1,0 +1,43 @@
+name: Windows installer (Allaya Lite)
+
+# Builds the installer of the simple Allaya (apps/lite) on a real Windows machine, keeps it as a downloadable artifact, and
+# starts the packaged program to check it. It does not sign or publish anything.
+on:
+  push:
+    branches: [claude/sleepy-ramanujan-y0byjo]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  installer:
+    runs-on: windows-2022
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build the installer
+        run: pnpm --filter @allaya/lite dist
+      - name: List what was built
+        shell: pwsh
+        run: Get-ChildItem apps/lite/release | Select-Object Name, Length
+      - uses: actions/upload-artifact@v4
+        with:
+          name: allaya-lite-windows-installer
+          path: apps/lite/release/*.exe
+          if-no-files-found: error
+      - name: Find the packaged program
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem apps/lite/release/win-unpacked -Filter *.exe |
+            Where-Object { $_.Name -notmatch 'uninstall|elevate' } | Select-Object -First 1
+          if (-not $exe) { throw 'No packaged program was built' }
+          "ALLAYA_LITE_PACKAGED_EXE=$($exe.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+      - name: Smoke-test the packaged program
+        run: pnpm test:lite:packaged

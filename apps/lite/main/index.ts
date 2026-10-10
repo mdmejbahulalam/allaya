@@ -34,7 +34,9 @@ registerAppScheme();
 // Its own folder, so it never touches the data of the earlier Allaya.
 const override = process.env['ALLAYA_USER_DATA_DIR'];
 if (E2E && override) app.setPath('userData', override);
-else app.setPath('userData', join(app.getPath('appData'), 'Allaya Lite'));
+// Started with --user-data-dir (a check of the packaged program does this) it keeps to that folder, not the real one.
+else if (!app.commandLine.hasSwitch('user-data-dir'))
+  app.setPath('userData', join(app.getPath('appData'), 'Allaya Lite'));
 
 if (!app.requestSingleInstanceLock()) {
   app.quit();
