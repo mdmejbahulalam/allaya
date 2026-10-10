@@ -15,6 +15,7 @@ export default defineConfig({
   resolve: {
     alias: {
       ...alias,
+      '@lite': `${root}apps/lite`,
       '@main': `${root}apps/desktop/main`,
       '@renderer': `${root}apps/desktop/renderer/src`,
     },
@@ -30,8 +31,9 @@ export default defineConfig({
             'tests/unit/**/*.test.ts',
             'tests/integration/**/*.test.ts',
             'tests/security/**/*.test.ts',
+            'tests/lite/**/*.test.ts',
           ],
-          exclude: ['tests/unit/renderer/**'],
+          exclude: ['tests/unit/renderer/**', 'tests/lite/renderer/**'],
         },
       },
       {
@@ -39,14 +41,14 @@ export default defineConfig({
         test: {
           name: 'renderer',
           environment: 'jsdom',
-          include: ['tests/unit/renderer/**/*.test.{ts,tsx}'],
+          include: ['tests/unit/renderer/**/*.test.{ts,tsx}', 'tests/lite/renderer/**/*.test.{ts,tsx}'],
           setupFiles: ['tests/setup/renderer.ts'],
         },
       },
     ],
     coverage: {
       provider: 'v8',
-      include: ['packages/*/src/**', 'apps/desktop/main/**'],
+      include: ['packages/*/src/**', 'apps/desktop/main/**', 'apps/lite/main/**'],
       reporter: ['text-summary', 'html'],
     },
   },

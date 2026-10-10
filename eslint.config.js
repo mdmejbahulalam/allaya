@@ -89,7 +89,7 @@ export default tseslint.config(
   },
   // Renderer: React rules + hard boundary — no Node, Electron, or system-level packages.
   {
-    files: ['apps/desktop/renderer/**/*.{ts,tsx}'],
+    files: ['apps/desktop/renderer/**/*.{ts,tsx}', 'apps/lite/renderer/**/*.{ts,tsx}'],
     languageOptions: { globals: globals.browser },
     plugins: { 'react-hooks': reactHooks },
     rules: {
@@ -136,7 +136,12 @@ export default tseslint.config(
   },
   // Only the logging sinks and CLI scripts may write to the console.
   {
-    files: ['packages/shared/src/logger.ts', 'scripts/**', 'apps/desktop/main/logging.ts'],
+    files: [
+      'packages/shared/src/logger.ts',
+      'scripts/**',
+      'apps/desktop/main/logging.ts',
+      'apps/lite/main/logging.ts',
+    ],
     rules: { 'no-console': 'off' },
   },
   {

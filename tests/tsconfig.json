@@ -7,6 +7,7 @@
     "baseUrl": "..",
     "paths": {
       "@allaya/*": ["packages/*/src/index.ts"],
+      "@lite/*": ["apps/lite/*"],
       "@main/*": ["apps/desktop/main/*"],
       "@renderer/*": ["apps/desktop/renderer/src/*"]
     }

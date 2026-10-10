@@ -1,0 +1,44 @@
+{
+  "name": "@allaya/lite",
+  "productName": "Allaya",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Allaya (\u0986\u09b2\u09c7\u09af\u09bc\u09be) \u2014 the simple one: chat and voice with any model, a built-in browser, tasks, and connections",
+  "main": "./out/main/index.js",
+  "author": "Allaya",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "build:e2e": "electron-vite build --mode e2e",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
+    "pack": "electron-vite build && electron-builder --dir --config electron-builder.yml",
+    "dist": "electron-vite build && electron-builder --win --config electron-builder.yml --publish never"
+  },
+  "devDependencies": {
+    "@allaya/ai": "workspace:*",
+    "@allaya/security": "workspace:*",
+    "@allaya/shared": "workspace:*",
+    "@allaya/types": "workspace:*",
+    "@fontsource-variable/inter": "^5.3.0",
+    "@fontsource/noto-sans-bengali": "^5.3.0",
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^5.2.0",
+    "clsx": "^2.1.1",
+    "electron": "44.4.5",
+    "electron-builder": "^26.15.3",
+    "electron-vite": "^5.0.0",
+    "lucide-react": "^1.48.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "tailwindcss": "^4.3.3",
+    "vite": "^7.3.6",
+    "zod": "^4.6.5",
+    "zustand": "^5.0.15"
+  },
+  "dependencies": {
+    "better-sqlite3": "13.0.3"
+  }
+}

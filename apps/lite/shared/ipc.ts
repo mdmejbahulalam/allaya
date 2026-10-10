@@ -1,0 +1,259 @@
+import { z } from 'zod';
+import { CONNECTION_KINDS } from './presets';
+
+/** Every call between the screen and the app's engine. One list: the preload, the dispatcher and the client derive from it. */
+
+export const ERROR_CODES = [
+  'UNKNOWN',
+  'INTERNAL',
+  'INVALID_INPUT',
+  'INVALID_IPC_PAYLOAD',
+  'UNKNOWN_CHANNEL',
+  'UNAUTHORIZED_SENDER',
+  'NOT_FOUND',
+  'CANCELLED',
+  'TIMEOUT',
+  'LIMIT_EXCEEDED',
+  'PERMISSION_DENIED',
+  'PROVIDER_NOT_CONFIGURED',
+  'PROVIDER_AUTH_FAILED',
+  'PROVIDER_RATE_LIMITED',
+  'PROVIDER_UNAVAILABLE',
+  'PROVIDER_ERROR',
+  'CREDENTIAL_STORAGE_UNAVAILABLE',
+] as const;
+export type ErrorCode = (typeof ERROR_CODES)[number];
+
+export const serializedErrorSchema = z.object({
+  code: z.string(),
+  message: z.string(),
+  retryable: z.boolean(),
+  details: z.record(z.string(), z.unknown()).optional(),
+});
+export type SerializedError = z.infer<typeof serializedErrorSchema>;
+
+export type IpcResult<T> = { ok: true; data: T } | { ok: false; error: SerializedError };
+
+export const envelopeSchema = z.object({
+  channel: z.string().min(1).max(64),
+  payload: z.unknown().optional(),
+});
+
+export interface ChannelSpec<Req extends z.ZodType = z.ZodType, Res extends z.ZodType = z.ZodType> {
+  request: Req;
+  response: Res;
+}
+export const spec = <Req extends z.ZodType, Res extends z.ZodType>(
+  request: Req,
+  response: Res,
+): ChannelSpec<Req, Res> => ({ request, response });
+
+const none = z.undefined();
+const id = z.string().min(1).max(128);
+const ok = z.object({ ok: z.literal(true) });
+
+// ── Settings ────────────────────────────────────────────────────────────────
+export const modelRefSchema = z.object({ connectionId: id, modelId: z.string().min(1).max(200) });
+export type ModelRef = z.infer<typeof modelRefSchema>;
+
+export const settingsSchema = z.object({
+  language: z.enum(['auto', 'en', 'bn']),
+  theme: z.enum(['system', 'dark', 'light']),
+  /** What to call the person. */
+  userName: z.string().trim().max(60),
+  /** The person's standing instructions to the model, added to every chat. */
+  instructions: z.string().max(4000),
+  /** The model used for a new chat. */
+  defaultModel: modelRefSchema.nullable(),
+});
+export type Settings = z.infer<typeof settingsSchema>;
+export { settingsDefaults } from './defaults';
+
+// ── Connections and models ──────────────────────────────────────────────────
+export const connectionViewSchema = z.object({
+  id,
+  presetId: z.string().optional(),
+  kind: z.enum(CONNECTION_KINDS),
+  name: z.string(),
+  baseUrl: z.string().optional(),
+  hasKey: z.boolean(),
+  keyHint: z.string().optional(),
+  keyOptional: z.boolean(),
+  manualModels: z.array(z.string()),
+});
+export type ConnectionView = z.infer<typeof connectionViewSchema>;
+
+const modelIdList = z
+  .array(
+    z
+      .string()
+      .trim()
+      .regex(/^[\w./:@+-]{1,200}$/),
+  )
+  .max(50);
+
+export const addConnectionSchema = z.object({
+  presetId: z.string().max(40),
+  /** Only for "any other": the display name. */
+  name: z.string().trim().min(1).max(60).optional(),
+  baseUrl: z.string().trim().max(300).optional(),
+  apiKey: z.string().max(600).optional(),
+  manualModels: modelIdList.optional(),
+});
+export const updateConnectionSchema = z.object({
+  id,
+  name: z.string().trim().min(1).max(60).optional(),
+  baseUrl: z.string().trim().max(300).optional(),
+  /** An empty string removes the key. */
+  apiKey: z.string().max(600).optional(),
+  manualModels: modelIdList.optional(),
+});
+
+export const testResultSchema = z.object({
+  ok: z.boolean(),
+  latencyMs: z.number(),
+  modelCount: z.number().optional(),
+  errorCode: z.string().optional(),
+  errorMessage: z.string().optional(),
+});
+
+export type TestResult = z.infer<typeof testResultSchema>;
+
+export const modelViewSchema = z.object({
+  connectionId: id,
+  connectionName: z.string(),
+  modelId: z.string(),
+  displayName: z.string(),
+  tier: z.enum(['fast', 'balanced', 'frontier']),
+  vision: z.boolean(),
+  reasoning: z.boolean(),
+  contextWindow: z.number(),
+  /** The service said so, or Allaya guessed from the name. */
+  inferred: z.boolean(),
+});
+export type ModelView = z.infer<typeof modelViewSchema>;
+
+export const modelListSchema = z.object({
+  models: z.array(modelViewSchema),
+  /** Connections whose model list could not be read, and why. */
+  problems: z.array(
+    z.object({
+      connectionId: id,
+      connectionName: z.string(),
+      code: z.string(),
+      message: z.string(),
+    }),
+  ),
+});
+export type ModelList = z.infer<typeof modelListSchema>;
+
+// ── Chats ───────────────────────────────────────────────────────────────────
+export const stepSchema = z.object({
+  id: z.string(),
+  tool: z.string(),
+  /** One line a person can read: "Read page: example.com". */
+  summary: z.string(),
+  status: z.enum(['running', 'done', 'error', 'denied']),
+  output: z.string().max(4000).optional(),
+});
+export type Step = z.infer<typeof stepSchema>;
+
+export const messageViewSchema = z.object({
+  id,
+  chatId: id,
+  role: z.enum(['user', 'assistant']),
+  content: z.string(),
+  status: z.enum(['complete', 'streaming', 'error', 'cancelled']),
+  /** The model's display name, on a reply. */
+  model: z.string().optional(),
+  error: z.object({ code: z.string(), message: z.string() }).optional(),
+  steps: z.array(stepSchema).optional(),
+  createdAt: z.number(),
+});
+export type MessageView = z.infer<typeof messageViewSchema>;
+
+export const chatViewSchema = z.object({
+  id,
+  title: z.string(),
+  model: modelRefSchema.nullable(),
+  createdAt: z.number(),
+  updatedAt: z.number(),
+});
+export type ChatView = z.infer<typeof chatViewSchema>;
+
+export const MAX_MESSAGE_CHARS = 30_000;
+
+export const invokeContract = {
+  'app:info': spec(
+    none,
+    z.object({ version: z.string(), platform: z.string(), locale: z.string(), e2e: z.boolean() }),
+  ),
+  'settings:get': spec(none, settingsSchema),
+  'settings:set': spec(settingsSchema.partial(), settingsSchema),
+
+  'connections:list': spec(none, z.array(connectionViewSchema)),
+  'connections:add': spec(addConnectionSchema, connectionViewSchema),
+  'connections:update': spec(updateConnectionSchema, connectionViewSchema),
+  'connections:remove': spec(z.object({ id }), ok),
+  'connections:test': spec(z.object({ id }), testResultSchema),
+  'models:list': spec(z.object({ refresh: z.boolean().optional() }), modelListSchema),
+
+  'chats:list': spec(none, z.array(chatViewSchema)),
+  'chats:get': spec(
+    z.object({ id }),
+    z.object({ chat: chatViewSchema, messages: z.array(messageViewSchema) }),
+  ),
+  'chats:create': spec(z.object({ model: modelRefSchema.nullable().optional() }), chatViewSchema),
+  'chats:rename': spec(z.object({ id, title: z.string().trim().min(1).max(120) }), chatViewSchema),
+  'chats:setModel': spec(z.object({ id, model: modelRefSchema }), chatViewSchema),
+  'chats:remove': spec(z.object({ id }), ok),
+
+  'chat:send': spec(
+    z.object({
+      chatId: id.optional(),
+      text: z.string().trim().min(1).max(MAX_MESSAGE_CHARS),
+      model: modelRefSchema.optional(),
+    }),
+    z.object({ chat: chatViewSchema, userMessage: messageViewSchema, reply: messageViewSchema }),
+  ),
+  'chat:cancel': spec(z.object({ chatId: id }), ok),
+} as const;
+
+export const eventContract = {
+  /** A piece of a reply as it is written. */
+  'chat:delta': z.object({ chatId: id, messageId: id, text: z.string() }),
+  /** A message changed (finished, failed, a step started or ended). */
+  'chat:message': messageViewSchema,
+  /** The list of chats or their titles changed. */
+  'chats:changed': z.object({}),
+  'connections:changed': z.object({}),
+} as const;
+
+export type InvokeChannel = keyof typeof invokeContract;
+export type EventChannel = keyof typeof eventContract;
+export type InvokeRequest<C extends InvokeChannel> = z.input<(typeof invokeContract)[C]['request']>;
+export type InvokeResponse<C extends InvokeChannel> = z.output<
+  (typeof invokeContract)[C]['response']
+>;
+export type EventPayload<E extends EventChannel> = z.output<(typeof eventContract)[E]>;
+
+export const INVOKE_CHANNELS = Object.keys(invokeContract) as InvokeChannel[];
+export const EVENT_CHANNELS = Object.keys(eventContract) as EventChannel[];
+export const isInvokeChannel = (c: string): c is InvokeChannel =>
+  Object.prototype.hasOwnProperty.call(invokeContract, c);
+export const isEventChannel = (c: string): c is EventChannel =>
+  Object.prototype.hasOwnProperty.call(eventContract, c);
+
+/** What the preload exposes to the screen as `window.allaya`. */
+export interface Bridge {
+  invoke<C extends InvokeChannel>(
+    channel: C,
+    ...payload: InvokeRequest<C> extends undefined
+      ? [payload?: undefined]
+      : [payload: InvokeRequest<C>]
+  ): Promise<IpcResult<InvokeResponse<C>>>;
+  subscribe<E extends EventChannel>(
+    channel: E,
+    listener: (payload: EventPayload<E>) => void,
+  ): () => void;
+}

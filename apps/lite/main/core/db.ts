@@ -1,0 +1,66 @@
+import Database from 'better-sqlite3';
+
+export type Db = Database.Database;
+
+/**
+ * The schema, as a list of steps. A database remembers how many it has had (`user_version`), so a new version of the
+ * app only runs the steps it has not seen. Never edit a step that has shipped; add another.
+ */
+const MIGRATIONS: readonly string[] = [
+  `
+  create table settings (key text primary key, value text not null);
+
+  create table secrets (name text primary key, enc text not null, hint text not null);
+
+  create table connections (
+    id text primary key,
+    preset_id text,
+    kind text not null,
+    name text not null,
+    base_url text,
+    manual_models text not null default '[]',
+    created_at integer not null
+  );
+
+  create table chats (
+    id text primary key,
+    title text not null,
+    model_json text,
+    created_at integer not null,
+    updated_at integer not null
+  );
+
+  create table messages (
+    id text primary key,
+    chat_id text not null references chats(id) on delete cascade,
+    role text not null,
+    content text not null,
+    status text not null,
+    model text,
+    error_json text,
+    steps_json text,
+    created_at integer not null
+  );
+  create index messages_by_chat on messages (chat_id);
+  `,
+];
+
+export function openDb(path: string): Db {
+  const db = new Database(path);
+  if (path !== ':memory:') db.pragma('journal_mode = WAL');
+  db.pragma('foreign_keys = ON');
+  migrate(db);
+  return db;
+}
+
+export function migrate(db: Db): void {
+  const have = Number(db.pragma('user_version', { simple: true }));
+  for (let version = have; version < MIGRATIONS.length; version += 1) {
+    db.transaction(() => {
+      db.exec(MIGRATIONS[version]!);
+      db.pragma(`user_version = ${version + 1}`);
+    })();
+  }
+}
+
+export const SCHEMA_VERSION = MIGRATIONS.length;
