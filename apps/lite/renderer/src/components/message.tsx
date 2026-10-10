@@ -7,7 +7,7 @@ import { Markdown } from '../lib/markdown';
 import { useVoiceStore } from '../stores/voice';
 import { IconButton } from './ui';
 
-function StepLine({ step }: { step: Step }) {
+export function StepLine({ step }: { step: Step }) {
   const t = useT();
   const icon =
     step.status === 'running' ? (

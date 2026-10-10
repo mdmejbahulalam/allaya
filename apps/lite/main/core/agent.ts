@@ -7,6 +7,8 @@ export interface ApprovalRequest {
   tool: Tool;
   args: Record<string, unknown>;
   summary: string;
+  /** Aborted when the run is stopped, so a question nobody will answer is withdrawn. */
+  signal: AbortSignal;
 }
 
 export interface AgentOptions {
@@ -131,9 +133,22 @@ export async function runAgent(options: AgentOptions): Promise<AgentResult> {
         continue;
       }
       if (tool.effect === 'write') {
+        try {
+          tool.check?.(call.arguments);
+        } catch (error) {
+          const message = toSerializedError(error).message;
+          publish({ ...base, status: 'error', output: clip(message, STEP_OUTPUT_CHARS) });
+          results.push({
+            type: 'tool_result',
+            toolCallId: call.id,
+            content: `The tool failed: ${message}`,
+            isError: true,
+          });
+          continue;
+        }
         publish({ ...base, status: 'running' });
         const allowed = options.approve
-          ? await options.approve({ tool, args: call.arguments, summary })
+          ? await options.approve({ tool, args: call.arguments, summary, signal })
           : false;
         if (!allowed) {
           publish({ ...base, status: 'denied', output: 'The user did not allow this' });

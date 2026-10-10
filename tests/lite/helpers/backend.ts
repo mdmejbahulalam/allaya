@@ -8,6 +8,10 @@ import { SecretStore } from '@lite/main/core/secrets';
 import { BrowserService } from '@lite/main/browser/service';
 import { createBrowserTools } from '@lite/main/browser/tools';
 import { SettingsStore } from '@lite/main/core/settings';
+import { ApprovalService, approverForChat } from '@lite/main/core/approvals';
+import { TaskService } from '@lite/main/core/tasks';
+import { createTaskTools } from '@lite/main/core/task-tools';
+import type { RunView } from '@lite/shared/ipc';
 import { VoiceService } from '@lite/main/core/voice';
 import { ToolRegistry } from '@lite/main/core/tools';
 import { FakeBrowser } from './fake-browser';
@@ -22,6 +26,7 @@ export interface LiteBackendOptions {
   cipher?: Cipher;
   db?: Db;
   baseUrlOverrides?: Record<string, string>;
+  /** Answer questions on the spot instead of leaving them open (for tests that do not look at the question). */
   approve?: (request: ApprovalRequest & { chatId: string }) => Promise<boolean>;
   now?: () => Date;
 }
@@ -36,6 +41,10 @@ export interface LiteBackend {
   voice: VoiceService;
   tools: ToolRegistry;
   browser: FakeBrowser;
+  tasks: TaskService;
+  approvals: ApprovalService;
+  /** Every run that ended, as the desktop notice would have been told. */
+  finished: RunView[];
   /** Calls a channel as the app's own screen would, through the real dispatcher. */
   call<C extends InvokeChannel>(channel: C, payload?: InvokeRequest<C>): Promise<unknown>;
   dispose(): void;
@@ -61,13 +70,30 @@ export function createLiteBackend(options: LiteBackendOptions = {}): LiteBackend
   const browser = new FakeBrowser();
   const tools = new ToolRegistry();
   for (const tool of createBrowserTools(browser)) tools.register(tool);
+  const approvals = new ApprovalService(
+    events,
+    options.now ? { now: () => options.now!().getTime() } : {},
+  );
+  const finished: RunView[] = [];
+  const tasks = new TaskService({
+    db,
+    connections,
+    settings,
+    events,
+    tools,
+    approvals,
+    onFinished: (run) => finished.push(run),
+    ...(options.now ? { now: options.now } : {}),
+  });
+  for (const tool of createTaskTools(tasks, options.now ?? (() => new Date())))
+    tools.register(tool);
   const chat = new ChatService({
     db,
     connections,
     settings,
     events,
     tools,
-    ...(options.approve ? { approve: options.approve } : {}),
+    approve: options.approve ?? approverForChat(approvals),
     ...(options.now ? { now: options.now } : {}),
   });
   const voice = new VoiceService({ settings, connections });
@@ -77,6 +103,8 @@ export function createLiteBackend(options: LiteBackendOptions = {}): LiteBackend
     chat,
     voice,
     browser: new BrowserService(browser),
+    tasks,
+    approvals,
     info: { version: '0.0.0-test', platform: 'test', locale: 'en-US', e2e: false },
   });
   handlers.assertComplete();
@@ -91,6 +119,9 @@ export function createLiteBackend(options: LiteBackendOptions = {}): LiteBackend
     voice,
     tools,
     browser,
+    tasks,
+    approvals,
+    finished,
     call: (channel, payload) => dispatcher.dispatch({ channel, payload }, TRUSTED),
     dispose: () => db.close(),
   };

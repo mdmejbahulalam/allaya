@@ -5,6 +5,34 @@ import { Field, Input, Select, Textarea } from '../components/ui';
 import { useT } from '../i18n';
 import { useAppStore } from '../stores/app';
 
+function Switch({
+  checked,
+  label,
+  help,
+  onChange,
+}: {
+  checked: boolean;
+  label: string;
+  help: string;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <label className="flex items-start gap-3">
+      <input
+        type="checkbox"
+        role="switch"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        className="mt-1 size-4 accent-[var(--accent)]"
+      />
+      <span>
+        <span className="block text-sm font-medium">{label}</span>
+        <span className="block text-sm text-muted">{help}</span>
+      </span>
+    </label>
+  );
+}
+
 export function GeneralPanel() {
   const t = useT();
   const ids = useId();
@@ -84,19 +112,31 @@ export function GeneralPanel() {
         />
       </Field>
 
-      <label className="flex items-start gap-3">
-        <input
-          type="checkbox"
-          role="switch"
-          checked={settings.browserTools}
-          onChange={(e) => void save({ browserTools: e.target.checked })}
-          className="mt-1 size-4 accent-[var(--accent)]"
-        />
-        <span>
-          <span className="block text-sm font-medium">{t.t('general.browserTools')}</span>
-          <span className="block text-sm text-muted">{t.t('general.browserToolsHelp')}</span>
-        </span>
-      </label>
+      <Switch
+        checked={settings.browserTools}
+        label={t.t('general.browserTools')}
+        help={t.t('general.browserToolsHelp')}
+        onChange={(browserTools) => void save({ browserTools })}
+      />
+
+      <Switch
+        checked={settings.notifyTasks}
+        label={t.t('general.notifyTasks')}
+        help={t.t('general.notifyTasksHelp')}
+        onChange={(notifyTasks) => void save({ notifyTasks })}
+      />
+      <Switch
+        checked={settings.background}
+        label={t.t('general.background')}
+        help={t.t('general.backgroundHelp')}
+        onChange={(background) => void save({ background })}
+      />
+      <Switch
+        checked={settings.startWithWindows}
+        label={t.t('general.startWithWindows')}
+        help={t.t('general.startWithWindowsHelp')}
+        onChange={(startWithWindows) => void save({ startWithWindows })}
+      />
 
       <div>
         <p className="mb-1.5 text-sm font-medium">{t.t('general.defaultModel')}</p>

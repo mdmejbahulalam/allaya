@@ -3,7 +3,7 @@ import { settingsDefaults } from '../../../shared/defaults';
 import type { Settings } from '../../../shared/ipc';
 import { invoke } from '../lib/api';
 
-export type Route = 'chat' | 'settings';
+export type Route = 'chat' | 'tasks' | 'settings';
 export type SettingsTab = 'providers' | 'voice' | 'general';
 
 interface AppInfo {

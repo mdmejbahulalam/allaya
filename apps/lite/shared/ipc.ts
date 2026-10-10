@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { CONNECTION_KINDS } from './presets';
+import { scheduleSchema } from './schedule';
 
 /** Every call between the screen and the app's engine. One list: the preload, the dispatcher and the client derive from it. */
 
@@ -74,6 +75,12 @@ export const voiceSettingsSchema = z.object({
 export type VoiceSettings = z.infer<typeof voiceSettingsSchema>;
 
 export const settingsSchema = z.object({
+  /** Tell the person (a desktop notice) when a task finishes or needs a yes while the window is not in front. */
+  notifyTasks: z.boolean(),
+  /** Keep running in the tray when the window is closed, so scheduled tasks still run. */
+  background: z.boolean(),
+  /** Start with Windows (in the tray), so scheduled tasks run without opening the app. */
+  startWithWindows: z.boolean(),
   /** Let Allaya use the browser (open pages and read them) when you ask it something. */
   browserTools: z.boolean(),
   language: z.enum(['auto', 'en', 'bn']),
@@ -203,6 +210,71 @@ export type ChatView = z.infer<typeof chatViewSchema>;
 
 export const MAX_MESSAGE_CHARS = 30_000;
 
+// ── Tasks ───────────────────────────────────────────────────────────────────
+export const runViewSchema = z.object({
+  id,
+  taskId: id,
+  taskTitle: z.string(),
+  trigger: z.enum(['manual', 'schedule']),
+  status: z.enum(['running', 'done', 'error', 'cancelled']),
+  startedAt: z.number(),
+  finishedAt: z.number().nullable(),
+  /** The model's name. */
+  model: z.string(),
+  /** The report: what Allaya found or did. */
+  result: z.string(),
+  error: z.object({ code: z.string(), message: z.string() }).optional(),
+  steps: z.array(stepSchema),
+});
+export type RunView = z.infer<typeof runViewSchema>;
+
+export const TASK_TOOL_GROUPS = ['browser'] as const;
+
+export const taskInputSchema = z.object({
+  title: z.string().trim().min(1).max(100),
+  /** What to do, in the person's words. */
+  instructions: z.string().trim().min(1).max(8000),
+  /** The model to use; null uses the default for new chats. */
+  model: modelRefSchema.nullable(),
+  schedule: scheduleSchema,
+  /** Which kinds of tools the task may use. */
+  groups: z.array(z.string().max(60)).max(30),
+  enabled: z.boolean().optional(),
+});
+export type TaskInput = z.infer<typeof taskInputSchema>;
+
+export const taskViewSchema = z.object({
+  id,
+  title: z.string(),
+  instructions: z.string(),
+  model: modelRefSchema.nullable(),
+  schedule: scheduleSchema,
+  groups: z.array(z.string()),
+  enabled: z.boolean(),
+  nextRunAt: z.number().nullable(),
+  running: z.boolean(),
+  /** Made by the person, or proposed by Allaya in a chat and allowed. */
+  createdBy: z.enum(['person', 'allaya']),
+  createdAt: z.number(),
+  lastRun: runViewSchema.nullable(),
+});
+export type TaskView = z.infer<typeof taskViewSchema>;
+
+export const approvalViewSchema = z.object({
+  id,
+  /** One line for what Allaya wants to do. */
+  summary: z.string(),
+  tool: z.string(),
+  details: z.string(),
+  source: z.discriminatedUnion('kind', [
+    z.object({ kind: z.literal('chat'), chatId: id }),
+    z.object({ kind: z.literal('task'), taskId: id, taskTitle: z.string() }),
+  ]),
+  createdAt: z.number(),
+  expiresAt: z.number(),
+});
+export type ApprovalView = z.infer<typeof approvalViewSchema>;
+
 // ── Browser ─────────────────────────────────────────────────────────────────
 export const tabSchema = z.object({
   id,
@@ -281,6 +353,20 @@ export const invokeContract = {
   ),
   'chat:cancel': spec(z.object({ chatId: id }), ok),
 
+  'tasks:list': spec(none, z.array(taskViewSchema)),
+  'tasks:get': spec(
+    z.object({ id }),
+    z.object({ task: taskViewSchema, runs: z.array(runViewSchema) }),
+  ),
+  'tasks:create': spec(taskInputSchema, taskViewSchema),
+  'tasks:update': spec(z.object({ id, changes: taskInputSchema.partial() }), taskViewSchema),
+  'tasks:remove': spec(z.object({ id }), ok),
+  /** Run it now, by hand. Returns the run that was started; it goes on in the background. */
+  'tasks:run': spec(z.object({ id }), runViewSchema),
+  'tasks:cancel': spec(z.object({ runId: id }), ok),
+  'approvals:list': spec(none, z.array(approvalViewSchema)),
+  'approvals:decide': spec(z.object({ id, allow: z.boolean() }), ok),
+
   'browser:state': spec(none, browserStateSchema),
   /** Go to an address, or search for words, in the current tab (a first tab if none is open). */
   'browser:go': spec(z.object({ input: z.string().max(2000) }), ok),
@@ -338,6 +424,10 @@ export const eventContract = {
   'chat:message': messageViewSchema,
   /** The list of chats or their titles changed. */
   'chats:changed': z.object({}),
+  'tasks:changed': z.object({}),
+  /** A run started, made progress, or ended. */
+  'tasks:run': runViewSchema,
+  'approvals:changed': z.array(approvalViewSchema),
   'browser:changed': browserStateSchema,
   /** The browser refused to save a file a page offered. */
   'browser:download-refused': z.object({ filename: z.string().max(300) }),

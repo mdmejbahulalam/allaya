@@ -449,14 +449,37 @@ describe('tools in a chat', () => {
       status: 'done',
       output: 'Posted.',
     });
+  });
 
-    const nobody = await rig({
-      chat: [{ calls: [aiCall('post', { text: 'hi' })] }, { text: ['No.'] }],
+  it('asks the person through the app, waits for the answer, and stops asking if the reply is stopped', async () => {
+    const asked = await rig({
+      chat: [{ calls: [aiCall('post', { text: 'hello world' })] }, { text: ['Posted it.'] }],
     });
-    nobody.b.tools.register(post);
-    const c = await send(nobody.b, 'Post hi', { model: nobody.model });
-    await idle(nobody.b);
-    expect((await messages(nobody.b, c.chat.id))[1]!.steps![0]).toMatchObject({ status: 'denied' });
+    asked.b.tools.register(post);
+    const sent = await send(asked.b, 'Post it', { model: asked.model });
+    await vi.waitFor(() => expect(asked.b.approvals.list()).toHaveLength(1));
+    const [question] = asked.b.approvals.list();
+    expect(question).toMatchObject({
+      summary: 'Post: hello world',
+      tool: 'post',
+      details: 'text: hello world',
+      source: { kind: 'chat', chatId: sent.chat.id },
+    });
+    expect(asked.b.events.of('approvals:changed').at(-1)).toHaveLength(1);
+    expect((await messages(asked.b, sent.chat.id))[1]!.status).toBe('streaming');
+    asked.b.approvals.decide(question!.id, true);
+    await idle(asked.b);
+    expect((await messages(asked.b, sent.chat.id))[1]!.steps![0]).toMatchObject({ status: 'done' });
+    expect(asked.b.approvals.list()).toEqual([]);
+
+    const stopped = await rig({ chat: [{ calls: [aiCall('post', { text: 'x' })] }] });
+    stopped.b.tools.register(post);
+    const second = await send(stopped.b, 'Post it', { model: stopped.model });
+    await vi.waitFor(() => expect(stopped.b.approvals.list()).toHaveLength(1));
+    stopped.b.chat.cancel(second.chat.id);
+    await idle(stopped.b);
+    expect(stopped.b.approvals.list()).toEqual([]);
+    expect((await messages(stopped.b, second.chat.id))[1]!.status).toBe('cancelled');
   });
 
   it('stops asking the model for tools after too many rounds', async () => {

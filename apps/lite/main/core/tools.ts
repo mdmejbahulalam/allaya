@@ -17,6 +17,8 @@ export interface Tool {
   effect: 'read' | 'write';
   /** One line a person can read for what this call does, shown in the chat and in the question. */
   summarize?(args: Record<string, unknown>): string;
+  /** Throws, in words the model can act on, when the call cannot work, so the person is not asked about it first. */
+  check?(args: Record<string, unknown>): void;
   run(args: Record<string, unknown>, context: ToolContext): Promise<string>;
 }
 

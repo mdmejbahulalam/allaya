@@ -43,6 +43,35 @@ const MIGRATIONS: readonly string[] = [
   );
   create index messages_by_chat on messages (chat_id);
   `,
+  `
+  create table tasks (
+    id text primary key,
+    title text not null,
+    instructions text not null,
+    model_json text,
+    schedule_json text not null,
+    groups_json text not null,
+    enabled integer not null default 1,
+    next_run_at integer,
+    created_by text not null,
+    created_at integer not null,
+    updated_at integer not null
+  );
+
+  create table task_runs (
+    id text primary key,
+    task_id text not null references tasks(id) on delete cascade,
+    trigger text not null,
+    status text not null,
+    model text not null,
+    result text not null default '',
+    error_json text,
+    steps_json text,
+    started_at integer not null,
+    finished_at integer
+  );
+  create index task_runs_by_task on task_runs (task_id, started_at);
+  `,
 ];
 
 export function openDb(path: string): Db {

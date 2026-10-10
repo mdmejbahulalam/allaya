@@ -2,6 +2,8 @@ import { Handlers } from './dispatcher';
 import type { ChatService } from '../core/chat';
 import type { ConnectionService } from '../core/connections';
 import type { BrowserService } from '../browser/service';
+import type { ApprovalService } from '../core/approvals';
+import type { TaskService } from '../core/tasks';
 import type { SettingsStore } from '../core/settings';
 import type { VoiceService } from '../core/voice';
 
@@ -18,6 +20,8 @@ export interface Services {
   chat: ChatService;
   voice: VoiceService;
   browser: BrowserService;
+  tasks: TaskService;
+  approvals: ApprovalService;
   info: AppInfo;
 }
 
@@ -51,6 +55,25 @@ export function createHandlers(s: Services): Handlers {
     .register('chat:send', (input) => s.chat.send(input))
     .register('chat:cancel', ({ chatId }) => {
       s.chat.cancel(chatId);
+      return { ok: true as const };
+    })
+
+    .register('tasks:list', () => s.tasks.list())
+    .register('tasks:get', ({ id }) => s.tasks.get(id))
+    .register('tasks:create', (input) => s.tasks.create(input))
+    .register('tasks:update', ({ id, changes }) => s.tasks.update(id, changes))
+    .register('tasks:remove', ({ id }) => {
+      s.tasks.remove(id);
+      return { ok: true as const };
+    })
+    .register('tasks:run', ({ id }) => s.tasks.run(id, 'manual'))
+    .register('tasks:cancel', ({ runId }) => {
+      s.tasks.cancel(runId);
+      return { ok: true as const };
+    })
+    .register('approvals:list', () => s.approvals.list())
+    .register('approvals:decide', ({ id, allow }) => {
+      s.approvals.decide(id, allow);
       return { ok: true as const };
     })
 

@@ -4,12 +4,17 @@ import type { Logger } from '@allaya/shared';
 import { BrowserService } from './browser/service';
 import { ElectronBrowserHost } from './browser/electron-host';
 import { createBrowserTools } from './browser/tools';
+import { ApprovalService, approverForChat } from './core/approvals';
 import { ChatService } from './core/chat';
 import { ConnectionService } from './core/connections';
 import { openDb } from './core/db';
 import { Events } from './core/events';
 import { SecretStore } from './core/secrets';
 import { SettingsStore } from './core/settings';
+import { TaskService } from './core/tasks';
+import { createTaskTools } from './core/task-tools';
+import { Shell } from './shell';
+import { shouldQuitWhenAllClosed } from './shell-rules';
 import { ToolRegistry } from './core/tools';
 import { VoiceService } from './core/voice';
 import { createHandlers } from './ipc/handlers';
@@ -48,7 +53,7 @@ async function start(): Promise<void> {
   const db = openDb(join(userData, 'allaya.sqlite'));
   const events = new Events();
   const cipher = E2E ? new InsecureTestCipher() : new SafeStorageCipher();
-  const settings = new SettingsStore(db);
+  const settings = new SettingsStore(db, (next) => shell.applyLoginItem(next));
   const secrets = new SecretStore(db, cipher);
   const connections = new ConnectionService({
     db,
@@ -65,12 +70,43 @@ async function start(): Promise<void> {
   browser.onChange((state) => events.publish('browser:changed', state));
   const tools = new ToolRegistry();
   for (const tool of createBrowserTools(browser)) tools.register(tool);
+
+  // Tasks, and the questions Allaya asks before it changes anything outside itself.
+  const shell = new Shell({
+    window: () => mainWindow,
+    settings: () => settings.get(),
+    logger: logger.child('shell'),
+    allowTray: !E2E || process.env['ALLAYA_E2E_TRAY'] === '1',
+  });
+  const approvals = new ApprovalService(events, {
+    onRequest: (view) => shell.notify('Allaya needs your OK', view.summary),
+  });
+  const tasks = new TaskService({
+    db,
+    connections,
+    settings,
+    events,
+    tools,
+    approvals,
+    logger: logger.child('tasks'),
+    // Tests make the clock quick, to see a scheduled run happen.
+    ...(E2E && Number(process.env['ALLAYA_E2E_TICK_MS']) > 0
+      ? { tickMs: Number(process.env['ALLAYA_E2E_TICK_MS']) }
+      : {}),
+    onFinished: (run) =>
+      shell.notify(
+        run.status === 'done' ? `Done: ${run.taskTitle}` : `${run.taskTitle} did not finish`,
+        run.status === 'done' ? run.result.replace(/\s+/g, ' ') : (run.error?.message ?? ''),
+      ),
+  });
+  for (const tool of createTaskTools(tasks, () => new Date())) tools.register(tool);
   const chat = new ChatService({
     db,
     connections,
     settings,
     events,
     tools,
+    approve: approverForChat(approvals),
     logger: logger.child('chat'),
   });
   chat.recoverInterrupted();
@@ -82,6 +118,8 @@ async function start(): Promise<void> {
     chat,
     voice,
     browser: new BrowserService(browser),
+    tasks,
+    approvals,
     info: {
       version: app.getVersion(),
       platform: process.platform,
@@ -109,27 +147,47 @@ async function start(): Promise<void> {
 
   if (!DEV_SERVER_URL) installAppProtocol({ rendererRoot: join(__dirname, '../renderer'), logger });
   Menu.setApplicationMenu(null);
-  mainWindow = createWindow(security);
+  shell.createTray();
+  // Started with Windows (--hidden): go straight to the tray, so tasks run without a window in the way.
+  const hidden = process.argv.includes('--hidden') && shell.hasTray;
+  mainWindow = createWindow(security, shell, hidden);
+  shell.applyLoginItem(settings.get());
+  tasks.start();
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) mainWindow = createWindow(security);
+    if (BrowserWindow.getAllWindows().length === 0)
+      mainWindow = createWindow(security, shell, false);
+    else shell.showWindow();
   });
-  app.on('second-instance', () => {
-    if (mainWindow?.isMinimized()) mainWindow.restore();
-    mainWindow?.focus();
-  });
+  app.on('second-instance', () => shell.showWindow());
   app.on('before-quit', () => {
+    shell.quitting = true;
+    tasks.stop();
+    approvals.denyAll();
     browser.dispose();
     // Replies still being written are stopped, keeping what they had.
     for (const item of chat.list()) chat.cancel(item.id);
     void file.flush();
   });
   app.on('window-all-closed', () => {
-    if (process.platform !== 'darwin') app.quit();
+    // Closing the window only hides it while the app is kept in the tray (see Shell.onWindowClose); with that
+    // switched off, or with no tray, closing the last window ends the app.
+    if (
+      shouldQuitWhenAllClosed({
+        platform: process.platform,
+        background: settings.get().background,
+        hasTray: shell.hasTray,
+      })
+    )
+      app.quit();
   });
 }
 
-function createWindow(security: { devServerUrl: string | undefined; logger: Logger }) {
+function createWindow(
+  security: { devServerUrl: string | undefined; logger: Logger },
+  shell: Shell,
+  startHidden: boolean,
+) {
   const window = new BrowserWindow({
     width: 1120,
     height: 760,
@@ -147,7 +205,10 @@ function createWindow(security: { devServerUrl: string | undefined; logger: Logg
     },
   });
   applySecurity(window, security);
-  window.once('ready-to-show', () => window.show());
+  window.once('ready-to-show', () => {
+    if (!startHidden) window.show();
+  });
+  window.on('close', (event) => shell.onWindowClose(event));
   void window.loadURL(DEV_SERVER_URL ?? APP_INDEX_URL);
   return window;
 }

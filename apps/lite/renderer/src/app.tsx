@@ -1,13 +1,17 @@
 import { useEffect, useState } from 'react';
+import { ApprovalsPanel } from './components/approvals-panel';
 import { ChatView } from './components/chat-view';
 import { Sidebar } from './components/sidebar';
+import { TasksScreen } from './components/tasks-screen';
 import { I18nProvider, resolveLang } from './i18n';
 import { subscribe } from './lib/api';
 import { SettingsView } from './settings/settings-view';
 import { useAppStore } from './stores/app';
+import { useApprovalsStore } from './stores/approvals';
 import { useChatStore } from './stores/chat';
 import { useBrowserStore } from './stores/browser';
 import { useConnectionsStore } from './stores/connections';
+import { useTasksStore } from './stores/tasks';
 import { useVoiceStore } from './stores/voice';
 
 /** Light, dark, or whatever the computer is set to. */
@@ -45,6 +49,8 @@ export function App() {
     void load();
     void loadChats();
     void useBrowserStore.getState().load();
+    void useTasksStore.getState().load();
+    void useApprovalsStore.getState().load();
     void loadConnections().then(() => loadModels());
     const offs = [
       subscribe('chat:delta', onDelta),
@@ -62,6 +68,9 @@ export function App() {
         }
       }),
       subscribe('chats:changed', () => void useChatStore.getState().loadChats()),
+      subscribe('tasks:changed', () => void useTasksStore.getState().onChanged()),
+      subscribe('tasks:run', (run) => useTasksStore.getState().onRun(run)),
+      subscribe('approvals:changed', (list) => useApprovalsStore.getState().set(list)),
       subscribe('browser:changed', (state) => useBrowserStore.getState().setState(state)),
       subscribe('browser:download-refused', ({ filename }) =>
         useBrowserStore.getState().refuse(filename),
@@ -80,7 +89,13 @@ export function App() {
       <div className="flex h-full">
         <Sidebar />
         <main className="relative flex h-full min-w-0 flex-1 flex-col">
-          {route === 'settings' ? <SettingsView /> : <ChatView onFailure={setFailure} />}
+          {route === 'settings' ? (
+            <SettingsView />
+          ) : route === 'tasks' ? (
+            <TasksScreen />
+          ) : (
+            <ChatView onFailure={setFailure} />
+          )}
           {failure && (
             <div
               role="alert"
@@ -98,6 +113,7 @@ export function App() {
           )}
         </main>
       </div>
+      <ApprovalsPanel />
     </I18nProvider>
   );
 }

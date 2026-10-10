@@ -18,12 +18,15 @@ export function ModelPicker({
   onConnect,
   align = 'start',
   openUp = false,
+  emptyLabel,
 }: {
   value: ModelRef | null;
   onPick: (model: ModelRef) => void;
   onConnect: () => void;
   align?: 'start' | 'end';
   openUp?: boolean;
+  /** What the button says when nothing is chosen (instead of "No model chosen"). */
+  emptyLabel?: string;
 }) {
   const t = useT();
   const models = useConnectionsStore((s) => s.models);
@@ -53,7 +56,7 @@ export function ModelPicker({
     return { list: [...byConnection.values()], total: filtered.length, shown: shown.length };
   }, [models, needle]);
 
-  const label = current?.displayName ?? value?.modelId ?? t.t('model.choose');
+  const label = current?.displayName ?? value?.modelId ?? emptyLabel ?? t.t('model.choose');
 
   return (
     <div ref={root} className="relative">
