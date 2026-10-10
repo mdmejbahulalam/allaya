@@ -74,6 +74,8 @@ export const voiceSettingsSchema = z.object({
 export type VoiceSettings = z.infer<typeof voiceSettingsSchema>;
 
 export const settingsSchema = z.object({
+  /** Let Allaya use the browser (open pages and read them) when you ask it something. */
+  browserTools: z.boolean(),
   language: z.enum(['auto', 'en', 'bn']),
   theme: z.enum(['system', 'dark', 'light']),
   /** What to call the person. */
@@ -201,6 +203,22 @@ export type ChatView = z.infer<typeof chatViewSchema>;
 
 export const MAX_MESSAGE_CHARS = 30_000;
 
+// ── Browser ─────────────────────────────────────────────────────────────────
+export const tabSchema = z.object({
+  id,
+  url: z.string(),
+  title: z.string(),
+  loading: z.boolean(),
+  canGoBack: z.boolean(),
+  canGoForward: z.boolean(),
+});
+export const browserStateSchema = z.object({
+  tabs: z.array(tabSchema),
+  activeId: z.string().nullable(),
+});
+export type BrowserState = z.infer<typeof browserStateSchema>;
+export type BrowserTab = z.infer<typeof tabSchema>;
+
 // ── Voice ───────────────────────────────────────────────────────────────────
 export const MAX_AUDIO_BASE64_CHARS = 28_000_000;
 export const MAX_SPEECH_CHARS = 4_000;
@@ -263,6 +281,28 @@ export const invokeContract = {
   ),
   'chat:cancel': spec(z.object({ chatId: id }), ok),
 
+  'browser:state': spec(none, browserStateSchema),
+  /** Go to an address, or search for words, in the current tab (a first tab if none is open). */
+  'browser:go': spec(z.object({ input: z.string().max(2000) }), ok),
+  'browser:newTab': spec(z.object({ input: z.string().max(2000).optional() }), ok),
+  'browser:close': spec(z.object({ id }), ok),
+  'browser:activate': spec(z.object({ id }), ok),
+  'browser:back': spec(z.object({ id: id.optional() }), ok),
+  'browser:forward': spec(z.object({ id: id.optional() }), ok),
+  'browser:reload': spec(z.object({ id: id.optional() }), ok),
+  'browser:stop': spec(z.object({ id: id.optional() }), ok),
+  /** Where the page is drawn, in window coordinates, and whether the pane is showing. */
+  'browser:bounds': spec(
+    z.object({
+      x: z.number().min(0).max(20_000),
+      y: z.number().min(0).max(20_000),
+      width: z.number().min(0).max(20_000),
+      height: z.number().min(0).max(20_000),
+      visible: z.boolean(),
+    }),
+    ok,
+  ),
+
   'voice:options': spec(none, voiceOptionsSchema),
   'voice:transcribe': spec(
     z.object({
@@ -298,6 +338,9 @@ export const eventContract = {
   'chat:message': messageViewSchema,
   /** The list of chats or their titles changed. */
   'chats:changed': z.object({}),
+  'browser:changed': browserStateSchema,
+  /** The browser refused to save a file a page offered. */
+  'browser:download-refused': z.object({ filename: z.string().max(300) }),
   'connections:changed': z.object({}),
 } as const;
 

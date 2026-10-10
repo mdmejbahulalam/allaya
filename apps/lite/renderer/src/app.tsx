@@ -6,6 +6,7 @@ import { subscribe } from './lib/api';
 import { SettingsView } from './settings/settings-view';
 import { useAppStore } from './stores/app';
 import { useChatStore } from './stores/chat';
+import { useBrowserStore } from './stores/browser';
 import { useConnectionsStore } from './stores/connections';
 import { useVoiceStore } from './stores/voice';
 
@@ -43,6 +44,7 @@ export function App() {
     const { loadConnections, loadModels } = useConnectionsStore.getState();
     void load();
     void loadChats();
+    void useBrowserStore.getState().load();
     void loadConnections().then(() => loadModels());
     const offs = [
       subscribe('chat:delta', onDelta),
@@ -60,6 +62,10 @@ export function App() {
         }
       }),
       subscribe('chats:changed', () => void useChatStore.getState().loadChats()),
+      subscribe('browser:changed', (state) => useBrowserStore.getState().setState(state)),
+      subscribe('browser:download-refused', ({ filename }) =>
+        useBrowserStore.getState().refuse(filename),
+      ),
       subscribe('connections:changed', () => {
         void useConnectionsStore.getState().loadConnections();
         void useConnectionsStore.getState().loadModels();

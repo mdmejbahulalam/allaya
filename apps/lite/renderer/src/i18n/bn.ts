@@ -6,6 +6,7 @@ export const bn: Record<TextKey, string> = {
   'common.save': 'সংরক্ষণ',
   'common.yes': 'হ্যাঁ',
   'common.close': 'বন্ধ',
+  'common.dismiss': 'সরিয়ে দিন',
 
   'nav.newChat': 'নতুন চ্যাট',
   'nav.chats': 'চ্যাট',
@@ -97,6 +98,31 @@ export const bn: Record<TextKey, string> = {
   'voice.previewStop': 'থামান',
   'voice.previewText': 'নমস্কার, আমি আলেয়া। আজ আপনাকে কীভাবে সাহায্য করতে পারি?',
   'voice.saved': 'সংরক্ষিত হয়েছে।',
+
+  'browser.toggle': 'ব্রাউজার',
+  'browser.close': 'ব্রাউজার বন্ধ করুন',
+  'browser.back': 'পেছনে',
+  'browser.forward': 'সামনে',
+  'browser.reload': 'আবার লোড',
+  'browser.stop': 'লোড থামান',
+  'browser.address': 'খুঁজুন বা ঠিকানা লিখুন',
+  'browser.newTab': 'নতুন ট্যাব',
+  'browser.closeTab': '“{title}” ট্যাব বন্ধ করুন',
+  'browser.untitled': 'নতুন ট্যাব',
+  'browser.tabs': 'ব্রাউজারের ট্যাব',
+  'browser.ask': 'এই পাতা নিয়ে জিজ্ঞেস করুন',
+  'browser.askText': 'ব্রাউজারে আমি যে পাতাটি খুলে রেখেছি সেটি পড়ে সারাংশ বলো।',
+  'browser.emptyTitle': 'আলেয়ার সঙ্গে ব্রাউজ করুন',
+  'browser.emptyBody':
+    'এখানে যেকোনো ওয়েবসাইট খুলুন। যে পাতায় আছেন সেটি নিয়ে আলেয়াকে জিজ্ঞেস করুন, অথবা কিছু খুঁজে দিতে বলুন — আলেয়া পাতা খুলে পড়ে দেয়।',
+  'browser.privacy':
+    'আলেয়া যে পাতা পড়ে তা আপনার এআই সেবার কাছে যায়। আলেয়া কেবল পড়ে: পাতায় কখনো ক্লিক করে না, লেখে না, জমা দেয় না।',
+  'browser.download': 'ডাউনলোড এখনো চালু নেই: “{name}” সংরক্ষণ করা হয়নি।',
+  'browser.notAddress': 'এটি ঠিকানাও নয়, খোঁজার মতো কিছুও নয়।',
+  'browser.resize': 'ব্রাউজারের আকার বদলান',
+  'general.browserTools': 'আলেয়াকে ব্রাউজার ব্যবহার করতে দিন',
+  'general.browserToolsHelp':
+    'আপনি বললে আলেয়া পাতা খুলে পড়তে পারে। আপনার হয়ে ক্লিক বা লেখা কখনো করে না।',
 
   'model.pick': 'মডেল বেছে নিন',
   'model.search': 'মডেল খুঁজুন',

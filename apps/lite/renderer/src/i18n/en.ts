@@ -4,6 +4,7 @@ export const en = {
   'common.save': 'Save',
   'common.yes': 'Yes',
   'common.close': 'Close',
+  'common.dismiss': 'Dismiss',
 
   'nav.newChat': 'New chat',
   'nav.chats': 'Chats',
@@ -97,6 +98,31 @@ export const en = {
   'voice.previewStop': 'Stop',
   'voice.previewText': 'Hello, I am Allaya. How can I help you today?',
   'voice.saved': 'Saved.',
+
+  'browser.toggle': 'Browser',
+  'browser.close': 'Close the browser',
+  'browser.back': 'Back',
+  'browser.forward': 'Forward',
+  'browser.reload': 'Reload',
+  'browser.stop': 'Stop loading',
+  'browser.address': 'Search or enter an address',
+  'browser.newTab': 'New tab',
+  'browser.closeTab': 'Close tab “{title}”',
+  'browser.untitled': 'New tab',
+  'browser.tabs': 'Browser tabs',
+  'browser.ask': 'Ask about this page',
+  'browser.askText': 'Read the page I have open in the browser and summarize it.',
+  'browser.emptyTitle': 'Browse with Allaya',
+  'browser.emptyBody':
+    'Open any website here. Ask Allaya about the page you are on, or ask it to look something up — it opens and reads pages for you.',
+  'browser.privacy':
+    'Pages Allaya reads are sent to your AI service. Allaya only reads: it never clicks, types or submits on a page.',
+  'browser.download': 'Downloads are not supported yet: “{name}” was not saved.',
+  'browser.notAddress': 'That is not an address or something to search for.',
+  'browser.resize': 'Resize the browser',
+  'general.browserTools': 'Let Allaya use the browser',
+  'general.browserToolsHelp':
+    'When you ask for it, Allaya may open pages and read them. It never clicks or types for you.',
 
   'model.pick': 'Choose a model',
   'model.search': 'Search models',

@@ -300,8 +300,9 @@ export class ChatService {
     };
 
     try {
-      const tools = this.deps.tools?.list() ?? [];
       const settings = this.deps.settings.get();
+      // The browser's tools are offered only while the person has not switched them off.
+      const tools = this.deps.tools?.list(settings.browserTools ? {} : { groups: [] }) ?? [];
       const system = buildSystemPrompt({
         userName: settings.userName,
         instructions: settings.instructions,

@@ -1,6 +1,7 @@
 import { Handlers } from './dispatcher';
 import type { ChatService } from '../core/chat';
 import type { ConnectionService } from '../core/connections';
+import type { BrowserService } from '../browser/service';
 import type { SettingsStore } from '../core/settings';
 import type { VoiceService } from '../core/voice';
 
@@ -16,6 +17,7 @@ export interface Services {
   connections: ConnectionService;
   chat: ChatService;
   voice: VoiceService;
+  browser: BrowserService;
   info: AppInfo;
 }
 
@@ -49,6 +51,44 @@ export function createHandlers(s: Services): Handlers {
     .register('chat:send', (input) => s.chat.send(input))
     .register('chat:cancel', ({ chatId }) => {
       s.chat.cancel(chatId);
+      return { ok: true as const };
+    })
+
+    .register('browser:state', () => s.browser.state())
+    .register('browser:go', ({ input }) => {
+      s.browser.go(input);
+      return { ok: true as const };
+    })
+    .register('browser:newTab', ({ input }) => {
+      s.browser.newTab(input);
+      return { ok: true as const };
+    })
+    .register('browser:close', ({ id }) => {
+      s.browser.close(id);
+      return { ok: true as const };
+    })
+    .register('browser:activate', ({ id }) => {
+      s.browser.activate(id);
+      return { ok: true as const };
+    })
+    .register('browser:back', ({ id }) => {
+      s.browser.back(id);
+      return { ok: true as const };
+    })
+    .register('browser:forward', ({ id }) => {
+      s.browser.forward(id);
+      return { ok: true as const };
+    })
+    .register('browser:reload', ({ id }) => {
+      s.browser.reload(id);
+      return { ok: true as const };
+    })
+    .register('browser:stop', ({ id }) => {
+      s.browser.stop(id);
+      return { ok: true as const };
+    })
+    .register('browser:bounds', ({ visible, ...bounds }) => {
+      s.browser.setBounds(bounds, visible);
       return { ok: true as const };
     })
 

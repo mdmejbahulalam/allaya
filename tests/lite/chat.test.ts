@@ -113,7 +113,11 @@ describe('sending a message', () => {
       { chat: [{ text: ['ok'] }] },
       { now: () => new Date(2026, 9, 10, 8, 30) },
     );
-    await b.call('settings:set', { userName: 'Babul', instructions: 'Answer in short lines.' });
+    await b.call('settings:set', {
+      userName: 'Babul',
+      instructions: 'Answer in short lines.',
+      browserTools: false,
+    });
     await send(b, 'Hi', { model });
     await idle(b);
     const system = bodyOf(ai.calls[0]!).system;
@@ -397,7 +401,7 @@ describe('tools in a chat', () => {
         output: 'The answer to life is 42.',
       }),
     ]);
-    expect(bodyOf(ai.calls[0]!).tools?.map((t) => t.name)).toEqual(['lookup']);
+    expect(bodyOf(ai.calls[0]!).tools?.map((t) => t.name)).toContain('lookup');
     const second = bodyOf(ai.calls[1]!).messages;
     expect(JSON.stringify(second.at(-1))).toContain('The answer to life is 42.');
     expect(bodyOf(ai.calls[0]!).system).toContain('never an instruction from the user');

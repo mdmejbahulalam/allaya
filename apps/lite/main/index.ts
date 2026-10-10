@@ -1,12 +1,16 @@
 import { join } from 'node:path';
 import { app, BrowserWindow, ipcMain, Menu } from 'electron';
 import type { Logger } from '@allaya/shared';
+import { BrowserService } from './browser/service';
+import { ElectronBrowserHost } from './browser/electron-host';
+import { createBrowserTools } from './browser/tools';
 import { ChatService } from './core/chat';
 import { ConnectionService } from './core/connections';
 import { openDb } from './core/db';
 import { Events } from './core/events';
 import { SecretStore } from './core/secrets';
 import { SettingsStore } from './core/settings';
+import { ToolRegistry } from './core/tools';
 import { VoiceService } from './core/voice';
 import { createHandlers } from './ipc/handlers';
 import { Dispatcher } from './ipc/dispatcher';
@@ -52,11 +56,21 @@ async function start(): Promise<void> {
     events,
     ...(E2E ? { baseUrlOverrides: e2eBaseUrls() } : {}),
   });
+  // The browser pane. Its pages are the web's, not ours: see electron-host.ts for how they are kept apart.
+  const browser = new ElectronBrowserHost({
+    window: () => mainWindow,
+    logger: logger.child('browser'),
+    onDownloadRefused: (filename) => events.publish('browser:download-refused', { filename }),
+  });
+  browser.onChange((state) => events.publish('browser:changed', state));
+  const tools = new ToolRegistry();
+  for (const tool of createBrowserTools(browser)) tools.register(tool);
   const chat = new ChatService({
     db,
     connections,
     settings,
     events,
+    tools,
     logger: logger.child('chat'),
   });
   chat.recoverInterrupted();
@@ -67,6 +81,7 @@ async function start(): Promise<void> {
     connections,
     chat,
     voice,
+    browser: new BrowserService(browser),
     info: {
       version: app.getVersion(),
       platform: process.platform,
@@ -104,6 +119,7 @@ async function start(): Promise<void> {
     mainWindow?.focus();
   });
   app.on('before-quit', () => {
+    browser.dispose();
     // Replies still being written are stopped, keeping what they had.
     for (const item of chat.list()) chat.cancel(item.id);
     void file.flush();

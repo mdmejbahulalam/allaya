@@ -5,9 +5,12 @@ import { ConnectionService } from '@lite/main/core/connections';
 import { openDb, type Db } from '@lite/main/core/db';
 import { Events, MemorySink } from '@lite/main/core/events';
 import { SecretStore } from '@lite/main/core/secrets';
+import { BrowserService } from '@lite/main/browser/service';
+import { createBrowserTools } from '@lite/main/browser/tools';
 import { SettingsStore } from '@lite/main/core/settings';
 import { VoiceService } from '@lite/main/core/voice';
 import { ToolRegistry } from '@lite/main/core/tools';
+import { FakeBrowser } from './fake-browser';
 import type { ApprovalRequest } from '@lite/main/core/agent';
 import { Dispatcher } from '@lite/main/ipc/dispatcher';
 import { createHandlers } from '@lite/main/ipc/handlers';
@@ -32,6 +35,7 @@ export interface LiteBackend {
   chat: ChatService;
   voice: VoiceService;
   tools: ToolRegistry;
+  browser: FakeBrowser;
   /** Calls a channel as the app's own screen would, through the real dispatcher. */
   call<C extends InvokeChannel>(channel: C, payload?: InvokeRequest<C>): Promise<unknown>;
   dispose(): void;
@@ -54,7 +58,9 @@ export function createLiteBackend(options: LiteBackendOptions = {}): LiteBackend
     ...(options.fetch ? { fetch: options.fetch } : {}),
     ...(options.baseUrlOverrides ? { baseUrlOverrides: options.baseUrlOverrides } : {}),
   });
+  const browser = new FakeBrowser();
   const tools = new ToolRegistry();
+  for (const tool of createBrowserTools(browser)) tools.register(tool);
   const chat = new ChatService({
     db,
     connections,
@@ -70,6 +76,7 @@ export function createLiteBackend(options: LiteBackendOptions = {}): LiteBackend
     connections,
     chat,
     voice,
+    browser: new BrowserService(browser),
     info: { version: '0.0.0-test', platform: 'test', locale: 'en-US', e2e: false },
   });
   handlers.assertComplete();
@@ -83,6 +90,7 @@ export function createLiteBackend(options: LiteBackendOptions = {}): LiteBackend
     chat,
     voice,
     tools,
+    browser,
     call: (channel, payload) => dispatcher.dispatch({ channel, payload }, TRUSTED),
     dispose: () => db.close(),
   };

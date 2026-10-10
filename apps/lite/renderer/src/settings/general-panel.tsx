@@ -84,6 +84,20 @@ export function GeneralPanel() {
         />
       </Field>
 
+      <label className="flex items-start gap-3">
+        <input
+          type="checkbox"
+          role="switch"
+          checked={settings.browserTools}
+          onChange={(e) => void save({ browserTools: e.target.checked })}
+          className="mt-1 size-4 accent-[var(--accent)]"
+        />
+        <span>
+          <span className="block text-sm font-medium">{t.t('general.browserTools')}</span>
+          <span className="block text-sm text-muted">{t.t('general.browserToolsHelp')}</span>
+        </span>
+      </label>
+
       <div>
         <p className="mb-1.5 text-sm font-medium">{t.t('general.defaultModel')}</p>
         <div className="inline-block rounded-lg border border-line-strong">

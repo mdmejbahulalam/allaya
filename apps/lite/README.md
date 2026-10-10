@@ -4,7 +4,7 @@ A small desktop app: chat with any AI model, and (as it is built) talk to it, br
 schedule, and connect it to the software you use. The earlier, larger app is in `apps/desktop`; this one starts fresh and
 reuses only the tested AI provider layer (`@allaya/ai`).
 
-## What works now (steps 1–2)
+## What works now (steps 1–3)
 
 - Connect any AI service: Anthropic, OpenAI, Google, OpenRouter, Groq, Mistral, DeepSeek, xAI, Together, Fireworks,
   Perplexity, Cerebras, SambaNova, NVIDIA NIM, Hyperbolic, Moonshot, Ollama, LM Studio, or any OpenAI-compatible address.
@@ -19,6 +19,12 @@ reuses only the tested AI provider layer (`@allaya/ai`).
   and speaking use whichever connected service can do it (OpenAI, Google Gemini, Groq listens) or this computer's own
   voices; so _any_ model can be spoken with, because the voice is separate from the model. Not realtime audio-to-audio
   models (OpenAI Realtime, Gemini Live): those are not built.
+- **Browser** (step 3): a real browser beside the chat — tabs, address box, logins kept between runs. Allaya can open
+  pages and read them (`open_url`, `read_page`, `list_links`, `list_tabs`, `search_web`) and shows each step. It only
+  reads: it never clicks, types or submits. Pages run in a sandbox (no preload, no Node, every permission refused,
+  downloads refused); what a page says reaches the model marked as a page's words, never as the person's; and Allaya
+  itself will not go to this computer or a private network (the person still can). Not built: clicking and typing on
+  pages, downloads, screenshots for vision models.
 - English and Bengali (the name is আলেয়া), light and dark.
 
 ## Layout

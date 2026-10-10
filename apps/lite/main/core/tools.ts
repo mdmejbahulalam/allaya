@@ -10,6 +10,8 @@ export interface ToolContext {
  */
 export interface Tool {
   name: string;
+  /** What it belongs to ("browser", a connection's name…), so a whole group can be switched off or granted to a task. */
+  group?: string;
   description: string;
   inputSchema: Record<string, unknown>;
   effect: 'read' | 'write';
@@ -35,8 +37,11 @@ export class ToolRegistry {
   get(name: string): Tool | undefined {
     return this.tools.get(name);
   }
-  list(): Tool[] {
-    return [...this.tools.values()];
+  /** Every tool, or only those of the given groups (a tool with no group is always included). */
+  list(options: { groups?: readonly string[] } = {}): Tool[] {
+    const all = [...this.tools.values()];
+    const { groups } = options;
+    return groups ? all.filter((t) => !t.group || groups.includes(t.group)) : all;
   }
 }
 
